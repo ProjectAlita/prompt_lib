@@ -1,7 +1,6 @@
 from typing import Optional, List
 
-from pydantic import BaseModel, validator
-from .create import PromptTagCreateModel
+from pydantic import BaseModel
 from ..enums.all import MessageRoles, PromptVersionType
 
 
