@@ -1,60 +1,10 @@
-from typing import Optional, List
-
 from flask import request, g
 from pylon.core.tools import web, log
 from tools import api_tools, config as c, db
 
-from pydantic import BaseModel, ValidationError, validator
+from pydantic import ValidationError
 from ...models.all import Prompt, PromptVersion, PromptVariable, PromptMessage, PromptTag
-from ...models.enums.all import PromptVersionType, MessageRoles
-
-
-class PromptTagCreateModel(BaseModel):
-    name: str
-    data: Optional[dict]
-
-
-class PromptMessageCreateModel(BaseModel):
-    role: MessageRoles
-    name: Optional[str]
-    content: Optional[str]
-    custom_content: Optional[dict]
-
-
-class PromptVariableCreateModel(BaseModel):
-    name: str
-    value: Optional[str]
-
-
-class PromptVersionCreateModel(BaseModel):
-    name: str
-    commit_message: Optional[str]
-    context: Optional[str]
-    embedding_settings: Optional[dict]
-    variables: Optional[List[PromptVariableCreateModel]]
-    messages: Optional[List[PromptMessageCreateModel]]
-    author_id: int
-    tags: Optional[List[PromptTagCreateModel]]
-    model_settings: Optional[dict]  # todo: create model for this field
-    type: PromptVersionType = PromptVersionType.chat
-
-
-class PromptCreateModel(BaseModel):
-    name: str
-    description: Optional[str]
-    owner_id: int
-    versions: Optional[List[PromptVersionCreateModel]]
-
-    @validator('versions', pre=True)
-    def set_author_from_owner(cls, value, values):
-        log.info('validator==============')
-        log.info(value)
-        log.info(values)
-        if 'author_id' not in value:
-            for version in value:
-                version['author_id'] = values.get('owner_id')
-        return value
-
+from ...models.pd.create import PromptCreateModel
 
 
 class API(api_tools.APIBase):

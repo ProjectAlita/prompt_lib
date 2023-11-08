@@ -17,8 +17,8 @@ class Prompt(db_tools.AbstractBaseMixin, db.Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(String, nullable=True)
     versions: Mapped[List['PromptVersion']] = relationship(back_populates='prompt', lazy=True, cascade='all, delete')
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     owner_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
 
 
 class PromptVersion(db_tools.AbstractBaseMixin, db.Base):
@@ -30,18 +30,18 @@ class PromptVersion(db_tools.AbstractBaseMixin, db.Base):
     prompt: Mapped['Prompt'] = relationship(back_populates='versions', lazy=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     commit_message: Mapped[str] = mapped_column(String, nullable=True)
+    type: Mapped[PromptVersionType] = mapped_column(String(64), nullable=False, default=PromptVersionType.chat)
+    status: Mapped[PromptVersionStatus] = mapped_column(String, nullable=False, default=PromptVersionStatus.draft)
     context: Mapped[str] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
-    embedding_settings: Mapped[dict] = mapped_column(JSON, nullable=True)
+    author_id: Mapped[int] = mapped_column(Integer, nullable=False)
     variables: Mapped[List['PromptVariable']] = relationship(back_populates='prompt_version', lazy=True,
                                                              cascade='all, delete')
     messages: Mapped[List['PromptMessage']] = relationship(back_populates='prompt_version', lazy=True,
                                                            cascade='all, delete')
-    status: Mapped[PromptVersionStatus] = mapped_column(String, nullable=False, default=PromptVersionStatus.draft)
-    author_id: Mapped[int] = mapped_column(Integer, nullable=False)
     tags: Mapped[List['PromptTag']] = relationship(secondary=lambda: PromptVersionTagAssociation, lazy='joined')
     model_settings: Mapped[dict] = mapped_column(JSON, nullable=True)
-    type: Mapped[PromptVersionType] = mapped_column(String(64), nullable=False, default=PromptVersionType.chat)
+    embedding_settings: Mapped[dict] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
 
 
 class PromptVariable(db_tools.AbstractBaseMixin, db.Base):
