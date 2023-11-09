@@ -4,9 +4,19 @@ from pydantic import BaseModel, constr
 from ..enums.all import MessageRoles, PromptVersionType
 
 
+class ModelInfoBaseModel(BaseModel):
+    name: str
+    integration_uid: str
+    integration_name: Optional[str]
+
+
 class ModelSettingsBaseModel(BaseModel):
-    top_k: float
-#     todo: finish this
+    temperature: float
+    top_k: int
+    top_p: Optional[float]
+    max_tokens: int
+    stream: bool = False
+    model: ModelInfoBaseModel
 
 
 class PromptTagBaseModel(BaseModel):
@@ -29,7 +39,7 @@ class PromptMessageBaseModel(BaseModel):
 
 class PromptVariableBaseModel(BaseModel):
     name: constr(regex=r'^[a-zA-Z_][a-zA-Z0-9_]*$', )
-    value: Optional[str]
+    value: Optional[str] = ''
 
     class Config:
         orm_mode = True

@@ -4,6 +4,8 @@ from pylon.core.tools import log
 
 from tools import api_tools, auth, config as c
 
+from sqlalchemy.orm import joinedload
+from ...models.pd.base import PromptTagBaseModel
 from ...utils.constants import PROMPT_LIB_MODE
 
 
@@ -43,19 +45,31 @@ from pydantic import ValidationError
 from ...models.all import Prompt, PromptVersion, PromptVariable, PromptMessage, PromptTag
 from ...models.pd.create import PromptCreateModel
 from ...models.pd.detail import PromptDetailModel, PromptVersionDetailModel
-from ...models.pd.list import PromptListModel
+from ...models.pd.list import PromptListModel, PromptTagListModel
 import json
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
     def get(self, project_id: int, **kwargs):
         with db.with_project_schema_session(project_id) as session:
-            prompts = session.query(Prompt).all()
-            parsed = [PromptListModel.from_orm(i) for i in prompts]
+            prompts = session.query(Prompt).options(joinedload(Prompt.versions).joinedload(PromptVersion.tags)).all()
+
+            parsed = []
+            for i in prompts:
+                p = PromptListModel.from_orm(i)
+                tags = dict()
+                for v in i.versions:
+                    for t in v.tags:
+                        tags[t.name] = PromptTagListModel.from_orm(t).dict()
+                p.tags = list(tags.values())
+                parsed.append(p)
+
             users = auth.list_users(user_ids=list(set(i.owner_id for i in parsed)))
             user_map = {i['id']: i for i in users}
+
             for i in parsed:
                 i.owner = user_map[i.owner_id]
+
             return [json.loads(i.json()) for i in parsed], 200
 
     def post(self, project_id: int, **kwargs):
@@ -107,7 +121,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
             result = PromptDetailModel.from_orm(prompt)
             result.latest = PromptVersionDetailModel.from_orm(prompt.versions[0])
             result.latest.author = auth.get_user(user_id=prompt.owner_id)
-            log.info(result)
             return json.loads(result.json()), 201
 
 
