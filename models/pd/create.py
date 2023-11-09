@@ -10,7 +10,7 @@ class PromptVersionCreateModel(PromptVersionBaseModel):
 
     @validator('name')
     def check_latest(cls, value: str):
-        assert value == 'latest', 'Name of created prompt version can only be "latest"'
+        assert value == 'latest', "Name of created prompt version can only be 'latest'"
         return value
 
 

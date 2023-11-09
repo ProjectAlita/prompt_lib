@@ -13,6 +13,7 @@ import json
 class API(api_tools.APIBase):
     url_params = [
         '<int:project_id>',
+        '<string:mode>/<int:project_id>',
     ]
 
     def get(self, project_id: int, **kwargs):
