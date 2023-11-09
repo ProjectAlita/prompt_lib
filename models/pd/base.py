@@ -1,22 +1,38 @@
 from typing import Optional, List
 
-from pydantic import BaseModel, constr
+from pydantic import BaseModel, PositiveInt, ConstrainedFloat, StrictStr, constr
 from ..enums.all import MessageRoles, PromptVersionType
+
+
+class Temperature(ConstrainedFloat):
+    ge = 0
+    le = 2
+
+
+class TopP(ConstrainedFloat):
+    ge = 0
+    le = 1
+
+
+class TopK(ConstrainedFloat):
+    ge = 1
+    le = 40
 
 
 class ModelInfoBaseModel(BaseModel):
     name: str
-    integration_uid: str
-    integration_name: Optional[str]
+    integration_uid: StrictStr
+    integration_name: str
 
 
 class ModelSettingsBaseModel(BaseModel):
-    temperature: float
-    top_k: int
-    top_p: Optional[float]
-    max_tokens: int
+    temperature: Optional[Temperature] = None
+    top_k: Optional[TopK] = None
+    top_p: Optional[TopP] = None
+    max_tokens: Optional[PositiveInt] = None
     stream: bool = False
-    model: ModelInfoBaseModel
+    model: Optional[ModelInfoBaseModel] = {}
+    suggested_models: Optional[list] = []
 
 
 class PromptTagBaseModel(BaseModel):

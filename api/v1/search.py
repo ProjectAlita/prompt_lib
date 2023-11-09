@@ -5,7 +5,7 @@ from sqlalchemy import or_, and_
 
 from tools import api_tools, auth, config as c
 
-from ...models.prompts import Prompt
+# from ...models.prompts import Prompt
 
 
 class ProjectAPI(api_tools.APIModeHandler):
@@ -16,25 +16,26 @@ class ProjectAPI(api_tools.APIModeHandler):
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
     def get(self, project_id):
-        args = request.args
-        search_query = "%{}%".format(args.get('query', ''))
-        filter_ = and_(Prompt.version == 'latest',
-                       or_(Prompt.name.like(search_query),
-                           Prompt.description.like(search_query)))
+        return {}, 200
+        # args = request.args
+        # search_query = "%{}%".format(args.get('query', ''))
+        # filter_ = and_(Prompt.version == 'latest',
+        #                or_(Prompt.name.like(search_query),
+        #                    Prompt.description.like(search_query)))
 
-        total, res = api_tools.get(
-            project_id=project_id,
-            args=args,
-            data_model=Prompt,
-            custom_filter=filter_,
-            is_project_schema=True
-            )
+        # total, res = api_tools.get(
+        #     project_id=project_id,
+        #     args=args,
+        #     data_model=Prompt,
+        #     custom_filter=filter_,
+        #     is_project_schema=True
+        #     )
 
-        return {
-            "total": total,
-            "rows": [prompt.to_json() | {'tags': [tag.to_json() for tag in prompt.tags]}
-                     for prompt in res]
-            }, 200
+        # return {
+        #     "total": total,
+        #     "rows": [prompt.to_json() | {'tags': [tag.to_json() for tag in prompt.tags]}
+        #              for prompt in res]
+        #     }, 200
 
 class API(api_tools.APIBase):
     url_params = [
