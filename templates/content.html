@@ -1,0 +1,9 @@
+<div>
+    <Prompts
+        @register="register"
+        instance_name="prompts"
+        :integrations='{{ integrations|tojson }}'>
+    </Prompts>
+    <Import-Prompt-Modal>
+    </Import-Prompt-Modal>
+</div>

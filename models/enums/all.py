@@ -13,7 +13,8 @@ class PromptVersionStatus(StrEnum):
 
 class PromptVersionType(StrEnum):
     chat = 'chat'
-    text = 'text'
+    structured = 'structured'
+    freeform = 'freeform'
 
 
 class MessageRoles(StrEnum):

@@ -1,0 +1,30 @@
+.prompt-chat table {
+  width: 100%;
+  max-width: 100%;
+  margin-bottom: 1rem;
+  background-color: transparent;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.prompt-chat table thead th {
+  vertical-align: bottom;
+  border-bottom: 2px solid #dee2e6;
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.prompt-chat table tbody tr:nth-child(odd) {
+  background-color: #f8f9fa;
+}
+
+.prompt-chat table tbody tr:nth-child(even) {
+  background-color: #ffffff;
+}
+
+.prompt-chat table td,
+.prompt-chat table th {
+  padding: 0.75rem;
+  vertical-align: top;
+  border-top: 1px solid #dee2e6;
+}
