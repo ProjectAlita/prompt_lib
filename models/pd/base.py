@@ -13,6 +13,9 @@ class PromptTagBaseModel(BaseModel):
     name: str
     data: Optional[dict]
 
+    class Config:
+        orm_mode = True
+
 
 class PromptMessageBaseModel(BaseModel):
     role: MessageRoles
@@ -20,10 +23,16 @@ class PromptMessageBaseModel(BaseModel):
     content: Optional[str]
     custom_content: Optional[dict]
 
+    class Config:
+        orm_mode = True
+
 
 class PromptVariableBaseModel(BaseModel):
     name: str
     value: Optional[str]
+
+    class Config:
+        orm_mode = True
 
 
 class PromptVersionBaseModel(BaseModel):
@@ -39,12 +48,18 @@ class PromptVersionBaseModel(BaseModel):
     embedding_settings: Optional[dict]  # todo: create model for this field
     type: PromptVersionType
 
+    class Config:
+        orm_mode = True
+
 
 class PromptBaseModel(BaseModel):
     name: str
     description: Optional[str]
     owner_id: int
     versions: Optional[List[PromptVersionBaseModel]]
+
+    class Config:
+        orm_mode = True
 
 
 class AuthorBaseModel(BaseModel):

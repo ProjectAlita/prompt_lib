@@ -1,10 +1,13 @@
 from flask import request, g
 from pylon.core.tools import web, log
-from tools import api_tools, config as c, db
+from tools import api_tools, config as c, db, auth
 
 from pydantic import ValidationError
 from ...models.all import Prompt, PromptVersion, PromptVariable, PromptMessage, PromptTag
 from ...models.pd.create import PromptCreateModel
+from ...models.pd.detail import PromptDetailModel, PromptVersionDetailModel
+from ...models.pd.list import PromptListModel
+import json
 
 
 class API(api_tools.APIBase):
@@ -13,7 +16,14 @@ class API(api_tools.APIBase):
     ]
 
     def get(self, project_id: int, **kwargs):
-        return [], 200
+        with db.with_project_schema_session(project_id) as session:
+            prompts = session.query(Prompt).all()
+            parsed = [PromptListModel.from_orm(i) for i in prompts]
+            users = auth.list_users(user_ids=list(set(i.owner_id for i in parsed)))
+            user_map = {i['id']: i for i in users}
+            for i in parsed:
+                i.owner = user_map[i.owner_id]
+            return [json.loads(i.json()) for i in parsed], 200
 
     def post(self, project_id: int, **kwargs):
         raw = dict(request.json)
@@ -50,28 +60,19 @@ class API(api_tools.APIBase):
                 if ver.tags:
                     prompt_version.tags = []
                     existing_tags = session.query(PromptTag).filter(
-                        PromptTag.name.in_([i.name for i in ver.tags])
+                        PromptTag.name.in_({i.name for i in ver.tags})
                     ).all()
-                    existing_tags_names = set(i.name for i in existing_tags)
-                    for i in [t for t in ver.tags if t.name not in existing_tags_names]:
-                        prompt_tag = PromptTag(**i.dict())
+                    existing_tags_map = {i.name: i for i in existing_tags}
+                    for i in ver.tags:
+                        prompt_tag = existing_tags_map.get(i.name, PromptTag(**i.dict()))
                         prompt_version.tags.append(prompt_tag)
 
                 session.add(prompt_version)
             session.add(prompt)
             session.commit()
 
-            result = prompt.to_json()
-            result['versions'] = []
-            for v in prompt.versions:
-                v_data = v.to_json()
-                v_data['variables'] = []
-                for i in v.variables:
-                    v_data['variables'].append(i.to_json())
-                v_data['messages'] = []
-                for i in v.messages:
-                    v_data['messages'].append(i.to_json())
-                for i in v.tags:
-                    v_data['tags'].append(i.to_json())
-                result['versions'].append(v_data)
-            return result, 201
+            result = PromptDetailModel.from_orm(prompt)
+            result.latest = PromptVersionDetailModel.from_orm(prompt.versions[0])
+            result.latest.author = auth.get_user(user_id=prompt.owner_id)
+            log.info(result)
+            return json.loads(result.json()), 201

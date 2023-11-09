@@ -6,16 +6,14 @@ from .base import PromptTagBaseModel, AuthorBaseModel
 from ..enums.all import PromptVersionStatus
 
 
-class PromptTagListModel(PromptTagBaseModel):
-    ...
-
-
 class PromptVersionListModel(BaseModel):
     id: int
-    prompt_id: int  # probably delete this
     name: str
     status: PromptVersionStatus
     created_at: datetime  # probably delete this
+
+    class Config:
+        orm_mode = True
 
 
 class PromptListModel(BaseModel):

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from .base import PromptTagBaseModel, PromptBaseModel, PromptVersionBaseModel, AuthorBaseModel, PromptVariableBaseModel, \
     PromptMessageBaseModel
 from .list import PromptVersionListModel
@@ -25,11 +25,28 @@ class PromptVersionDetailModel(PromptVersionBaseModel):
     created_at: datetime
     variables: Optional[List[PromptVariableDetailModel]]
     messages: Optional[List[PromptMessageDetailModel]]
+    author: Optional[AuthorBaseModel]
+
 
 
 class PromptDetailModel(PromptBaseModel):
     id: int
     versions: List[PromptVersionListModel]
-    latest: PromptVersionDetailModel
+    latest: Optional[PromptVersionDetailModel]
     created_at: datetime
     owner: Optional[AuthorBaseModel]
+
+    # @validator('latest', pre=True, always=True)
+    # def set_latest_version(cls, value, values, **kwargs):
+    #     from pylon.core.tools import log
+    #     # log.info('latest')
+    #     log.info(value)
+    #     # log.info(values)
+    #     # log.info(kwargs)
+    #     if value:
+    #         return value
+    #     for i in values['versions']:
+    #         if i.name == 'latest':
+    #             return i
+
+
