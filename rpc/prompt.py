@@ -1,12 +1,15 @@
 import re
+from flask import g
 from jinja2 import Environment, meta, DebugUndefined
 from typing import Optional, List
 from pylon.core.tools import web, log
 
 from pydantic import parse_obj_as
 from sqlalchemy.orm import joinedload, load_only, defer
-from ..models.all import Prompt
-from ..models.pd.v1_structure import PromptV1Model
+
+from ..models.pd.create import PromptVersionCreateModel, PromptCreateModel
+from ..models.all import Prompt, PromptVersion
+from ..models.pd.v1_structure import PromptV1Model, PromptCreateV1Model
 from traceback import format_exc
 from tools import rpc_tools, db
 
@@ -86,15 +89,35 @@ class RPC:
 #                 ).one_or_none():
 #                     return ids[0]
 
-    # @web.rpc(f'prompt_lib_create', "create")
-    # def prompts_create(self, project_id: int, prompt: dict, **kwargs) -> dict:
-    #     prompt['project_id'] = project_id
-    #     prompt = PromptModel.validate(prompt)
-    #     with db.with_project_schema_session(project_id) as session:
-    #         prompt = Prompt(**prompt.dict(exclude={'project_id'}))
-    #         session.add(prompt)
-    #         session.commit()
-    #         return prompt.to_json()
+    @web.rpc(f'prompt_lib_create', "create")
+    def prompts_create(self, project_id: int, prompt_data: dict, **kwargs) -> dict:
+        author_id = g.auth.id
+        prompt_data['project_id'] = project_id
+        prompt_old_data = PromptCreateV1Model.validate(prompt_data)
+
+        prompt_new_data = prompt_old_data.dict(exclude={'project_id'})
+        version = PromptVersionCreateModel(
+            name='latest',
+            author_id=author_id,
+            type=prompt_new_data['type'],
+            model_settings=prompt_new_data['model_settings'],
+        ).dict(exclude_unset=True)
+
+        prompt_new_data['versions'] = [version]
+        prompt_new_data['owner_id'] = author_id
+        prompt_new_data = PromptCreateModel.parse_obj(prompt_new_data)
+
+        with db.with_project_schema_session(project_id) as session:
+            prompt = Prompt(**prompt_new_data.dict(
+                exclude_unset=True,
+                exclude={'versions'}
+            ))
+            prompt_version = PromptVersion(**version)
+            prompt_version.prompt = prompt
+
+            session.add(prompt)
+            session.commit()
+            return prompt.to_json()
 
 #     @web.rpc(f'prompts_update', "update")
 #     def prompts_update(self, project_id: int, prompt: dict, **kwargs) -> bool:

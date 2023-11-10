@@ -4,6 +4,8 @@ from typing import List, Optional
 from pydantic import BaseModel, validator, root_validator, ValidationError
 from pylon.core.tools import log
 
+from ...utils.ai_providers import AIProvider
+
 
 class TagV1Model(BaseModel):
     id: int
@@ -54,4 +56,39 @@ class PromptV1Model(BaseModel):
                     model = latest_version['model_settings'].pop('model', {})
                     values['integration_uid'] = model.get('integration_uid')
                     values['model_settings'] = latest_version['model_settings']
+        return values
+
+
+class PromptType(str, enum.Enum):
+    chat = 'chat'
+    structured = 'structured'
+    freeform = 'freeform'
+
+
+class PromptCreateV1Model(BaseModel):
+    name: str
+    description: str | None
+    prompt: str
+    project_id: Optional[int] = None
+    test_input: Optional[str] = None
+    integration_uid: Optional[str] = None
+    type: PromptType = PromptType.structured
+    model_settings: dict | None = None
+    version: Optional[str] = 'latest'
+    is_active_input: bool = True
+
+    class Config:
+        use_enum_values = True
+
+    @root_validator
+    def check_settings(cls, values: dict):
+        if not (values['project_id'] and values['integration_uid']):
+            return values
+        project_id, integration_uid = values['project_id'], values['integration_uid']
+        integration = AIProvider.get_integration(project_id, integration_uid)
+        model_settings = values['model_settings']
+        response = AIProvider.parse_settings(integration, model_settings)
+        if not response['ok']:
+            raise response['error']
+        values['model_settings'] = response['item']
         return values

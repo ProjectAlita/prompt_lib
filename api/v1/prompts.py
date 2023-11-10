@@ -31,7 +31,7 @@ class ProjectAPI(api_tools.APIModeHandler):
         }})
     def post(self, project_id):
         try:
-            prompt = self.module.create(project_id, request.json)
+            prompt = self.module.create(project_id, dict(request.json))
             return prompt, 201
         except ValidationError as e:
             return e.errors(), 400
