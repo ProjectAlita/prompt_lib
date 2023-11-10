@@ -1,34 +1,19 @@
 from typing import Optional, List
 
-from pydantic import BaseModel, PositiveInt, ConstrainedFloat, StrictStr, constr
+from pydantic import BaseModel, PositiveInt, ConstrainedFloat, StrictStr, constr, confloat, conint
 from ..enums.all import MessageRoles, PromptVersionType
-
-
-class Temperature(ConstrainedFloat):
-    ge = 0
-    le = 2
-
-
-class TopP(ConstrainedFloat):
-    ge = 0
-    le = 1
-
-
-class TopK(ConstrainedFloat):
-    ge = 1
-    le = 40
 
 
 class ModelInfoBaseModel(BaseModel):
     name: str
     integration_uid: StrictStr
-    integration_name: str
+    integration_name: Optional[str]
 
 
 class ModelSettingsBaseModel(BaseModel):
-    temperature: Optional[Temperature] = None
-    top_k: Optional[TopK] = None
-    top_p: Optional[TopP] = None
+    temperature: Optional[confloat(gt=0, le=2)] = None
+    top_k: Optional[conint(gt=1, le=40)] = None
+    top_p: Optional[confloat(gt=0, le=1)] = None
     max_tokens: Optional[PositiveInt] = None
     stream: bool = False
     model: Optional[ModelInfoBaseModel] = {}
@@ -66,7 +51,6 @@ class PromptVersionBaseModel(BaseModel):
     commit_message: Optional[str]
     author_id: int
     context: Optional[str]
-    embedding_settings: Optional[dict]
     variables: Optional[List[PromptVariableBaseModel]]
     messages: Optional[List[PromptMessageBaseModel]]
     tags: Optional[List[PromptTagBaseModel]]

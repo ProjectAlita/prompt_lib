@@ -27,7 +27,7 @@ class ProjectAPI(api_tools.APIModeHandler):
         }})
     def put(self, project_id):
         try:
-            prompt = self.module.update(project_id, request.json)
+            prompt = self.module.update(project_id, dict(request.json))
             return prompt, 201
         except ValidationError as e:
             return e.errors(), 400

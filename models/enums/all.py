@@ -19,5 +19,5 @@ class PromptVersionType(StrEnum):
 
 class MessageRoles(StrEnum):
     system = 'system'
-    human = 'human'
-    bot = 'bot'
+    user = 'user'
+    assistant = 'assistant'

@@ -36,46 +36,46 @@ class RPC:
             results = parse_obj_as(List[PromptV1Model], prompts)
             return [prompt.dict() for prompt in results]
 
-#     @web.rpc("prompts_get_by_id", "get_by_id")
-#     def prompts_get_by_id(self, project_id: int, prompt_id: int, version: str = '', **kwargs) -> dict | None:
-#         if version:
-#             version_id = self.get_version_id(project_id, prompt_id, version)
-#             if not version_id:
-#                 return None
-#             prompt_id = version_id
-
-#         with db.with_project_schema_session(project_id) as session:
-#             prompt = session.query(Prompt).options(
-#                 joinedload(Prompt.examples)
-#             ).options(
-#                 joinedload(Prompt.variables)
-#             ).filter(
-#                 Prompt.id == prompt_id,
-#             ).one_or_none()
-#             if not prompt:
-#                 return None
-
-#             result = prompt.to_json(exclude_fields=set(['integration_id', ]))
-#             if prompt.integration_uid:
-#                 whole_settings = AIProvider.get_integration_settings(
-#                     project_id, prompt.integration_uid, prompt.model_settings
-#                 )
-#                 result['model_settings'] = whole_settings
-#                 result['integration_uid'] = prompt.integration_uid if whole_settings else None
-#             result['examples'] = [example.to_json() for example in prompt.examples]
-#             result['variables'] = [var.to_json() for var in prompt.variables]
-#             result['tags'] = [tag.to_json() for tag in prompt.tags]
-
-#             versions = session.query(Prompt).options(
-#                 defer(Prompt.prompt), defer(Prompt.test_input), defer(Prompt.model_settings)
-#             ).filter(Prompt.name == prompt.name).all()
-#             result['versions'] = [{
-#                 'id': version.id,
-#                 'version': version.version,
-#                 'tags': [tag.tag for tag in version.tags]
-#             } for version in versions]
-
-#             return result
+    # @web.rpc("prompts_get_by_id", "get_by_id")
+    # def prompts_get_by_id(self, project_id: int, prompt_id: int, version: str = '', **kwargs) -> dict | None:
+    #     if version:
+    #         version_id = self.get_version_id(project_id, prompt_id, version)
+    #         if not version_id:
+    #             return None
+    #         prompt_id = version_id
+    #
+    #     with db.with_project_schema_session(project_id) as session:
+    #         prompt = session.query(Prompt).options(
+    #             joinedload(Prompt.examples)
+    #         ).options(
+    #             joinedload(Prompt.variables)
+    #         ).filter(
+    #             Prompt.id == prompt_id,
+    #         ).one_or_none()
+    #         if not prompt:
+    #             return None
+    #
+    #         result = prompt.to_json(exclude_fields=set(['integration_id', ]))
+    #         if prompt.integration_uid:
+    #             whole_settings = AIProvider.get_integration_settings(
+    #                 project_id, prompt.integration_uid, prompt.model_settings
+    #             )
+    #             result['model_settings'] = whole_settings
+    #             result['integration_uid'] = prompt.integration_uid if whole_settings else None
+    #         result['examples'] = [example.to_json() for example in prompt.examples]
+    #         result['variables'] = [var.to_json() for var in prompt.variables]
+    #         result['tags'] = [tag.to_json() for tag in prompt.tags]
+    #
+    #         versions = session.query(Prompt).options(
+    #             defer(Prompt.prompt), defer(Prompt.test_input), defer(Prompt.model_settings)
+    #         ).filter(Prompt.name == prompt.name).all()
+    #         result['versions'] = [{
+    #             'id': version.id,
+    #             'version': version.version,
+    #             'tags': [tag.tag for tag in version.tags]
+    #         } for version in versions]
+    #
+    #         return result
 
 #     @web.rpc("prompts_get_version_id", "get_version_id")
 #     def prompts_get_version_id(self, project_id: int, prompt_id: int, version: str) -> dict | None:
@@ -119,34 +119,34 @@ class RPC:
             session.commit()
             return prompt.to_json()
 
-#     @web.rpc(f'prompts_update', "update")
-#     def prompts_update(self, project_id: int, prompt: dict, **kwargs) -> bool:
-#         prompt['project_id'] = project_id
-#         embedding_id = int(prompt["embedding"])
-#         top_k = prompt.get("embedding_settings", {}).get("top_k", 20)
-#         cutoff = prompt.get("embedding_settings", {}).get("cutoff", 0.1)
-#         if not embedding_id:
-#             with db.with_project_schema_session(project_id) as session:
-#                 _prompt = session.query(Prompt).get(prompt["id"])
-#                 _prompt.embeddings = {}
-#                 session.commit()
-#         else:
-#             with db.with_project_schema_session(project_id) as session:
-#                 if "embeddings" in self.context.module_manager.modules:
-#                     embedding = rpc_tools.RpcMixin().rpc.call.embeddings_get_by_id(project_id, embedding_id).to_json()
-#                     embedding["top_k"] = top_k
-#                     embedding["cutoff"] = cutoff
-#                     _prompt = session.query(Prompt).get(prompt["id"])
-#                     _prompt.embeddings = embedding
-#                     session.commit()
-#         prompt = PromptUpdateModel.validate(prompt)
-#         with db.with_project_schema_session(project_id) as session:
-#             session.query(Prompt).filter(Prompt.id == prompt.id).update(
-#                 prompt.dict(exclude={'id', 'project_id'}, exclude_none=True)
-#             )
-#             session.commit()
-#             updated_prompt = session.query(Prompt).get(prompt.id)
-#             return updated_prompt.to_json()
+    # @web.rpc(f'prompts_update', "update")
+    # def prompts_update(self, project_id: int, prompt: dict, **kwargs) -> bool:
+    #     prompt['project_id'] = project_id
+    #     embedding_id = int(prompt["embedding"])
+    #     top_k = prompt.get("embedding_settings", {}).get("top_k", 20)
+    #     cutoff = prompt.get("embedding_settings", {}).get("cutoff", 0.1)
+    #     if not embedding_id:
+    #         with db.with_project_schema_session(project_id) as session:
+    #             _prompt = session.query(Prompt).get(prompt["id"])
+    #             _prompt.embeddings = {}
+    #             session.commit()
+    #     else:
+    #         with db.with_project_schema_session(project_id) as session:
+    #             if "embeddings" in self.context.module_manager.modules:
+    #                 embedding = rpc_tools.RpcMixin().rpc.call.embeddings_get_by_id(project_id, embedding_id).to_json()
+    #                 embedding["top_k"] = top_k
+    #                 embedding["cutoff"] = cutoff
+    #                 _prompt = session.query(Prompt).get(prompt["id"])
+    #                 _prompt.embeddings = embedding
+    #                 session.commit()
+    #     prompt = PromptUpdateModel.validate(prompt)
+    #     with db.with_project_schema_session(project_id) as session:
+    #         session.query(Prompt).filter(Prompt.id == prompt.id).update(
+    #             prompt.dict(exclude={'id', 'project_id'}, exclude_none=True)
+    #         )
+    #         session.commit()
+    #         updated_prompt = session.query(Prompt).get(prompt.id)
+    #         return updated_prompt.to_json()
 
 #     @web.rpc(f'prompts_update_name', "update_name")
 #     def prompts_update_name(self, project_id: int, prompt_id: int, prompt_date: dict) -> bool:
