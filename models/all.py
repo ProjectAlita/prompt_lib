@@ -37,7 +37,7 @@ class PromptVersion(db_tools.AbstractBaseMixin, db.Base):
     variables: Mapped[List['PromptVariable']] = relationship(back_populates='prompt_version', lazy=True,
                                                              cascade='all, delete')
     messages: Mapped[List['PromptMessage']] = relationship(back_populates='prompt_version', lazy=True,
-                                                           cascade='all, delete')
+                                                           cascade='all, delete', order_by='PromptMessage.id')
     tags: Mapped[List['PromptTag']] = relationship(secondary=lambda: PromptVersionTagAssociation, lazy='joined')
     model_settings: Mapped[dict] = mapped_column(JSON, nullable=True)
     embedding_settings: Mapped[dict] = mapped_column(JSON, nullable=True)

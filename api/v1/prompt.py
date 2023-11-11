@@ -13,7 +13,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
     def get(self, project_id, prompt_id):
-        version = request.args.get('version', '').lower()
+        version = request.args.get('version', 'latest').lower()
         prompt = self.module.get_by_id(project_id, prompt_id, version)
         if not prompt:
             return 'Prompt not found', 404

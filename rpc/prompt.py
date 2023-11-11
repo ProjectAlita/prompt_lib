@@ -7,6 +7,8 @@ from pylon.core.tools import web, log
 from pydantic import parse_obj_as
 from sqlalchemy.orm import joinedload, load_only, defer
 
+from ..utils.ai_providers import AIProvider
+
 from ..models.pd.create import PromptVersionCreateModel, PromptCreateModel
 from ..models.all import Prompt, PromptVersion
 from ..models.pd.v1_structure import PromptV1Model, PromptCreateV1Model
@@ -15,10 +17,9 @@ from tools import rpc_tools, db
 
 
 class RPC:
-
-
     @web.rpc(f'prompt_lib_get_all', "get_all")
     def prompt_lib_get_all(self, project_id: int, with_versions: bool = False, **kwargs) -> list[dict]:
+        # TODO: Support with_versions flag if we still need it
         with db.with_project_schema_session(project_id) as session:
             queryset = session.query(Prompt).order_by(Prompt.id.asc()).all()
             prompts = []
@@ -36,58 +37,55 @@ class RPC:
             results = parse_obj_as(List[PromptV1Model], prompts)
             return [prompt.dict() for prompt in results]
 
-    # @web.rpc("prompts_get_by_id", "get_by_id")
-    # def prompts_get_by_id(self, project_id: int, prompt_id: int, version: str = '', **kwargs) -> dict | None:
-    #     if version:
-    #         version_id = self.get_version_id(project_id, prompt_id, version)
-    #         if not version_id:
-    #             return None
-    #         prompt_id = version_id
-    #
-    #     with db.with_project_schema_session(project_id) as session:
-    #         prompt = session.query(Prompt).options(
-    #             joinedload(Prompt.examples)
-    #         ).options(
-    #             joinedload(Prompt.variables)
-    #         ).filter(
-    #             Prompt.id == prompt_id,
-    #         ).one_or_none()
-    #         if not prompt:
-    #             return None
-    #
-    #         result = prompt.to_json(exclude_fields=set(['integration_id', ]))
-    #         if prompt.integration_uid:
-    #             whole_settings = AIProvider.get_integration_settings(
-    #                 project_id, prompt.integration_uid, prompt.model_settings
-    #             )
-    #             result['model_settings'] = whole_settings
-    #             result['integration_uid'] = prompt.integration_uid if whole_settings else None
-    #         result['examples'] = [example.to_json() for example in prompt.examples]
-    #         result['variables'] = [var.to_json() for var in prompt.variables]
-    #         result['tags'] = [tag.to_json() for tag in prompt.tags]
-    #
-    #         versions = session.query(Prompt).options(
-    #             defer(Prompt.prompt), defer(Prompt.test_input), defer(Prompt.model_settings)
-    #         ).filter(Prompt.name == prompt.name).all()
-    #         result['versions'] = [{
-    #             'id': version.id,
-    #             'version': version.version,
-    #             'tags': [tag.tag for tag in version.tags]
-    #         } for version in versions]
-    #
-    #         return result
+    @web.rpc("prompt_lib_get_by_id", "get_by_id")
+    def prompts_get_by_id(self, project_id: int, prompt_id: int, version: str = 'latest', **kwargs) -> dict | None:
+        with db.with_project_schema_session(project_id) as session:
+            log.info(f'{prompt_id=}')
+            log.info(f'{version=}')
+            prompt_version = session.query(PromptVersion).options(
+                joinedload(PromptVersion.prompt)
+            ).options(
+                joinedload(PromptVersion.variables)
+            ).options(
+                joinedload(PromptVersion.messages)
+            ).filter(
+                PromptVersion.prompt_id == prompt_id,
+                PromptVersion.name == version
+            ).one_or_none()
+            if not prompt_version:
+                return None
 
-#     @web.rpc("prompts_get_version_id", "get_version_id")
-#     def prompts_get_version_id(self, project_id: int, prompt_id: int, version: str) -> dict | None:
-#         with db.with_project_schema_session(project_id) as session:
-#             if subquery := session.query(Prompt.name).filter(
-#                     Prompt.id == prompt_id
-#             ).one_or_none():
-#                 if ids := session.query(Prompt.id).filter(
-#                         Prompt.name.in_(subquery),
-#                         Prompt.version == version,
-#                 ).one_or_none():
-#                     return ids[0]
+            result = prompt_version.to_json()
+            if integration_uid := result.get('model_settings', {}).get('model', {}).get('integration_uid'):
+                whole_settings = AIProvider.get_integration_settings(
+                    project_id, integration_uid, prompt_version.model_settings
+                )
+                result['model_settings'] = whole_settings
+                result['integration_uid'] = integration_uid if whole_settings else None
+
+            messages = [example.to_json() for example in prompt_version.messages]
+            examples = []
+            for idx in range(0, len(messages), 2):
+                if messages[idx]['role'] == 'user' and messages[idx + 1]['role'] == 'assistant':
+                    examples.append({
+                        "id": None,  # TODO: We have no example id anymore. Need to be fixed somehow.
+                        "prompt_id": 1,
+                        "input": messages[idx]['content'],
+                        "output": messages[idx + 1]['content'],
+                        "is_active": True,
+                        "created_at": messages[idx + 1]['created_at']
+                    })
+
+            result['examples'] = examples
+            result['variables'] = [var.to_json() for var in prompt_version.variables]
+            result['tags'] = [tag.to_json() for tag in prompt_version.tags]
+            result['versions'] = [{
+                'id': version.id,
+                'version': version.name,
+                'tags': [tag.tag for tag in version.tags]
+            } for version in prompt_version.prompt.versions]
+
+            return result
 
     @web.rpc(f'prompt_lib_create', "create")
     def prompts_create(self, project_id: int, prompt_data: dict, **kwargs) -> dict:
