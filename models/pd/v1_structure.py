@@ -5,7 +5,7 @@ from pydantic import BaseModel, validator, root_validator, ValidationError
 from pylon.core.tools import log
 
 from ...utils.ai_providers import AIProvider
-
+from tools import rpc_tools
 
 class TagV1Model(BaseModel):
     id: int
@@ -92,3 +92,33 @@ class PromptCreateV1Model(BaseModel):
             raise response['error']
         values['model_settings'] = response['item']
         return values
+
+
+class PromptUpdateV1Model(PromptCreateV1Model):
+    id: int
+    version: Optional[str]
+    embedding: Optional[int]
+    embedding_settings: Optional[dict]
+
+
+    @validator('embedding_settings', pre=True, always=True)
+    def set_embedding_settings(cls, value: Optional[dict], values: dict):
+        if not int(values['embedding']):
+            return {}
+        embedding = rpc_tools.RpcMixin().rpc.timeout(2).embeddings_get_by_id(
+            values['project_id'], values['embedding']
+            )
+        if not embedding:
+            return {}
+        if not value:
+            value = {}
+        value = {
+            **embedding.to_json(),
+            'top_k': value.get('top_k', 20),
+            'cutoff': value.get('cutoff', 0.1),
+        }
+        return value
+
+
+class PromptUpdateNameV1Model(BaseModel):
+    name: str

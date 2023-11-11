@@ -11,9 +11,9 @@ class ModelInfoBaseModel(BaseModel):
 
 
 class ModelSettingsBaseModel(BaseModel):
-    temperature: Optional[confloat(gt=0, le=2)] = None
-    top_k: Optional[conint(gt=1, le=40)] = None
-    top_p: Optional[confloat(gt=0, le=1)] = None
+    temperature: Optional[confloat(ge=0, le=2)] = None
+    top_k: Optional[conint(ge=1, le=40)] = None
+    top_p: Optional[confloat(ge=0, le=1)] = None
     max_tokens: Optional[PositiveInt] = None
     stream: bool = False
     model: Optional[ModelInfoBaseModel] = {}

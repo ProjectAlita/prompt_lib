@@ -1,6 +1,11 @@
 from flask import request
 from pydantic import ValidationError
 from pylon.core.tools import log
+from ...utils.prompt_utils_v1 import (
+    prompts_delete_prompt,
+    prompts_update_name,
+    prompts_update_prompt
+)
 
 from tools import api_tools, auth, config as c
 
@@ -27,7 +32,7 @@ class ProjectAPI(api_tools.APIModeHandler):
         }})
     def put(self, project_id):
         try:
-            prompt = self.module.update(project_id, dict(request.json))
+            prompt = prompts_update_prompt(project_id, dict(request.json))
             return prompt, 201
         except ValidationError as e:
             return e.errors(), 400
@@ -40,8 +45,8 @@ class ProjectAPI(api_tools.APIModeHandler):
         }})
     def patch(self, project_id, prompt_id):
         try:
-            updated = self.module.update_name(project_id, prompt_id, request.json)
-            return {'updated': updated}, 201
+            is_updated = prompts_update_name(project_id, prompt_id, dict(request.json))
+            return '', 201 if is_updated else 404
         except ValidationError as e:
             return e.errors(), 400
 
@@ -52,8 +57,9 @@ class ProjectAPI(api_tools.APIModeHandler):
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
     def delete(self, project_id, prompt_id):
-        self.module.delete(project_id, prompt_id)
-        return '', 204
+        version_name = request.args.get('version', 'latest').lower()
+        is_deleted = prompts_delete_prompt(project_id, prompt_id, version_name)
+        return '', 204 if is_deleted else 404
 
 
 class API(api_tools.APIBase):

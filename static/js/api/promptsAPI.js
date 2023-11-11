@@ -54,6 +54,7 @@ const ApiUpdatePrompt = async (prompt) => {
             "tags": prompt.tags,
             "embedding": embeddings,
             "is_active_input": prompt.is_active_input,
+            "version": prompt.version
         })
     })
     return res.json();

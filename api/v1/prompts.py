@@ -7,6 +7,7 @@ from tools import api_tools, auth, config as c
 from sqlalchemy.orm import joinedload
 from ...models.pd.base import PromptTagBaseModel
 from ...utils.constants import PROMPT_LIB_MODE
+from ...utils.prompt_utils_v1 import prompts_create_prompt
 
 
 class ProjectAPI(api_tools.APIModeHandler):
@@ -31,7 +32,7 @@ class ProjectAPI(api_tools.APIModeHandler):
         }})
     def post(self, project_id):
         try:
-            prompt = self.module.create(project_id, dict(request.json))
+            prompt = prompts_create_prompt(project_id, dict(request.json))
             return prompt, 201
         except ValidationError as e:
             return e.errors(), 400
