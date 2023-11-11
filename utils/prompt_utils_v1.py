@@ -26,14 +26,13 @@ def prompts_create_prompt(project_id: int, prompt_data: dict, **kwargs) -> dict:
     prompt_old_data = PromptCreateV1Model.validate(prompt_data)
 
     if prompt_old_data.model_settings:
-        log.info(f'{prompt_old_data.model_settings=}')
         model_data = ModelInfoBaseModel(
             name=prompt_old_data.model_settings.model_name,
             integration_uid=prompt_old_data.integration_uid
         )
-        log.info(f'{model_data=}')
+
         model_settings = ModelSettingsBaseModel(model=model_data, **prompt_old_data.model_settings.dict())
-        log.info(f'{model_settings=}')
+
     else:
         model_settings = None
 
