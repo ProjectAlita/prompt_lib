@@ -2,7 +2,7 @@ from flask import request
 
 from pylon.core.tools import log
 from tools import api_tools, auth, config as c
-from ...utils.prompt_utils import get_all_ranked_tags
+from ...utils.prompt_utils import get_all_ranked_tags, get_prompt_tags
 
 from ...utils.constants import PROMPT_LIB_MODE
 
@@ -35,7 +35,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
     def get(self, project_id, prompt_id=None):
         if prompt_id:
-            return self.module.get_tags(project_id, prompt_id), 200
+            return get_prompt_tags(project_id, prompt_id), 200
         top_n = request.args.get('top_n', 20)
         return get_all_ranked_tags(project_id, top_n), 200
 
