@@ -21,7 +21,6 @@ from tools import rpc_tools, db
 
 
 def prompts_create_prompt(project_id: int, prompt_data: dict, **kwargs) -> dict:
-    author_id = g.auth.id
     prompt_data['project_id'] = project_id
     prompt_old_data = PromptCreateV1Model.validate(prompt_data)
 
@@ -39,14 +38,14 @@ def prompts_create_prompt(project_id: int, prompt_data: dict, **kwargs) -> dict:
     prompt_old_data = prompt_old_data.dict(exclude={'project_id'})
     version = PromptVersionCreateModel(
         name='latest',
-        author_id=author_id,
+        author_id=g.auth.id,
         type=prompt_old_data['type'],
         context=prompt_old_data['prompt'],
         model_settings=model_settings
     ).dict(exclude_unset=True)
 
     prompt_old_data['versions'] = [version]
-    prompt_old_data['owner_id'] = author_id
+    prompt_old_data['owner_id'] = project_id
     prompt_new_data = PromptCreateModel.parse_obj(prompt_old_data)
 
     with db.with_project_schema_session(project_id) as session:
@@ -63,21 +62,20 @@ def prompts_create_prompt(project_id: int, prompt_data: dict, **kwargs) -> dict:
 
 
 def prompts_update_prompt(project_id: int, prompt: dict, **kwargs) -> bool:
-    author_id = g.auth.id
     prompt['project_id'] = project_id
     prompt_old_data = PromptUpdateV1Model.validate(prompt)
 
     prompt_old_data = prompt_old_data.dict(exclude={'project_id'})
     version = PromptVersionBaseModel(
         name=prompt_old_data['version'],
-        author_id=author_id,
+        author_id=g.auth.id,
         type=prompt_old_data['type'],
         context=prompt_old_data['prompt'],
         model_settings=prompt_old_data['model_settings'],
         embedding_settings=prompt_old_data['embedding_settings']
     )
 
-    prompt_old_data['owner_id'] = author_id
+    prompt_old_data['owner_id'] = project_id
     prompt_new_data = PromptUpdateModel.parse_obj(prompt_old_data)
 
     with db.with_project_schema_session(project_id) as session:
