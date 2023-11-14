@@ -1,5 +1,5 @@
 const regenerateToken = async (row_key='token', field='value') => {
-    const api_url = V.build_api_url('prompts', 'config', {trailing_slash: true})
+    const api_url = V.build_api_url(plugin_name, 'config', {trailing_slash: true})
     const resp = await fetch(api_url + V.project_id, {
         method: 'PUT',
     })
@@ -123,7 +123,7 @@ var tokenCellStyle = (value, row, index, field) => {
 
 var downloadArtifactFormatter = (value, row, index) => {
     const artifact_download_url = V.build_api_url(
-        'prompts',
+        plugin_name,
         'config_bucket',
         {trailing_slash: true}
     )

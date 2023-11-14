@@ -1,5 +1,5 @@
 const ApiFetchPrompts = async () => {
-    const api_url = V.build_api_url('prompts', 'prompts')
+    const api_url = V.build_api_url(plugin_name, 'prompts')
     const res = await fetch(`${api_url}/${getSelectedProjectId()}`, {
         method: 'GET',
     })
@@ -7,7 +7,7 @@ const ApiFetchPrompts = async () => {
 }
 
 const ApiFetchPromptById = async (promptId) => {
-    const api_url = V.build_api_url('prompts', 'prompt')
+    const api_url = V.build_api_url(plugin_name, 'prompt')
     const res = await fetch(`${api_url}/${getSelectedProjectId()}/${promptId}`, {
         method: 'GET',
     })
@@ -15,7 +15,7 @@ const ApiFetchPromptById = async (promptId) => {
 }
 
 const ApiCreatePrompt = async (promptName, type) => {
-    const api_url = V.build_api_url('prompts', 'prompts')
+    const api_url = V.build_api_url(plugin_name, 'prompts')
     const res = await fetch(`${api_url}/${getSelectedProjectId()}`, {
         method: 'POST',
         headers: {
@@ -31,7 +31,7 @@ const ApiCreatePrompt = async (promptName, type) => {
 }
 
 const ApiUpdatePrompt = async (prompt) => {
-    const api_url = V.build_api_url('prompts', 'prompt')
+    const api_url = V.build_api_url(plugin_name, 'prompt')
     let embeddings;
     if (typeof prompt.embeddings === 'string') {
         embeddings = prompt.embeddings;
@@ -61,7 +61,7 @@ const ApiUpdatePrompt = async (prompt) => {
 }
 
 const ApiUpdateExampleField = async (promptId, exampleId, input, output, isActive) => {
-    const api_url = V.build_api_url('prompts', 'example')
+    const api_url = V.build_api_url(plugin_name, 'example')
 
     const res = await fetch(`${api_url}/${getSelectedProjectId()}`, {
         method: 'PUT',
@@ -80,7 +80,7 @@ const ApiUpdateExampleField = async (promptId, exampleId, input, output, isActiv
 }
 
 const ApiUpdateVariableField = async (promptId, varId, name, value) => {
-    const api_url = V.build_api_url('prompts', 'variable')
+    const api_url = V.build_api_url(plugin_name, 'variable')
 
     const res = await fetch(`${api_url}/${getSelectedProjectId()}`, {
         method: 'PUT',
@@ -105,7 +105,7 @@ const ApiUpdateVariableField = async (promptId, varId, name, value) => {
 }
 
 const ApiCreateExample = async (promptId, input, output) => {
-    const api_url = V.build_api_url('prompts', 'example')
+    const api_url = V.build_api_url(plugin_name, 'example')
     const res = await fetch(`${api_url}/${getSelectedProjectId()}`, {
         method: 'POST',
         headers: {
@@ -121,7 +121,7 @@ const ApiCreateExample = async (promptId, input, output) => {
 }
 
 const ApiCreateVariable = async (promptId, name, value) => {
-    const api_url = V.build_api_url('prompts', 'variable')
+    const api_url = V.build_api_url(plugin_name, 'variable')
     const res = await fetch(`${api_url}/${getSelectedProjectId()}`, {
         method: 'POST',
         headers: {
@@ -143,7 +143,7 @@ const ApiCreateVariable = async (promptId, name, value) => {
 }
 
 const ApiRunTest = async (prompt, input = null, integrationUid, embedding_settings = null) => {
-    const api_url = V.build_api_url('prompts', 'predict')
+    const api_url = V.build_api_url(plugin_name, 'predict')
     const params = {
         "prompt_id": prompt.id,
         "integration_uid": integrationUid,
@@ -171,7 +171,7 @@ const ApiRunTest = async (prompt, input = null, integrationUid, embedding_settin
 }
 
 const ApiRunChat = async (prompt, input = null, chat_history, integrationUid, embedding_settings = null) => {
-    const api_url = V.build_api_url('prompts', 'predict')
+    const api_url = V.build_api_url(plugin_name, 'predict')
     const params = {
         "prompt_id": prompt.id,
         "integration_uid": integrationUid,
@@ -196,35 +196,35 @@ const ApiRunChat = async (prompt, input = null, chat_history, integrationUid, em
 }
 
 const ApiDeletePrompt = async (promptId) => {
-    const api_url = V.build_api_url('prompts', 'prompt')
+    const api_url = V.build_api_url(plugin_name, 'prompt')
     const res = await fetch(`${api_url}/${getSelectedProjectId()}/${promptId}`, {
         method: 'DELETE',
     })
 }
 
 const ApiDeleteExample = async (exampleId) => {
-    const api_url = V.build_api_url('prompts', 'example')
+    const api_url = V.build_api_url(plugin_name, 'example')
     const res = await fetch(`${api_url}/${getSelectedProjectId()}/${exampleId}`, {
         method: 'DELETE',
     })
 }
 
 const ApiDeleteVariable = async (variableId) => {
-    const api_url = V.build_api_url('prompts', 'variable')
+    const api_url = V.build_api_url(plugin_name, 'variable')
     const res = await fetch(`${api_url}/${getSelectedProjectId()}/${variableId}`, {
         method: 'DELETE',
     })
 }
 
 const fetchTagsAPI = async () => {
-    const api_url = V.build_api_url('prompts', 'tags')
+    const api_url = V.build_api_url(plugin_name, 'tags')
     const res = await fetch(`${api_url}/${getSelectedProjectId()}`, {
         method: 'GET',
     })
     return res.json();
 }
 const fetchPromptTagsAPI = async (promptId) => {
-    const api_url = V.build_api_url('prompts', 'tags')
+    const api_url = V.build_api_url(plugin_name, 'tags')
     const res = await fetch(`${api_url}/${getSelectedProjectId()}/${promptId}`, {
         method: 'GET',
     })
@@ -232,7 +232,7 @@ const fetchPromptTagsAPI = async (promptId) => {
 }
 
 const updatePromptTagsAPI = async (tags, promptId) => {
-    const api_url = V.build_api_url('prompts', 'tags')
+    const api_url = V.build_api_url(plugin_name, 'tags')
     const res = await fetch(`${api_url}/${getSelectedProjectId()}/${promptId}`, {
         method: 'PUT',
         headers: {
@@ -245,7 +245,7 @@ const updatePromptTagsAPI = async (tags, promptId) => {
 }
 
 const updatePromptNameAPI = async (promptId, promptName) => {
-    const api_url = V.build_api_url('prompts', 'prompt')
+    const api_url = V.build_api_url(plugin_name, 'prompt')
     const res = await fetch(`${api_url}/${getSelectedProjectId()}/${promptId}`, {
         method: 'PATCH',
         headers: {
@@ -259,7 +259,7 @@ const updatePromptNameAPI = async (promptId, promptName) => {
 }
 
 const fetchPromptVersionsAPI = async (promptName) => {
-    const api_url = V.build_api_url('prompts', 'versions')
+    const api_url = V.build_api_url(plugin_name, 'versions')
     const res = await fetch(`${api_url}/${getSelectedProjectId()}/${promptName}`, {
         method: 'GET',
     })
@@ -275,7 +275,7 @@ const fetchPromptEmbeddingsAPI = async () => {
 }
 
 const ApiCreatePromptVersion = async (promptId, versionName) => {
-    const api_url = V.build_api_url('prompts', 'versions')
+    const api_url = V.build_api_url(plugin_name, 'versions')
     const res = await fetch(`${api_url}/${getSelectedProjectId()}`, {
         method: 'POST',
         headers: {

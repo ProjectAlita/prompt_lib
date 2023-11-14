@@ -1,4 +1,6 @@
-<link rel="stylesheet" href="{{ url_for('prompts.static', filename='css/md-table.css') }}" />
+{% set plugin_name = 'prompt_lib' %}
+
+<link rel="stylesheet" href="{{ url_for(plugin_name + '.static', filename='css/md-table.css') }}" />
 <link rel="stylesheet" href="{{ url_for('design-system.static', filename='assets/js/color-picker/dist/coloris.min.css') }}" />
 <style>
     .bootstrap-table .fixed-table-container .fixed-table-body {

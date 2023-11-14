@@ -2,7 +2,9 @@ from itertools import chain
 from flask import request
 
 from pylon.core.tools import log
-from tools import api_tools, auth, config as c
+from tools import api_tools, auth, config as c, db
+
+from ...models.all import PromptVersion
 
 
 class ProjectAPI(api_tools.APIModeHandler):
@@ -12,8 +14,12 @@ class ProjectAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
-    def get(self, project_id, prompt_name):
-        return self.module.get_versions_by_prompt_name(project_id, prompt_name), 200
+    def get(self, project_id, version_name: str, **kwargs):
+        with db.with_project_schema_session(project_id) as session:
+            prompts = session.query(PromptVersion).filter(
+                PromptVersion.name == version_name
+            ).all()
+            return [prompt.to_json() for prompt in prompts]
 
     @auth.decorators.check_api({
         "permissions": ["models.prompts.versions.create"],
@@ -21,7 +27,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
-    def post(self, project_id):
+    def post(self, project_id, **kwargs):
         prompt_data = self.module.get_by_id(project_id, request.json['prompt_id'])
         prompt_data.pop('test_input')
         prompt_data.update({'version': request.json['version']})
@@ -38,8 +44,8 @@ class API(api_tools.APIBase):
     url_params = [
         '<string:mode>/<int:project_id>',
         '<int:project_id>',
-        '<string:mode>/<int:project_id>/<string:prompt_name>',
-        '<int:project_id>/<string:prompt_name>',
+        '<string:mode>/<int:project_id>/<string:version_name>',
+        '<int:project_id>/<string:version_name>',
     ]
 
     mode_handlers = {

@@ -26,17 +26,17 @@ class PromptListModel(BaseModel):
     description: Optional[str]
     owner_id: int
     created_at: datetime
-    owner: Optional[AuthorBaseModel]
+    author_ids: set[int] = set()
+    authors: list[AuthorBaseModel] = []
     tags: Optional[PromptTagBaseModel]
 
     class Config:
         orm_mode = True
 
-    # @validator('tags', 'versions', pre=True, always=True)
-    # def get_tags(cls, value, values):
-    #     from pylon.core.tools import log
-    #     log.info('valllllllllllll')
-    #     log.info(value)
-    #     log.info(values)
-    #     log.info('valllllllllllll')
-    #     return value
+    def set_authors(self, user_map: dict) -> None:
+        self.authors = [
+            user_map.get(i) for i in self.author_ids
+        ]
+
+
+

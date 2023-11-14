@@ -110,7 +110,7 @@ const ImportPromptModal = {
         },
         async handleImport() {
             this.is_loading = true
-            const api_url = this.$root.build_api_url('prompts', 'export_import', {
+            const api_url = this.$root.build_api_url(plugin_name, 'export_import', {
                 trailing_slash: true
             }) + this.$root.project_id
             const data = {

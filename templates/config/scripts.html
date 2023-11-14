@@ -1,1 +1,5 @@
-<script src="{{ url_for('prompts.static', filename='js/config/main.js') }}"></script>
+{% set plugin_name = 'prompt_lib' %}
+<script>
+    window.plugin_name = '{{plugin_name}}'
+</script>
+<script src="{{ url_for(plugin_name + '.static', filename='js/config/main.js') }}"></script>

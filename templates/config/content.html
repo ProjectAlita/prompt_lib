@@ -1,10 +1,11 @@
+{% set plugin_name = 'prompt_lib' %}
 <div class="m-3">
     <Table-Card
             @register="register"
             instance_name="table_config"
             header='Config'
             :table_attributes="{
-                'data-url': this.$root.build_api_url('prompts', 'config') + '/{{ payload.project.id }}',
+                'data-url': this.$root.build_api_url('{{ plugin_name }}', 'config') + '/{{ payload.project.id }}',
                 'data-unique-id': null,
                 'data-virtual-scroll': false,
                 'data-pagination': false,
@@ -82,7 +83,7 @@
                 {#        :adaptive-height="true"#}
                 :table_attributes="{
 {#            'data-filter-control': 'true',#}
-            'data-url': this.$root.build_api_url('prompts', 'config_bucket') + '/{{ payload.project.id }}',
+            'data-url': this.$root.build_api_url('{{ plugin_name }}', 'config_bucket') + '/{{ payload.project.id }}',
             'data-pagination': 'true',
             'data-page-list': '[5, 10, 20, 50]',
             'data-page-size': 5,

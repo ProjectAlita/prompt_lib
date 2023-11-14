@@ -1,13 +1,17 @@
-from flask import request
-from pydantic import ValidationError
-from pylon.core.tools import log
-
-from tools import api_tools, auth, config as c
-
 from sqlalchemy.orm import joinedload
 from ...models.pd.base import PromptTagBaseModel
 from ...utils.constants import PROMPT_LIB_MODE
-from ...utils.prompt_utils_v1 import prompts_create_prompt
+from ...utils.prompt_utils_legacy import prompts_create_prompt
+from flask import request, g
+from pylon.core.tools import web, log
+from tools import api_tools, config as c, db, auth
+
+from pydantic import ValidationError
+from ...models.all import Prompt, PromptVersion, PromptVariable, PromptMessage, PromptTag
+from ...models.pd.create import PromptCreateModel
+from ...models.pd.detail import PromptDetailModel, PromptVersionDetailModel
+from ...models.pd.list import PromptListModel, PromptTagListModel
+import json
 
 
 class ProjectAPI(api_tools.APIModeHandler):
@@ -38,44 +42,48 @@ class ProjectAPI(api_tools.APIModeHandler):
             return e.errors(), 400
 
 
-from flask import request, g
-from pylon.core.tools import web, log
-from tools import api_tools, config as c, db, auth
-
-from pydantic import ValidationError
-from ...models.all import Prompt, PromptVersion, PromptVariable, PromptMessage, PromptTag
-from ...models.pd.create import PromptCreateModel
-from ...models.pd.detail import PromptDetailModel, PromptVersionDetailModel
-from ...models.pd.list import PromptListModel, PromptTagListModel
-import json
-
-
 class PromptLibAPI(api_tools.APIModeHandler):
-    def get(self, project_id: int, **kwargs):
-        with db.with_project_schema_session(project_id) as session:
-            prompts = session.query(Prompt).options(joinedload(Prompt.versions).joinedload(PromptVersion.tags)).all()
 
-            parsed = []
+    def _get_project_id(self, project_id: int | None) -> int:
+        if not project_id:
+            project_id = 0  # todo: get user personal project id here
+        return project_id
+
+    def get(self, project_id: int | None = None, **kwargs):
+        project_id = self._get_project_id(project_id)
+
+        with db.with_project_schema_session(project_id) as session:
+            prompts: list[Prompt] = session.query(Prompt).options(
+                joinedload(Prompt.versions).joinedload(PromptVersion.tags)).all()
+
+            all_authors = set()
+            parsed: list[PromptListModel] = []
             for i in prompts:
                 p = PromptListModel.from_orm(i)
+                # p.author_ids = set()
                 tags = dict()
                 for v in i.versions:
                     for t in v.tags:
                         tags[t.name] = PromptTagListModel.from_orm(t).dict()
+                    p.author_ids.add(v.author_id)
+                    all_authors.update(p.author_ids)
                 p.tags = list(tags.values())
                 parsed.append(p)
-
-            users = auth.list_users(user_ids=list(set(i.owner_id for i in parsed)))
+            users = auth.list_users(user_ids=list(all_authors))
             user_map = {i['id']: i for i in users}
 
             for i in parsed:
-                i.owner = user_map[i.owner_id]
+                i.set_authors(user_map)
 
-            return [json.loads(i.json()) for i in parsed], 200
+            return [json.loads(i.json(exclude={'author_ids'})) for i in parsed], 200
 
-    def post(self, project_id: int, **kwargs):
+    def post(self, project_id: int | None = None, **kwargs):
+        project_id = self._get_project_id(project_id)
+
         raw = dict(request.json)
-        raw['owner_id'] = g.auth.id
+        raw['owner_id'] = project_id
+        for version in raw.get('versions', []):
+            version['author_id'] = g.auth.id
         try:
             prompt_data = PromptCreateModel.parse_obj(raw)
         except ValidationError as e:
@@ -121,15 +129,36 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
             result = PromptDetailModel.from_orm(prompt)
             result.latest = PromptVersionDetailModel.from_orm(prompt.versions[0])
-            result.latest.author = auth.get_user(user_id=prompt.owner_id)
+            result.latest.author = auth.get_user(user_id=result.latest.author_id)
             return json.loads(result.json()), 201
 
 
+def with_modes(url_params: list[str]) -> list:
+    params = set()
+    for i in url_params:
+        if not i.startswith('<string:mode>'):
+            if i == '':
+                params.add('<string:mode>')
+            else:
+                params.add(f'<string:mode>/{i}')
+        params.add(i)
+    return list(params)
+#
+#
+# log.info('with_modes')
+# log.info(with_modes([
+#     '<string:mode>/<int:project_id>',
+#     '<int:project_id>',
+#
+#     ''
+# ]))
+
+
 class API(api_tools.APIBase):
-    url_params = [
-        '<string:mode>/<int:project_id>',
+    url_params = with_modes([
+        '',
         '<int:project_id>',
-    ]
+    ])
 
     mode_handlers = {
         c.DEFAULT_MODE: ProjectAPI,

@@ -55,12 +55,15 @@ class RPC:
                 return None
 
             result = prompt_version.to_json()
-            if integration_uid := result.get('model_settings', {}).get('model', {}).get('integration_uid'):
-                whole_settings = AIProvider.get_integration_settings(
-                    project_id, integration_uid, prompt_version.model_settings
-                )
-                result['model_settings'] = whole_settings
-                result['integration_uid'] = integration_uid if whole_settings else None
+            log.info('RRres %s', result)
+            model_settings = result.get('model_settings')
+            if model_settings:
+                if integration_uid := model_settings.get('model', {}).get('integration_uid'):
+                    whole_settings = AIProvider.get_integration_settings(
+                        project_id, integration_uid, prompt_version.model_settings
+                    )
+                    result['model_settings'] = whole_settings
+                    result['integration_uid'] = integration_uid if whole_settings else None
 
             messages = [example.to_json() for example in prompt_version.messages]
             examples = []

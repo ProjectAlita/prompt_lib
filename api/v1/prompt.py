@@ -1,7 +1,7 @@
 from flask import request
 from pydantic import ValidationError
 from pylon.core.tools import log
-from ...utils.prompt_utils_v1 import (
+from ...utils.prompt_utils_legacy import (
     prompts_delete_prompt,
     prompts_update_name,
     prompts_update_prompt

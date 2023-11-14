@@ -34,7 +34,6 @@ class PromptDetailModel(PromptBaseModel):
     versions: List[PromptVersionListModel]
     latest: Optional[PromptVersionDetailModel]
     created_at: datetime
-    owner: Optional[AuthorBaseModel]
 
     # @validator('latest', pre=True, always=True)
     # def set_latest_version(cls, value, values, **kwargs):
