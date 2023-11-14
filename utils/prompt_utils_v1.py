@@ -2,13 +2,15 @@ import re
 from flask import g
 from jinja2 import Environment, meta, DebugUndefined
 from typing import Optional, List
+from pydantic import parse_obj_as
 from pylon.core.tools import web, log
 
 
 from ..models.pd.base import ModelInfoBaseModel, ModelSettingsBaseModel, PromptVersionBaseModel
 from ..models.pd.create import PromptVersionCreateModel, PromptCreateModel
 from ..models.pd.update import PromptUpdateModel
-from ..models.all import Prompt, PromptVersion
+from ..models.pd.legacy.tag import PromptTagModel
+from ..models.all import Prompt, PromptTag, PromptVersion, PromptVersionTagAssociation
 from ..models.pd.v1_structure import (
     PromptV1Model,
     PromptCreateV1Model,
@@ -119,3 +121,51 @@ def prompts_delete_prompt(project_id: int, prompt_id: int, version_name: str = '
                 session.commit()
                 return True
     return False
+
+
+def get_tags(project_id: int, prompt_id: int) -> List[dict]:
+    with db.with_project_schema_session(project_id) as session:
+        query = (
+            session.query(PromptTag)
+            .join(PromptVersionTagAssociation, PromptVersionTagAssociation.c.tag_id == PromptTag.id)
+            .join(PromptVersion, PromptVersion.id == PromptVersionTagAssociation.c.version_id)
+            .filter(PromptVersion.prompt_id == prompt_id)
+            .order_by(PromptVersion.id)
+        )
+        as_dict = lambda x: {'id': x.id, 'tag': x.name, 'color': x.data.get('color')}
+        return [as_dict(tag) for tag in query.all()]
+
+
+def get_all_tags(project_id: int) -> List[dict]:
+    with db.with_project_schema_session(project_id) as session:
+        query = session.query(PromptTag)
+        as_dict = lambda x: {'id': x.id, 'tag': x.name, 'color': x.data.get('color')}
+        return [as_dict(tag) for tag in query.all()]
+
+
+def _delete_unused_tags(session):
+    tags = session.query(PromptTag).all()
+    for tag in tags:
+        if not tag.prompt_version:
+            session.delete(tag)
+
+
+def update_tags(
+        project_id: int, prompt_id: int, tags: List[dict], version_name: str = 'latest'
+        ) -> List[dict]:
+    with db.with_project_schema_session(project_id) as session:
+        if version := session.query(PromptVersion).filter(
+            PromptVersion.prompt_id == prompt_id,
+            PromptVersion.name == version_name
+        ).one_or_none():
+            version.tags.clear()
+        tags = parse_obj_as(List[PromptTagModel], tags)
+        for new_tag in tags:
+            new_tag = {'name': new_tag.tag, 'data': {'color': new_tag.color}}
+            tag = session.query(PromptTag).filter_by(name=new_tag['name']).first()
+            if not tag:
+                tag = PromptTag(**new_tag)
+            version.tags.append(tag)
+        _delete_unused_tags(session)
+        session.commit()
+        return [tag.to_json() for tag in version.tags]

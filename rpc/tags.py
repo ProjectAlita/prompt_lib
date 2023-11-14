@@ -27,44 +27,6 @@ from tools import rpc_tools, db
 # from ..models.pd.tag import PromptTagModel
 
 
-# def _delete_unused_tags(session):
-#     tags = session.query(Tag).all()
-#     for tag in tags:
-#         if not tag.prompts:
-#             session.delete(tag)
-
-
 class RPC:  # pylint: disable=E1101,R0903
     """ RPC Resource """
     ...
-
-    # @web.rpc("prompts_get_tags", "get_tags")
-    # @rpc_tools.wrap_exceptions(RuntimeError)
-    # def _get_tags(self, project_id, prompt_id):
-    #     with db.with_project_schema_session(project_id) as session:
-    #         prompt = session.query(Prompt).filter_by(id=prompt_id).first()
-    #         return [tag.to_json() for tag in prompt.tags]
-
-    # @web.rpc("prompts_get_all_tags", "get_all_tags")
-    # @rpc_tools.wrap_exceptions(RuntimeError)
-    # def _get_all_tags(self, project_id):
-    #     with db.with_project_schema_session(project_id) as session:
-    #         tags = session.query(Tag).all()
-    #         return [tag.to_json() for tag in tags]
-
-    # @web.rpc("prompts_update_tags", "update_tags")
-    # @rpc_tools.wrap_exceptions(RuntimeError)
-    # def _update_tags(self, project_id, prompt_id, tags):
-    #     with db.with_project_schema_session(project_id) as session:
-    #         prompt = session.query(Prompt).get(prompt_id)
-    #         prompt.tags.clear()
-    #         tags = parse_obj_as(List[PromptTagModel], tags)
-    #         for new_tag in tags:
-    #             new_tag = new_tag.dict()
-    #             tag = session.query(Tag).filter_by(tag=new_tag['tag']).first()
-    #             if not tag:
-    #                 tag = Tag(**new_tag)
-    #             prompt.tags.append(tag)
-    #         _delete_unused_tags(session)
-    #         session.commit()
-    #         return [tag.to_json() for tag in prompt.tags]

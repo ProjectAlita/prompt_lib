@@ -31,7 +31,7 @@ def prompts_create_variable(project_id: int, variable: dict, **kwargs) -> dict:
     return create_variables_bulk(project_id, [variable])[0]
 
 
-def get_prompt_tags(project_id: int, prompt_id: int):
+def get_prompt_tags(project_id: int, prompt_id: int) -> List[dict]:
     with db.with_project_schema_session(project_id) as session:
         query = (
             session.query(PromptTag)
@@ -59,4 +59,4 @@ def get_all_ranked_tags(project_id: int, top_n: int=20) -> List[dict]:
             .limit(top_n)
         )
         as_dict = lambda x: {'id': x[0], 'name': x[1], 'data': loads(x[2]), 'prompt_count': x[3]}
-        return [as_dict(i) for i in query.all()]
+        return [as_dict(tag) for tag in query.all()]
