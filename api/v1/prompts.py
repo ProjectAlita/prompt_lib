@@ -128,34 +128,13 @@ class PromptLibAPI(api_tools.APIModeHandler):
             session.commit()
 
             result = PromptDetailModel.from_orm(prompt)
-            result.latest = PromptVersionDetailModel.from_orm(prompt.versions[0])
-            result.latest.author = auth.get_user(user_id=result.latest.author_id)
+            result.version_details = PromptVersionDetailModel.from_orm(prompt.versions[0])
+            result.version_details.author = auth.get_user(user_id=result.version_details.author_id)
             return json.loads(result.json()), 201
 
 
-def with_modes(url_params: list[str]) -> list:
-    params = set()
-    for i in url_params:
-        if not i.startswith('<string:mode>'):
-            if i == '':
-                params.add('<string:mode>')
-            else:
-                params.add(f'<string:mode>/{i}')
-        params.add(i)
-    return list(params)
-#
-#
-# log.info('with_modes')
-# log.info(with_modes([
-#     '<string:mode>/<int:project_id>',
-#     '<int:project_id>',
-#
-#     ''
-# ]))
-
-
 class API(api_tools.APIBase):
-    url_params = with_modes([
+    url_params = api_tools.with_modes([
         '',
         '<int:project_id>',
     ])

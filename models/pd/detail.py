@@ -32,7 +32,7 @@ class PromptVersionDetailModel(PromptVersionBaseModel):
 class PromptDetailModel(PromptBaseModel):
     id: int
     versions: List[PromptVersionListModel]
-    latest: Optional[PromptVersionDetailModel]
+    version_details: Optional[PromptVersionDetailModel]
     created_at: datetime
 
     # @validator('latest', pre=True, always=True)
