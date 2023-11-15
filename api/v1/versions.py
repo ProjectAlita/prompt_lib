@@ -41,12 +41,10 @@ class ProjectAPI(api_tools.APIModeHandler):
 
 
 class API(api_tools.APIBase):
-    url_params = [
-        '<string:mode>/<int:project_id>',
+    url_params = api_tools.with_modes([
         '<int:project_id>',
-        '<string:mode>/<int:project_id>/<string:version_name>',
         '<int:project_id>/<string:version_name>',
-    ]
+    ])
 
     mode_handlers = {
         c.DEFAULT_MODE: ProjectAPI,

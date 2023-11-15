@@ -5,6 +5,7 @@ from .base import PromptBaseModel, PromptVersionBaseModel
 from ..enums.all import PromptVersionType
 from pylon.core.tools import log
 
+
 class PromptVersionCreateModel(PromptVersionBaseModel):
     type: PromptVersionType = PromptVersionType.chat
 
