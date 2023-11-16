@@ -3,6 +3,7 @@ from typing import Optional
 from flask import request, g
 from pylon.core.tools import log
 import tiktoken
+from pydantic import ValidationError
 from sqlalchemy.orm import joinedload
 from ...models.all import PromptVersion
 from ...models.enums.all import MessageRoles
@@ -173,7 +174,10 @@ def _resolve_variables(text, vars) -> str:
 
 class PromptLibAPI(api_tools.APIModeHandler):
     def post(self, project_id: int, prompt_version_id: Optional[int] = None, **kwargs):
-        payload = PromptVersionPredictModel.parse_obj(request.json)
+        try:
+            payload = PromptVersionPredictModel.parse_obj(request.json)
+        except ValidationError as e:
+            return e.errors(), 400
         if prompt_version_id:
 
             with db.with_project_schema_session(project_id) as session:
@@ -191,8 +195,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 #     'req': json.loads(payload.json()),
                 #     'merged': json.loads(prompt_version_pd.merged_with(payload).json())
                 # }, 200
-        elif not payload.context:
-            return {'error': 'Context cannot be empty'}, 400
+        # elif not payload.context:
+        #     return {'error': 'Context cannot be empty'}, 400
         log.info(f'payload {payload}')
 
         try:

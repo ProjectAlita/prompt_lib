@@ -10,8 +10,10 @@ import re
 class PromptMessagePredictModel(PromptMessageBaseModel):
     @validator('name')
     def sanitize_name(cls, value: str):
-        sanitized = re.findall(r'[a-zA-Z0-9_-]+', value)
-        return ''.join(sanitized)
+        if value:
+            sanitized = re.findall(r'[a-zA-Z0-9_-]+', value)
+            return ''.join(sanitized)
+        return value
 
 
 class PromptVersionPredictModel(BaseModel):
