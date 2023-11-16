@@ -41,8 +41,11 @@ class PromptLibAPI(api_tools.APIModeHandler):
         # return prompt, 201
         return data, 201
 
-    def put(self, project_id, **kwargs):
+    def put(self, project_id, prompt_id, version_id=None, **kwargs):
         version_data = dict(request.json)
+        version_data['author_id'] = g.auth.id
+        version_data['prompt_id'] = prompt_id
+        version_data['id'] = version_id
         try:
             version_data = PromptVersionUpdateModel.parse_obj(version_data)
         except ValidationError as e:

@@ -81,7 +81,6 @@ def _update_related_table(session, version, version_data, db_model):
         else:
             entity = db_model(**pd_model.dict())
             entity.prompt_version = version
-            log.info(f'{entity=}')
             session.add(entity)
         session.flush()
         added_ids.add(entity.id)
@@ -96,11 +95,20 @@ def _update_related_table(session, version, version_data, db_model):
 
 def prompts_update_version(project_id: int, version_data: PromptVersionUpdateModel) -> List[dict]:
     with db.with_project_schema_session(project_id) as session:
-        version = session.query(PromptVersion).filter(
-            PromptVersion.id == version_data.id
-        ).first()
+        if version_data.id:
+            version = session.query(PromptVersion).filter(
+                PromptVersion.id == version_data.id
+            ).first()
+        else:
+            version = session.query(PromptVersion).filter(
+                PromptVersion.prompt_id == version_data.prompt_id,
+                PromptVersion.name == version_data.name,
+            ).first()
+            version_data.id = version.id
         if not version:
             return {'updated': False, 'msg': f'Prompt version with id {version_data.id} not found'}
+        if version.name != 'latest':
+            return {'updated': False, 'msg': 'Only latest prompt version can be updated'}
 
         for key, value in version_data.dict(exclude={'variables', 'messages', 'tags'}).items():
             setattr(version, key, value)
@@ -119,7 +127,8 @@ def prompts_update_version(project_id: int, version_data: PromptVersionUpdateMod
 
             session.add(version)
             session.commit()
-        except IntegrityError:
+        except IntegrityError as e:
+            log.error(e)
             return {'updated': False, 'msg': 'Values you passed violates unique constraint'}
 
         result = PromptVersionDetailModel.from_orm(version)

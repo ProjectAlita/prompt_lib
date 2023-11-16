@@ -28,12 +28,13 @@ class PromptTagUpdateModel(PromptTagBaseModel):
 
 
 class PromptVersionUpdateModel(PromptVersionBaseModel):
-    id: int
+    id: Optional[int]
+    name: str = 'latest'
     variables: Optional[List[PromptVariableUpdateModel]] = []
     messages: Optional[List[PromptMessageUpdateModel]] = []
     tags: Optional[List[PromptTagUpdateModel]] = []
 
-    @validator('name')
-    def check_latest(cls, value: str):
-        assert value == 'latest', "Only latest prompt version can be updated"
-        return value
+    # @validator('name')
+    # def check_latest(cls, value: str):
+    #     assert value == 'latest', "Only latest prompt version can be updated"
+    #     return value
