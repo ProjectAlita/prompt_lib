@@ -27,7 +27,7 @@ class PromptListModel(BaseModel):
     owner_id: int
     created_at: datetime
     author_ids: set[int] = set()
-    authors: list[AuthorBaseModel] = []
+    authors: List[AuthorBaseModel] = []
     tags: Optional[PromptTagBaseModel]
 
     class Config:

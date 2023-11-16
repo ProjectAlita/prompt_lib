@@ -1,6 +1,6 @@
 import json
 from itertools import chain
-from flask import request
+from flask import request, g
 
 from pylon.core.tools import log
 from tools import api_tools, auth, config as c, db
@@ -24,6 +24,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
             return json.loads(version_details.json()), 200
 
     def post(self, project_id: int, prompt_id: int, **kwargs):
+        data = dict(request.json)
+        data['author_id'] = g.auth.id
         # prompt_data = self.module.get_by_id(project_id, request.json['prompt_id'])
         # prompt_data.pop('test_input')
         # prompt_data.update({'version': request.json['version']})
@@ -34,11 +36,12 @@ class PromptLibAPI(api_tools.APIModeHandler):
         # self.module.create_examples_bulk(project_id, prompt_data['examples'])
         # self.module.update_tags(project_id, prompt['id'], prompt_data['tags'])
         # return prompt, 201
-        return None, 400
+        return data, 201
 
 
 class API(api_tools.APIBase):
     url_params = api_tools.with_modes([
+        '<int:project_id>/<int:prompt_id>',
         '<int:project_id>/<int:prompt_id>/<int:version_id>',
     ])
 

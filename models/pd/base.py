@@ -41,6 +41,7 @@ class PromptMessageBaseModel(BaseModel):
 class PromptVariableBaseModel(BaseModel):
     name: constr(regex=r'^[a-zA-Z_][a-zA-Z0-9_]*$', )
     value: Optional[str] = ''
+    prompt_version_id: Optional[int]
 
     class Config:
         orm_mode = True
@@ -57,6 +58,7 @@ class PromptVersionBaseModel(BaseModel):
     model_settings: Optional[ModelSettingsBaseModel]
     embedding_settings: Optional[dict]  # todo: create model for this field
     type: PromptVersionType
+    prompt_id: Optional[int]
 
     class Config:
         orm_mode = True

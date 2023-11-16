@@ -17,7 +17,7 @@ from tools import rpc_tools, db
 
 class RPC:
     @web.rpc(f'prompt_lib_get_all', "get_all")
-    def prompt_lib_get_all(self, project_id: int, with_versions: bool = False, **kwargs) -> list[dict]:
+    def prompt_lib_get_all(self, project_id: int, with_versions: bool = False, **kwargs) -> List[dict]:
         # TODO: Support with_versions flag if we still need it
         with db.with_project_schema_session(project_id) as session:
             queryset = session.query(Prompt).order_by(Prompt.id.asc()).all()

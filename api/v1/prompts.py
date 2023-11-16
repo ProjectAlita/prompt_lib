@@ -1,6 +1,9 @@
+from typing import List
+
 from sqlalchemy.orm import joinedload
 from ...models.pd.base import PromptTagBaseModel
 from ...utils.constants import PROMPT_LIB_MODE
+from ...utils.create_utils import create_version
 from ...utils.prompt_utils_legacy import prompts_create_prompt
 from flask import request, g
 from pylon.core.tools import web, log
@@ -53,11 +56,11 @@ class PromptLibAPI(api_tools.APIModeHandler):
         project_id = self._get_project_id(project_id)
 
         with db.with_project_schema_session(project_id) as session:
-            prompts: list[Prompt] = session.query(Prompt).options(
+            prompts: List[Prompt] = session.query(Prompt).options(
                 joinedload(Prompt.versions).joinedload(PromptVersion.tags)).all()
 
             all_authors = set()
-            parsed: list[PromptListModel] = []
+            parsed: List[PromptListModel] = []
             for i in prompts:
                 p = PromptListModel.from_orm(i)
                 # p.author_ids = set()
@@ -96,34 +99,35 @@ class PromptLibAPI(api_tools.APIModeHandler):
             ))
 
             for ver in prompt_data.versions:
-                prompt_version = PromptVersion(**ver.dict(
-                    exclude_unset=True,
-                    exclude={'variables', 'messages', 'tags'}
-                ))
-                prompt_version.prompt = prompt
-
-                if ver.variables:
-                    for i in ver.variables:
-                        prompt_variable = PromptVariable(**i.dict())
-                        prompt_variable.prompt_version = prompt_version
-                        session.add(prompt_variable)
-                if ver.messages:
-                    for i in ver.messages:
-                        prompt_message = PromptMessage(**i.dict())
-                        prompt_message.prompt_version = prompt_version
-                        session.add(prompt_message)
-
-                if ver.tags:
-                    prompt_version.tags = []
-                    existing_tags = session.query(PromptTag).filter(
-                        PromptTag.name.in_({i.name for i in ver.tags})
-                    ).all()
-                    existing_tags_map = {i.name: i for i in existing_tags}
-                    for i in ver.tags:
-                        prompt_tag = existing_tags_map.get(i.name, PromptTag(**i.dict()))
-                        prompt_version.tags.append(prompt_tag)
-
-                session.add(prompt_version)
+                create_version(ver, prompt=prompt, session=session)
+                # prompt_version = PromptVersion(**ver.dict(
+                #     exclude_unset=True,
+                #     exclude={'variables', 'messages', 'tags'}
+                # ))
+                # prompt_version.prompt = prompt
+                #
+                # if ver.variables:
+                #     for i in ver.variables:
+                #         prompt_variable = PromptVariable(**i.dict())
+                #         prompt_variable.prompt_version = prompt_version
+                #         session.add(prompt_variable)
+                # if ver.messages:
+                #     for i in ver.messages:
+                #         prompt_message = PromptMessage(**i.dict())
+                #         prompt_message.prompt_version = prompt_version
+                #         session.add(prompt_message)
+                #
+                # if ver.tags:
+                #     prompt_version.tags = []
+                #     existing_tags = session.query(PromptTag).filter(
+                #         PromptTag.name.in_({i.name for i in ver.tags})
+                #     ).all()
+                #     existing_tags_map = {i.name: i for i in existing_tags}
+                #     for i in ver.tags:
+                #         prompt_tag = existing_tags_map.get(i.name, PromptTag(**i.dict()))
+                #         prompt_version.tags.append(prompt_tag)
+                #
+                # session.add(prompt_version)
             session.add(prompt)
             session.commit()
 

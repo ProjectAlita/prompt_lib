@@ -42,7 +42,7 @@ class AIProvider:
         return rpc_func
 
     @classmethod
-    def predict(cls, project_id: int, integration, request_settings: dict, prompt_struct: dict, **kwargs):
+    def predict(cls, project_id: int, integration, request_settings: dict, prompt_struct: dict | list, **kwargs):
         rpc_func = cls._get_rpc_function(integration.name)
         settings = {**integration.settings, **request_settings}
         if integration.name == 'ai_dial':

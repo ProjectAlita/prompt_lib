@@ -23,7 +23,10 @@ class Prompt(db_tools.AbstractBaseMixin, db.Base):
 
 class PromptVersion(db_tools.AbstractBaseMixin, db.Base):
     __tablename__ = 'prompt_versions'
-    __table_args__ = ({'schema': c.POSTGRES_TENANT_SCHEMA},)
+    __table_args__ = (
+        UniqueConstraint('prompt_id', 'name', name='_prompt_name_uc'),
+        {'schema': c.POSTGRES_TENANT_SCHEMA},
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     prompt_id: Mapped[int] = mapped_column(ForeignKey(f'{c.POSTGRES_TENANT_SCHEMA}.prompts.id'))

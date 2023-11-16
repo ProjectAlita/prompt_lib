@@ -9,6 +9,8 @@ from pylon.core.tools import log
 class PromptVersionCreateModel(PromptVersionBaseModel):
     type: PromptVersionType = PromptVersionType.chat
 
+
+class PromptVersionLatestCreateModel(PromptVersionCreateModel):
     @validator('name')
     def check_latest(cls, value: str):
         assert value == 'latest', "Name of created prompt version can only be 'latest'"

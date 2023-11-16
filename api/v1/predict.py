@@ -1,14 +1,13 @@
 from typing import Optional
 
-from flask import request
+from flask import request, g
 from pylon.core.tools import log
 import tiktoken
-import json
 from sqlalchemy.orm import joinedload
 from ...models.all import PromptVersion
-from ...models.pd.detail import PromptVersionDetailModel
+from ...models.enums.all import MessageRoles
 from ...models.pd.legacy.prompts_pd import PredictPostModel
-from ...models.pd.predict import PromptVersionPredictModel
+from ...models.pd.predict import PromptVersionPredictModel, PromptMessagePredictModel
 from ...utils.ai_providers import AIProvider
 from traceback import format_exc
 
@@ -36,6 +35,7 @@ MODEL_TOKENS_MAPPER = {
     "default": 4096
 }
 
+
 class ProjectAPI(api_tools.APIModeHandler):
     @auth.decorators.check_api({
         "permissions": ["models.prompts.predict.post"],
@@ -52,7 +52,7 @@ class ProjectAPI(api_tools.APIModeHandler):
         update_prompt = payload.pop('update_prompt', False)
         payload['project_id'] = project_id
         if payload.get('prompt_id') and not all(
-            (payload.get('integration_settings'), payload.get('integration_uid'))):
+                (payload.get('integration_settings'), payload.get('integration_uid'))):
             with db.with_project_schema_session(project_id) as session:
                 prompt_version_id = payload['prompt_id']
                 prompt_version = session.query(PromptVersion).get(prompt_version_id)
@@ -84,7 +84,6 @@ class ProjectAPI(api_tools.APIModeHandler):
                     )
                 )
                 session.commit()
-
 
         _input = data.input_
         prompt = self.module.get_by_id(project_id, data.prompt_id)
@@ -162,6 +161,16 @@ class ProjectAPI(api_tools.APIModeHandler):
         return result['response'], 200
 
 
+from jinja2 import Environment, DebugUndefined, meta
+
+
+def _resolve_variables(text, vars) -> str:
+    environment = Environment(undefined=DebugUndefined)
+    ast = environment.parse(text)
+    template = environment.from_string(text)
+    return template.render(vars)
+
+
 class PromptLibAPI(api_tools.APIModeHandler):
     def post(self, project_id: int, prompt_version_id: Optional[int] = None, **kwargs):
         payload = PromptVersionPredictModel.parse_obj(request.json)
@@ -192,30 +201,33 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 integration_uid=payload.model_settings.model.integration_uid,
             )
 
-            prompt_struct = {
-                'context': payload.context,
-                'variables': {v.name: v.value for v in payload.variables},
-            }
-
-            chat_history = []
-
-            from jinja2 import Environment, DebugUndefined, meta
-            def _resolve_variables(text, variables) -> str:
-                environment = Environment(undefined=DebugUndefined)
-                ast = environment.parse(text)
-                template = environment.from_string(text)
-                return template.render(variables)
+            variables = {v.name: v.value for v in payload.variables}
+            messages = []
+            messages.append(PromptMessagePredictModel(
+                role=MessageRoles.system,
+                content=_resolve_variables(
+                    payload.context,
+                    variables
+                )
+            ).dict(exclude_unset=True))
 
             for i in payload.messages:
                 message = i.dict(exclude={'content'}, exclude_none=True, exclude_unset=True)
-                message['content'] = _resolve_variables(i.content, prompt_struct['variables'])
-                chat_history.append(message)
-            if chat_history:
-                prompt_struct['chat_history'] = chat_history
+                message['content'] = _resolve_variables(i.content, variables)
+                messages.append(message)
 
-            prompt_struct['context'] = _resolve_variables(prompt_struct['context'], prompt_struct['variables'])
+            if payload.chat_history:
+                for i in payload.chat_history:
+                    messages.append(i.dict(exclude_unset=True))
 
-            # return prompt_struct, 200
+            if payload.user_input:
+                user = auth.get_user(user_id=g.auth.id)
+                messages.append(PromptMessagePredictModel(
+                    role=MessageRoles.user,
+                    content=payload.user_input,
+                    name=user.get('name')
+                ).dict(exclude_unset=True)
+                                )
 
         except Exception as e:
             log.error("************* AIProvider.get_integration and self.module.prepare_prompt_struct")
@@ -226,12 +238,13 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         model_settings = payload.model_settings.dict()
         model_settings.update(payload.model_settings.model.dict())
-        log.info('prompt_struct----')
-        log.info(prompt_struct)
+        log.info('prompt messages----')
+        log.info(messages)
         result = AIProvider.predict(
             project_id, integration,
-            model_settings, prompt_struct,
-            format_response=bool(request.json.get('format_response'))
+            model_settings, messages,
+            format_response=bool(request.json.get('format_response')),
+            from_legacy_api=False
         )
         if not result['ok']:
             log.error("************* if not result['ok']")
@@ -242,7 +255,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
         if isinstance(result['response'], str):
             result['response'] = {'messages': [{'type': 'text', 'content': result['response']}]}
         return result['response'], 200
-
 
 
 class API(api_tools.APIBase):
