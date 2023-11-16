@@ -94,7 +94,7 @@ class PromptTag(db_tools.AbstractBaseMixin, db.Base):
 PromptVersionTagAssociation = Table(
     'prompt_version_tag_association',
     db.Base.metadata,
-    Column('version_id', ForeignKey('tenant.prompt_versions.id')),
-    Column('tag_id', ForeignKey('tenant.prompt_tags.id')),
+    Column('version_id', ForeignKey(f'{c.POSTGRES_TENANT_SCHEMA}.prompt_versions.id')),
+    Column('tag_id', ForeignKey(f'{c.POSTGRES_TENANT_SCHEMA}.prompt_tags.id')),
     schema=c.POSTGRES_TENANT_SCHEMA
 )

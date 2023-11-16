@@ -1,12 +1,15 @@
 import json
 from itertools import chain
 from flask import request, g
+from pydantic import ValidationError
 
 from pylon.core.tools import log
 from tools import api_tools, auth, config as c, db
 
 from ...models.all import PromptVersion
 from ...models.pd.detail import PromptVersionDetailModel
+from ...models.pd.update import PromptVersionUpdateModel
+from ...utils.prompt_utils import prompts_update_version
 from ...utils.constants import PROMPT_LIB_MODE
 
 
@@ -37,6 +40,17 @@ class PromptLibAPI(api_tools.APIModeHandler):
         # self.module.update_tags(project_id, prompt['id'], prompt_data['tags'])
         # return prompt, 201
         return data, 201
+
+    def put(self, project_id, **kwargs):
+        version_data = dict(request.json)
+        try:
+            version_data = PromptVersionUpdateModel.parse_obj(version_data)
+        except ValidationError as e:
+            return e.errors(), 400
+        res = prompts_update_version(project_id, version_data)
+        if not res['updated']:
+            return res['msg'], 400
+        return res['data'], 200
 
 
 class API(api_tools.APIBase):
