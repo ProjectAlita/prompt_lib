@@ -39,8 +39,6 @@ class RPC:
     @web.rpc("prompt_lib_get_by_id", "get_by_id")
     def prompts_get_by_id(self, project_id: int, prompt_id: int, version: str = 'latest', **kwargs) -> dict | None:
         with db.with_project_schema_session(project_id) as session:
-            log.info(f'{prompt_id=}')
-            log.info(f'{version=}')
             prompt_version = session.query(PromptVersion).options(
                 joinedload(PromptVersion.prompt)
             ).options(
@@ -55,7 +53,9 @@ class RPC:
                 return None
 
             result = prompt_version.to_json()
-            log.info('RRres %s', result)
+            result['name'] = prompt_version.prompt.name
+            result['prompt'] = result.pop('context')
+
             model_settings = result.get('model_settings')
             if model_settings:
                 if integration_uid := model_settings.get('model', {}).get('integration_uid'):
@@ -71,7 +71,7 @@ class RPC:
                 if messages[idx]['role'] == 'user' and messages[idx + 1]['role'] == 'assistant':
                     examples.append({
                         "id": None,  # TODO: We have no example id anymore. Need to be fixed somehow.
-                        "prompt_id": 1,
+                        "prompt_id": result.get('prompt_id'),
                         "input": messages[idx]['content'],
                         "output": messages[idx + 1]['content'],
                         "is_active": True,

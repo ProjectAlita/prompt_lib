@@ -4,7 +4,8 @@ from flask import request
 from pylon.core.tools import log
 from tools import api_tools, auth, config as c, db
 
-from ...models.all import PromptVersion
+from ...models.pd.v1_structure import VersionV1Model
+from ...models.all import Prompt
 
 
 class ProjectAPI(api_tools.APIModeHandler):
@@ -14,12 +15,10 @@ class ProjectAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
-    def get(self, project_id, version_name: str, **kwargs):
+    def get(self, project_id, prompt_id: str, **kwargs):
         with db.with_project_schema_session(project_id) as session:
-            prompts = session.query(PromptVersion).filter(
-                PromptVersion.name == version_name
-            ).all()
-            return [prompt.to_json() for prompt in prompts]
+            prompt = session.query(Prompt).get(prompt_id)
+            return [VersionV1Model(**version.to_json()).dict() for version in prompt.versions]
 
     @auth.decorators.check_api({
         "permissions": ["models.prompts.versions.create"],
@@ -43,7 +42,7 @@ class ProjectAPI(api_tools.APIModeHandler):
 class API(api_tools.APIBase):
     url_params = api_tools.with_modes([
         '<int:project_id>',
-        '<int:project_id>/<string:version_name>',
+        '<int:project_id>/<string:prompt_id>',  # changed from prompt_name in legacy
     ])
 
     mode_handlers = {

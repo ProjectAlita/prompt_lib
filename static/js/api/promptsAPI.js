@@ -258,9 +258,9 @@ const updatePromptNameAPI = async (promptId, promptName) => {
     return res.json();
 }
 
-const fetchPromptVersionsAPI = async (promptName) => {
+const fetchPromptVersionsAPI = async (promptId) => {
     const api_url = V.build_api_url(plugin_name, 'versions')
-    const res = await fetch(`${api_url}/${getSelectedProjectId()}/${promptName}`, {
+    const res = await fetch(`${api_url}/${getSelectedProjectId()}/${promptId}`, {
         method: 'GET',
     })
     return res.json();

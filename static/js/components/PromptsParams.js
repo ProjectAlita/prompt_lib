@@ -135,7 +135,7 @@ const PromptsParams = {
                     this.editablePrompt.embeddings = {};
                 }
                 this.fetchPromptEmbeddings(newVal.embeddings);
-                this.fetchPromptVersions(newVal.name);
+                this.fetchPromptVersions(newVal.id);
                 this.$nextTick(() => {
                     $("#selectIntegration").selectpicker('refresh');
                     $('#promptsParamsTable').bootstrapTable('load', this.editablePrompt.examples);
@@ -174,8 +174,8 @@ const PromptsParams = {
                 this.promptTags = tags;
             })
         },
-        fetchPromptVersions(promptName) {
-            fetchPromptVersionsAPI(promptName).then((prompts) => {
+        fetchPromptVersions(promptId) {
+            fetchPromptVersionsAPI(promptId).then((prompts) => {
                 this.promptVersions = prompts.map(({ id, version }) => ({ id, version }));
                 this.selectedPromptVersion = this.promptVersions.find(v => v.id === this.selectedPrompt.id);
             }).finally(() => {
@@ -490,13 +490,13 @@ const PromptsParams = {
                             <div class="d-flex justify-content-between">
                                 <p class="font-h6 font-bold text-gray-800 flex-grow-1 mb-1" style="color: #32325D">CONTEXT</p>
                                 <label class="custom-toggle" style="margin-top: 0">
-                                    <input type="checkbox" 
+                                    <input type="checkbox"
                                     :checked="isShowContext"
                                     @click="showContext">
                                     <span class="custom-toggle_slider round"></span>
                                 </label>
                             </div>
-                            
+
                             <div class="w-100" v-if="isShowContext">
                                 <div class="custom-input w-100 position-relative"
                                     :class="{ 'invalid-input': isInvalidContext }">
@@ -515,14 +515,14 @@ const PromptsParams = {
                             <div class="d-flex justify-content-between">
                                 <p class="font-h6 font-bold text-gray-800 flex-grow-1 mb-1" style="color: #32325D">RETRIEVER</p>
                                 <label class="custom-toggle" style="margin-top: 0">
-                                    <input type="checkbox" 
+                                    <input type="checkbox"
                                     :checked="isShowEmbedding"
                                     @click="showEmbedding">
                                     <span class="custom-toggle_slider round"></span>
                                 </label>
                             </div>
                             <div v-show="isShowEmbedding">
-                                <select 
+                                <select
                                     id="selectedPromptEmbedding" class="selectpicker bootstrap-select__b bootstrap-select__b-sm w-100-imp displacement-ml-4"
                                     @change="updateEmbeddings" v-model="editablePrompt.embeddings" data-style="btn">
                                     <option v-for="embedding in promptEmbeddings" :value="embedding.id">{{ embedding.library_name }}</option>
