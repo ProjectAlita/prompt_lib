@@ -8,6 +8,10 @@ from .list import PromptVersionListModel
 from ..enums.all import PromptVersionStatus
 
 
+class PromptTagDetailModel(PromptTagBaseModel):
+    id: int
+
+
 class PromptMessageDetailModel(PromptMessageBaseModel):
     id: int
     created_at: datetime
@@ -15,6 +19,7 @@ class PromptMessageDetailModel(PromptMessageBaseModel):
 
 
 class PromptVariableDetailModel(PromptVariableBaseModel):
+    id: int
     created_at: datetime
     updated_at: Optional[datetime]
 
@@ -26,7 +31,7 @@ class PromptVersionDetailModel(PromptVersionBaseModel):
     variables: Optional[List[PromptVariableDetailModel]]
     messages: Optional[List[PromptMessageDetailModel]]
     author: Optional[AuthorBaseModel]
-
+    tags: Optional[List[PromptTagDetailModel]]
 
 
 class PromptDetailModel(PromptBaseModel):
@@ -34,18 +39,3 @@ class PromptDetailModel(PromptBaseModel):
     versions: List[PromptVersionListModel]
     version_details: Optional[PromptVersionDetailModel]
     created_at: datetime
-
-    # @validator('latest', pre=True, always=True)
-    # def set_latest_version(cls, value, values, **kwargs):
-    #     from pylon.core.tools import log
-    #     # log.info('latest')
-    #     log.info(value)
-    #     # log.info(values)
-    #     # log.info(kwargs)
-    #     if value:
-    #         return value
-    #     for i in values['versions']:
-    #         if i.name == 'latest':
-    #             return i
-
-

@@ -100,34 +100,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
             for ver in prompt_data.versions:
                 create_version(ver, prompt=prompt, session=session)
-                # prompt_version = PromptVersion(**ver.dict(
-                #     exclude_unset=True,
-                #     exclude={'variables', 'messages', 'tags'}
-                # ))
-                # prompt_version.prompt = prompt
-                #
-                # if ver.variables:
-                #     for i in ver.variables:
-                #         prompt_variable = PromptVariable(**i.dict())
-                #         prompt_variable.prompt_version = prompt_version
-                #         session.add(prompt_variable)
-                # if ver.messages:
-                #     for i in ver.messages:
-                #         prompt_message = PromptMessage(**i.dict())
-                #         prompt_message.prompt_version = prompt_version
-                #         session.add(prompt_message)
-                #
-                # if ver.tags:
-                #     prompt_version.tags = []
-                #     existing_tags = session.query(PromptTag).filter(
-                #         PromptTag.name.in_({i.name for i in ver.tags})
-                #     ).all()
-                #     existing_tags_map = {i.name: i for i in existing_tags}
-                #     for i in ver.tags:
-                #         prompt_tag = existing_tags_map.get(i.name, PromptTag(**i.dict()))
-                #         prompt_version.tags.append(prompt_tag)
-                #
-                # session.add(prompt_version)
             session.add(prompt)
             session.commit()
 

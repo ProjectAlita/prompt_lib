@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Literal
 
 from pydantic import validator
 from .base import PromptBaseModel, PromptVersionBaseModel
@@ -9,16 +9,19 @@ from pylon.core.tools import log
 class PromptVersionCreateModel(PromptVersionBaseModel):
     type: PromptVersionType = PromptVersionType.chat
 
-
-class PromptVersionLatestCreateModel(PromptVersionCreateModel):
     @validator('name')
-    def check_latest(cls, value: str):
-        assert value == 'latest', "Name of created prompt version can only be 'latest'"
+    def check_latest(cls, value: str) -> str:
+        assert value != 'latest', "Name of created prompt version can not be 'latest'"
         return value
 
 
+class PromptVersionLatestCreateModel(PromptVersionBaseModel):
+    type: PromptVersionType = PromptVersionType.chat
+    name: Literal['latest'] = 'latest'
+
+
 class PromptCreateModel(PromptBaseModel):
-    versions: List[PromptVersionCreateModel]
+    versions: List[PromptVersionLatestCreateModel]
 
     @validator('versions')
     def check_only_latest_version(cls, value: Optional[List[dict]], values: dict):
