@@ -9,8 +9,18 @@ from tools import rpc_tools
 
 class TagV1Model(BaseModel):
     id: int
-    name: str
+    tag: str
     color: Optional[str]
+
+    class Config:
+        fields = {
+            'tag': 'name'
+        }
+
+    @root_validator(pre=True)
+    def parse_values(cls, values):
+        values['color'] = values.get('data', {}).get('color')
+        return values
 
 
 class VersionV1Model(BaseModel):
@@ -21,8 +31,6 @@ class VersionV1Model(BaseModel):
     @root_validator(pre=True)
     def parse_values(cls, values):
         values['version'] = values['name']
-        if values.get('tags'):
-            values['tags'] = [tag | tag.get('data', {}) for tag in values['tags']]
         return values
 
 
@@ -51,7 +59,7 @@ class PromptV1Model(BaseModel):
                 values['type'] = latest_version['type']
                 values['created_at'] = latest_version['created_at']
                 values['prompt'] = latest_version['context']
-                values['tags'] = [tag | tag.get('data', {}) for tag in latest_version['tags']]
+                values['tags'] = latest_version['tags']
                 if latest_version.get('model_settings'):
                     model = latest_version['model_settings'].pop('model', {})
                     values['integration_uid'] = model.get('integration_uid')

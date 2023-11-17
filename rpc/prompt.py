@@ -10,7 +10,7 @@ from sqlalchemy.orm import joinedload, load_only, defer
 from ..utils.ai_providers import AIProvider
 
 from ..models.all import Prompt, PromptVersion
-from ..models.pd.v1_structure import PromptV1Model
+from ..models.pd.v1_structure import PromptV1Model, TagV1Model
 from traceback import format_exc
 from tools import rpc_tools, db
 
@@ -80,7 +80,7 @@ class RPC:
 
             result['examples'] = examples
             result['variables'] = [var.to_json() for var in prompt_version.variables]
-            result['tags'] = [tag.to_json() for tag in prompt_version.tags]
+            result['tags'] = [TagV1Model(**tag.to_json()).dict() for tag in prompt_version.tags]
             result['versions'] = [{
                 'id': version.id,
                 'version': version.name,
