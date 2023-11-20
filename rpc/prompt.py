@@ -53,6 +53,8 @@ class RPC:
                 return None
 
             result = prompt_version.to_json()
+            result['id'] = prompt_version.prompt.id
+            result['version'] = result['name']
             result['name'] = prompt_version.prompt.name
             result['prompt'] = result.pop('context')
 

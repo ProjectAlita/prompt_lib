@@ -59,9 +59,9 @@ const Prompts = {
         }
     },
     methods: {
-        FetchPromptById(promptId) {
+        FetchPromptById(promptId, versionName='latest') {
             this.isPromptLoading = true;
-            ApiFetchPromptById(promptId).then(data => {
+            ApiFetchPromptById(promptId, versionName).then(data => {
                 this.isPromptLoading = false;
                 this.selectedPrompt = _.cloneDeep(data);
             })

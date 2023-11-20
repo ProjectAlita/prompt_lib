@@ -6,9 +6,11 @@ const ApiFetchPrompts = async () => {
     return res.json();
 }
 
-const ApiFetchPromptById = async (promptId) => {
+const ApiFetchPromptById = async (promptId, versionName='latest') => {
     const api_url = V.build_api_url(plugin_name, 'prompt')
-    const res = await fetch(`${api_url}/${getSelectedProjectId()}/${promptId}`, {
+    const url_params = new URLSearchParams({version: versionName})
+    const url = `${api_url}/${getSelectedProjectId()}/${promptId}?${url_params.toString()}`
+    const res = await fetch(url, {
         method: 'GET',
     })
     return res.json();

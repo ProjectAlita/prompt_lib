@@ -101,7 +101,7 @@ const PromptsParams = {
         },
         selectedPrompt: {
             handler: function (newVal, oldVal) {
-                if (newVal.id === this.editablePrompt.id) return;
+                if (newVal.id === this.editablePrompt.id && newVal.version === this.editablePrompt.version) return;
                 this.editablePrompt = _.cloneDeep(newVal);
                 if (newVal.integration_uid) {
                     this.integrations.forEach(integration => {
@@ -397,7 +397,7 @@ const PromptsParams = {
             this.editablePrompt.tags = tags;
         },
         LoadVersion() {
-            vueVm.registered_components['prompts'].FetchPromptById(this.selectedPromptVersion.id);
+            vueVm.registered_components['prompts'].FetchPromptById(this.selectedPrompt.id, this.selectedPromptVersion.version);
         },
         deleteVersion() {
             ApiDeletePrompt(this.selectedPromptVersion.id).then(data => {
