@@ -2,18 +2,24 @@ import json
 from io import BytesIO
 from itertools import chain
 
-from flask import request, send_file
+from flask import g, request, send_file
 from pylon.core.tools import log
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
+
+
 # from ...models.pd.example import ExampleModel
 # from ...models.pd.export_import import PromptExport, PromptImport
 # from ...models.pd.variable import VariableModel
-# from ...models.pd.tag import PromptTagModel
 # from ...models.prompts import Prompt
+from ...utils.create_utils import create_version
+from ...models.all import Prompt
+from ...models.pd.base import PromptVersionBaseModel
+from ...models.pd.dial import DialImportModel
 
 from tools import api_tools, db, auth, config as c
+from ...utils.constants import PROMPT_LIB_MODE
 
 
 class ProjectAPI(api_tools.APIModeHandler):
@@ -108,14 +114,46 @@ class ProjectAPI(api_tools.APIModeHandler):
         return self.module.get_by_id(project_id, p['id']), 201
 
 
+class PromptLibAPI(api_tools.APIModeHandler):
+
+    def post(self, project_id: int, **kwargs):
+
+        try:
+            prompts_data = DialImportModel.parse_obj(request.json)
+        except Exception as e:
+            log.critical(str(e))
+            return {'error': str(e)}, 400
+
+        prompts_dict = prompts_data.dict(exclude_unset=True)
+        log.info('settings parse result: %s', prompts_dict)
+
+        with db.with_project_schema_session(project_id) as session:
+            for prompt_dict in prompts_dict['prompts']:
+                prompt = Prompt(
+                    name=prompt_dict['name'],
+                    description=prompt_dict.get('description'),
+                    owner_id=project_id
+                )
+                ver = PromptVersionBaseModel(
+                    name='latest',
+                    author_id=g.auth.id,
+                    context=prompt_dict['content'],
+                    type='chat'
+                )
+                create_version(ver, prompt=prompt, session=session)
+                session.add(prompt)
+            session.commit()
+
+        return '', 201
+
+
 class API(api_tools.APIBase):
-    url_params = [
+    url_params = api_tools.with_modes([
         '<int:project_id>/<int:prompt_id>',
-        '<string:mode>/<int:project_id>/<int:prompt_id>',
         '<int:project_id>',
-        '<string:mode>/<int:project_id>',
-    ]
+    ])
 
     mode_handlers = {
         c.DEFAULT_MODE: ProjectAPI,
+        PROMPT_LIB_MODE: PromptLibAPI,
     }
