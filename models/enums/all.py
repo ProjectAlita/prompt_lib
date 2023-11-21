@@ -9,6 +9,9 @@ except ImportError:
 class PromptVersionStatus(StrEnum):
     draft = 'draft'
     on_moderation = 'on_moderation'
+    published = 'published'
+    rejected = 'rejected'
+    user_approval = 'user_approval'
 
 
 class PromptVersionType(StrEnum):

@@ -11,7 +11,7 @@ from pylon.core.tools import web, log
 from tools import api_tools, config as c, db, auth
 
 from pydantic import ValidationError
-from ...models.all import Prompt
+from ...models.all import Prompt, PromptVersion, PromptTag
 from ...models.pd.create import PromptCreateModel
 from ...models.pd.detail import PromptDetailModel, PromptVersionDetailModel
 from ...models.pd.list import PromptListModel, PromptTagListModel
@@ -60,8 +60,32 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
     def get(self, project_id: int | None = None, **kwargs):
         project_id = self._get_project_id(project_id)
+
+        filters = []
+        if tags := request.args.get('tags'):
+            # # Filtering parameters
+            # tags = request.args.getlist("tags", type=int)
+            if isinstance(tags, str):
+                tags = tags.split(',')
+            filters.append(Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags))))
+
+        # Pagination parameters
+        limit = request.args.get("limit", default=10, type=int)
+        offset = request.args.get("offset", default=0, type=int)
+
+        # Sorting parameters
+        sort_by = request.args.get("sort_by", default="created_at")
+        sort_order = request.args.get("sort_order", default="desc")
+
         # list prompts
-        total, prompts = list_prompts(project_id, request.args)
+        total, prompts = list_prompts(
+            project_id,
+            limit=limit,
+            offset=offset,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            filters=filters
+        )
         # parsing
         all_authors = set()
         parsed: List[PromptListModel] = []

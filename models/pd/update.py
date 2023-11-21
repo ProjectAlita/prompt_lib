@@ -1,6 +1,6 @@
-from typing import List, Optional
+from typing import List, Optional, Literal
 
-from pydantic import validator
+from pydantic import validator, BaseModel
 from .base import (
     PromptBaseModel,
     PromptVersionBaseModel,
@@ -9,6 +9,8 @@ from .base import (
     PromptTagBaseModel
 )
 from pylon.core.tools import log
+
+from ..enums.all import PromptVersionType
 
 
 class PromptUpdateModel(PromptBaseModel):
@@ -29,7 +31,8 @@ class PromptTagUpdateModel(PromptTagBaseModel):
 
 class PromptVersionUpdateModel(PromptVersionBaseModel):
     id: Optional[int]
-    name: str = 'latest'
+    type: Optional[PromptVersionType]
+    name: Literal['latest']
     variables: Optional[List[PromptVariableUpdateModel]] = []
     messages: Optional[List[PromptMessageUpdateModel]] = []
     tags: Optional[List[PromptTagUpdateModel]] = []

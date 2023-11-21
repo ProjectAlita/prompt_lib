@@ -1,6 +1,6 @@
 from json import loads
 import json
-from typing import List
+from typing import List, Optional
 from sqlalchemy import func, cast, String
 from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import IntegrityError
@@ -110,7 +110,7 @@ def prompts_update_version(project_id: int, version_data: PromptVersionUpdateMod
         if version.name != 'latest':
             return {'updated': False, 'msg': 'Only latest prompt version can be updated'}
 
-        for key, value in version_data.dict(exclude={'variables', 'messages', 'tags'}).items():
+        for key, value in version_data.dict(exclude={'variables', 'messages', 'tags'}, exclude_unset=True).items():
             setattr(version, key, value)
         try:
             _update_related_table(session, version, version_data.variables, PromptVariable)
@@ -135,29 +135,21 @@ def prompts_update_version(project_id: int, version_data: PromptVersionUpdateMod
         return {'updated': True, 'data': json.loads(result.json())}
 
 
-def list_prompts(project_id: int, args=None):
-    if args is None:
-        args = {}
-    # Pagination parameters
-    limit = args.get("limit", default=10, type=int)
-    offset = args.get("offset", default=0, type=int)
-
-    # Sorting parameters
-    sort_by = args.get("sort_by", default="created_at")
-    sort_order = args.get("sort_order", default="desc")
-
-    # Filtering parameters
-    tags = args.getlist("tags", type=int)
+def list_prompts(project_id: int,
+                 limit: int = 10, offset: int = 0,
+                 sort_by: str = 'created_at',
+                 sort_order: str = 'desc',
+                 filters: Optional[list] = None):
+    if filters is None:
+        filters = []
 
     with db.with_project_schema_session(project_id) as session:
-        query: List[Prompt] = session.query(Prompt).options(
+        query = session.query(Prompt).options(
             joinedload(Prompt.versions).joinedload(PromptVersion.tags)
         )
 
-        if tags:
-            query = query.filter(
-                Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags)))
-            )
+        if filters:
+            query = query.filter(*filters)
 
         # Apply sorting
         if sort_order.lower() == "asc":
@@ -168,5 +160,5 @@ def list_prompts(project_id: int, args=None):
         total = query.count()
         # Apply limit and offset for pagination
         query = query.limit(limit).offset(offset)
-        prompts = query.all()
+        prompts: List[Prompt] = query.all()
     return total, prompts
