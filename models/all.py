@@ -20,6 +20,8 @@ class Prompt(db_tools.AbstractBaseMixin, db.Base):
     owner_id: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
 
+    def get_latest_version(self):
+        return next(version for version in self.versions if version.name == 'latest')
 
 class PromptVersion(db_tools.AbstractBaseMixin, db.Base):
     __tablename__ = 'prompt_versions'

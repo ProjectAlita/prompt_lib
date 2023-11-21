@@ -1,6 +1,8 @@
+from datetime import date
 import json
 from io import BytesIO
 from itertools import chain
+from typing import List
 
 from flask import g, request, send_file
 from pylon.core.tools import log
@@ -16,7 +18,7 @@ from sqlalchemy.orm import joinedload
 from ...utils.create_utils import create_version
 from ...models.all import Prompt
 from ...models.pd.base import PromptVersionBaseModel
-from ...models.pd.dial import DialImportModel
+from ...models.pd.dial import DialImportModel, DialModelImportModel, DialPromptImportModel
 
 from tools import api_tools, db, auth, config as c
 from ...utils.constants import PROMPT_LIB_MODE
@@ -116,8 +118,36 @@ class ProjectAPI(api_tools.APIModeHandler):
 
 class PromptLibAPI(api_tools.APIModeHandler):
 
-    def post(self, project_id: int, **kwargs):
+    def get(self, project_id: int, **kwargs):
+        with db.with_project_schema_session(project_id) as session:
+            prompts: List[Prompt] = session.query(Prompt).options(
+                joinedload(Prompt.versions)).all()
 
+            prompts_to_export = []
+            for prompt in prompts:
+                latest_version = prompt.get_latest_version()
+                export_data = {
+                    'content': latest_version.context or '',
+                    **prompt.to_json()
+                }
+                if latest_version.model_settings:
+                    export_data['model'] = DialModelImportModel(
+                        id=latest_version.model_settings.get('model', {}).get('name', '')
+                        )
+                prompts_to_export.append(DialPromptImportModel(**export_data))
+
+            result = DialImportModel(prompts=prompts_to_export, folders=[])
+            result = result.dict()
+
+            if 'as_file' in request.args:
+                file = BytesIO()
+                data = json.dumps(result, ensure_ascii=False, indent=4)
+                file.write(data.encode('utf-8'))
+                file.seek(0)
+                return send_file(file, download_name=f'alita_prompts_{date.today()}.json', as_attachment=False)
+            return result, 200
+
+    def post(self, project_id: int, **kwargs):
         try:
             prompts_data = DialImportModel.parse_obj(request.json)
         except Exception as e:
