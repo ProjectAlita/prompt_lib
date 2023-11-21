@@ -8,12 +8,13 @@ from pydantic import parse_obj_as
 from sqlalchemy.orm import joinedload, load_only, defer
 
 from ..utils.ai_providers import AIProvider
-
-from ..models.all import Prompt, PromptVersion
 from ..models.pd.v1_structure import PromptV1Model, TagV1Model
 from traceback import format_exc
 from tools import rpc_tools, db
-
+from ..models.all import (
+    Prompt,
+    PromptVersion,
+)
 
 class RPC:
     @web.rpc(f'prompt_lib_get_all', "get_all")
