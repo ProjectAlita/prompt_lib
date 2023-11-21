@@ -133,3 +133,40 @@ def prompts_update_version(project_id: int, version_data: PromptVersionUpdateMod
 
         result = PromptVersionDetailModel.from_orm(version)
         return {'updated': True, 'data': json.loads(result.json())}
+
+
+def list_prompts(project_id: int, args=None):
+    if args is None:
+        args = {}
+    # Pagination parameters
+    limit = args.get("limit", default=10, type=int)
+    offset = args.get("offset", default=0, type=int)
+
+    # Sorting parameters
+    sort_by = args.get("sort_by", default="created_at")
+    sort_order = args.get("sort_order", default="desc")
+
+    # Filtering parameters
+    tags = args.getlist("tags", type=int)
+
+    with db.with_project_schema_session(project_id) as session:
+        query: List[Prompt] = session.query(Prompt).options(
+            joinedload(Prompt.versions).joinedload(PromptVersion.tags)
+        )
+
+        if tags:
+            query = query.filter(
+                Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags)))
+            )
+
+        # Apply sorting
+        if sort_order.lower() == "asc":
+            query = query.order_by(getattr(Prompt, sort_by))
+        else:
+            query = query.order_by(getattr(Prompt, sort_by).desc())
+        
+        total = query.count()
+        # Apply limit and offset for pagination
+        query = query.limit(limit).offset(offset)
+        prompts = query.all()
+    return total, prompts

@@ -4,19 +4,14 @@ from sqlalchemy.orm import joinedload
 from ...models.pd.base import PromptTagBaseModel
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.create_utils import create_version
+from ...utils.prompt_utils import list_prompts
 from ...utils.prompt_utils_legacy import prompts_create_prompt
 from flask import request, g
 from pylon.core.tools import web, log
 from tools import api_tools, config as c, db, auth
 
 from pydantic import ValidationError
-from ...models.all import (
-    Prompt,
-    PromptVersion,
-    PromptVariable,
-    PromptMessage,
-    PromptTag,
-)
+from ...models.all import Prompt
 from ...models.pd.create import PromptCreateModel
 from ...models.pd.detail import PromptDetailModel, PromptVersionDetailModel
 from ...models.pd.list import PromptListModel, PromptTagListModel
@@ -66,7 +61,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def get(self, project_id: int | None = None, **kwargs):
         project_id = self._get_project_id(project_id)
         # list prompts
-        total, prompts = self.module.list_prompts(project_id, request.args)
+        total, prompts = list_prompts(project_id, request.args)
         # parsing
         all_authors = set()
         parsed: List[PromptListModel] = []
