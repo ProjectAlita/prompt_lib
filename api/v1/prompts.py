@@ -65,59 +65,33 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
     def get(self, project_id: int | None = None, **kwargs):
         project_id = self._get_project_id(project_id)
-        # Pagination parameters
-        limit = request.args.get("limit", default=10, type=int)
-        offset = request.args.get("offset", default=0, type=int)
+        # list prompts
+        total, prompts = self.module.list_prompts(project_id, request.args)
+        # parsing
+        all_authors = set()
+        parsed: List[PromptListModel] = []
+        for i in prompts:
+            p = PromptListModel.from_orm(i)
+            # p.author_ids = set()
+            tags = dict()
+            for v in i.versions:
+                for t in v.tags:
+                    tags[t.name] = PromptTagListModel.from_orm(t).dict()
+                p.author_ids.add(v.author_id)
+                all_authors.update(p.author_ids)
+            p.tags = list(tags.values())
+            parsed.append(p)
 
-        # Sorting parameters
-        sort_by = request.args.get("sort_by", default="created_at")
-        sort_order = request.args.get("sort_order", default="desc")
+        users = auth.list_users(user_ids=list(all_authors))
+        user_map = {i["id"]: i for i in users}
 
-        # Filtering parameters
-        tags = request.args.getlist("tags", type=int)
-        log.info(tags)
+        for i in parsed:
+            i.set_authors(user_map)
 
-        with db.with_project_schema_session(project_id) as session:
-            query: List[Prompt] = session.query(Prompt).options(
-                joinedload(Prompt.versions).joinedload(PromptVersion.tags)
-            )
-
-            if tags:
-                query = query.filter(
-                    Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags)))
-                )
-
-            # Apply sorting
-            if sort_order.lower() == "asc":
-                query = query.order_by(getattr(Prompt, sort_by))
-            else:
-                query = query.order_by(getattr(Prompt, sort_by).desc())
-
-            # Apply limit and offset for pagination
-            query = query.limit(limit).offset(offset)
-            prompts = query.all()
-
-            all_authors = set()
-            parsed: List[PromptListModel] = []
-            for i in prompts:
-                p = PromptListModel.from_orm(i)
-                # p.author_ids = set()
-                tags = dict()
-                for v in i.versions:
-                    for t in v.tags:
-                        tags[t.name] = PromptTagListModel.from_orm(t).dict()
-                    p.author_ids.add(v.author_id)
-                    all_authors.update(p.author_ids)
-                p.tags = list(tags.values())
-                parsed.append(p)
-
-            users = auth.list_users(user_ids=list(all_authors))
-            user_map = {i["id"]: i for i in users}
-
-            for i in parsed:
-                i.set_authors(user_map)
-
-            return [json.loads(i.json(exclude={"author_ids"})) for i in parsed], 200
+        return {
+            "rows": [json.loads(i.json(exclude={"author_ids"})) for i in parsed],
+            "total": total
+        },  200
 
     def post(self, project_id: int | None = None, **kwargs):
         project_id = self._get_project_id(project_id)
