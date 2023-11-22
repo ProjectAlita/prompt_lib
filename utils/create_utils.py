@@ -90,7 +90,7 @@ def create_version(
         prompt_version.prompt = prompt
 
     create_variables(version_data.variables, prompt_version=prompt_version, session=session)
-    create_messages(version_data.messages)
+    create_messages(version_data.messages, prompt_version=prompt_version, session=session)
     if version_data.tags:
         project_id = None
         if prompt:

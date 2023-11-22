@@ -1,4 +1,5 @@
 from json import loads
+import json
 from typing import List, Optional
 from sqlalchemy import func, cast, String
 from sqlalchemy.orm import joinedload
@@ -7,11 +8,11 @@ from sqlalchemy.exc import IntegrityError
 from tools import db
 from pylon.core.tools import log
 
-from ..models.all import PromptVariable
+from ..models.all import Prompt, PromptVersion, PromptVariable, PromptMessage, PromptTag, PromptVersionTagAssociation
 from ..models.pd.legacy.variable import VariableModel
 from ..models.pd.update import PromptVersionUpdateModel
 from ..models.pd.detail import PromptVersionDetailModel
-from ..models.all import Prompt, PromptVersion, PromptVariable, PromptMessage, PromptTag, PromptVersionTagAssociation
+from ..models.pd.list import PromptTagListModel
 
 
 def create_variables_bulk(project_id: int, variables: List[dict], **kwargs) -> List[dict]:
@@ -43,7 +44,7 @@ def get_prompt_tags(project_id: int, prompt_id: int) -> List[dict]:
             .filter(PromptVersion.prompt_id == prompt_id)
             .order_by(PromptVersion.id)
         )
-        return [tag.to_json() for tag in query.all()]
+        return [PromptTagListModel.from_orm(tag).dict() for tag in query.all()]
 
 
 def get_all_ranked_tags(project_id: int, top_n: int=20) -> List[dict]:

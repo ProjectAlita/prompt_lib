@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
 from ...models.pd.detail import PromptDetailModel
-from ...models.pd.create import PromptCreateModel
+from ...models.pd.base import PromptBaseModel
 from tools import api_tools, db, auth, config as c
 
 # from ...models.pd.example import ExampleModel
@@ -19,7 +19,7 @@ from tools import api_tools, db, auth, config as c
 # from ...models.pd.variable import VariableModel
 # from ...models.prompts import Prompt
 from ...models.all import Prompt
-from ...models.pd.dial import DialImportModel
+from ...models.pd.export_import import DialImportModel
 
 from ...utils.create_utils import create_prompt
 from ...utils.export_import_utils import prompts_export, prompts_export_to_dial, prompts_import_from_dial
@@ -162,12 +162,13 @@ class PromptLibAPI(api_tools.APIModeHandler):
                     for version in raw.get("versions", []):
                         version["author_id"] = g.auth.id
                     try:
-                        prompt_data = PromptCreateModel.parse_obj(raw)
+                        prompt_data = PromptBaseModel.parse_obj(raw)
                     except ValidationError as e:
                         errors.append(e.errors())
                         continue
 
                     prompt = create_prompt(prompt_data, session)
+                    session.flush()
                     result = PromptDetailModel.from_orm(prompt)
                     created.append(json.loads(result.json()))
                 session.commit()
