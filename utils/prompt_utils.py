@@ -1,5 +1,4 @@
 from json import loads
-import json
 from typing import List, Optional
 from sqlalchemy import func, cast, String
 from sqlalchemy.orm import joinedload
@@ -132,7 +131,7 @@ def prompts_update_version(project_id: int, version_data: PromptVersionUpdateMod
             return {'updated': False, 'msg': 'Values you passed violates unique constraint'}
 
         result = PromptVersionDetailModel.from_orm(version)
-        return {'updated': True, 'data': json.loads(result.json())}
+        return {'updated': True, 'data': loads(result.json())}
 
 
 def list_prompts(project_id: int,
@@ -156,7 +155,7 @@ def list_prompts(project_id: int,
             query = query.order_by(getattr(Prompt, sort_by))
         else:
             query = query.order_by(getattr(Prompt, sort_by).desc())
-        
+
         total = query.count()
         # Apply limit and offset for pagination
         query = query.limit(limit).offset(offset)

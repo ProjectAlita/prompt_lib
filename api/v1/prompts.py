@@ -1,21 +1,19 @@
+import json
+from flask import request, g
+from pydantic import ValidationError
 from typing import List
 
-from sqlalchemy.orm import joinedload
-from ...models.pd.base import PromptTagBaseModel
-from ...utils.constants import PROMPT_LIB_MODE
-from ...utils.create_utils import create_version
-from ...utils.prompt_utils import list_prompts
-from ...utils.prompt_utils_legacy import prompts_create_prompt
-from flask import request, g
 from pylon.core.tools import web, log
 from tools import api_tools, config as c, db, auth
-
-from pydantic import ValidationError
 from ...models.all import Prompt, PromptVersion, PromptTag
 from ...models.pd.create import PromptCreateModel
 from ...models.pd.detail import PromptDetailModel, PromptVersionDetailModel
 from ...models.pd.list import PromptListModel, PromptTagListModel
-import json
+
+from ...utils.constants import PROMPT_LIB_MODE
+from ...utils.create_utils import create_prompt
+from ...utils.prompt_utils import list_prompts
+from ...utils.prompt_utils_legacy import prompts_create_prompt
 
 
 class ProjectAPI(api_tools.APIModeHandler):
@@ -125,14 +123,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             return e.errors(), 400
 
         with db.with_project_schema_session(project_id) as session:
-            prompt = Prompt(
-                **prompt_data.dict(exclude_unset=True, exclude={"versions"})
-            )
-
-            for ver in prompt_data.versions:
-                create_version(ver, prompt=prompt, session=session)
-            session.add(prompt)
-            session.commit()
+            prompt = create_prompt(prompt_data, session)
 
             result = PromptDetailModel.from_orm(prompt)
             result.version_details = PromptVersionDetailModel.from_orm(

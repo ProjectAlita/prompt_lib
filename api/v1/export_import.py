@@ -2,25 +2,27 @@ from datetime import date
 import json
 from io import BytesIO
 from itertools import chain
-from typing import List
 
 from flask import g, request, send_file
+from pydantic import ValidationError
 from pylon.core.tools import log
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
+from ...models.pd.detail import PromptDetailModel
+from ...models.pd.create import PromptCreateModel
+from tools import api_tools, db, auth, config as c
 
 # from ...models.pd.example import ExampleModel
 # from ...models.pd.export_import import PromptExport, PromptImport
 # from ...models.pd.variable import VariableModel
 # from ...models.prompts import Prompt
-from ...utils.create_utils import create_version
 from ...models.all import Prompt
-from ...models.pd.base import PromptVersionBaseModel
-from ...models.pd.dial import DialImportModel, DialModelImportModel, DialPromptImportModel
+from ...models.pd.dial import DialImportModel
 
-from tools import api_tools, db, auth, config as c
+from ...utils.create_utils import create_prompt
+from ...utils.export_import_utils import prompts_export, prompts_export_to_dial, prompts_import_from_dial
 from ...utils.constants import PROMPT_LIB_MODE
 
 
@@ -118,63 +120,59 @@ class ProjectAPI(api_tools.APIModeHandler):
 
 class PromptLibAPI(api_tools.APIModeHandler):
 
-    def get(self, project_id: int, **kwargs):
-        with db.with_project_schema_session(project_id) as session:
-            prompts: List[Prompt] = session.query(Prompt).options(
-                joinedload(Prompt.versions)).all()
-
-            prompts_to_export = []
-            for prompt in prompts:
-                latest_version = prompt.get_latest_version()
-                export_data = {
-                    'content': latest_version.context or '',
-                    **prompt.to_json()
-                }
-                if latest_version.model_settings:
-                    export_data['model'] = DialModelImportModel(
-                        id=latest_version.model_settings.get('model', {}).get('name', '')
-                        )
-                prompts_to_export.append(DialPromptImportModel(**export_data))
-
-            result = DialImportModel(prompts=prompts_to_export, folders=[])
-            result = result.dict()
-
-            if 'as_file' in request.args:
-                file = BytesIO()
-                data = json.dumps(result, ensure_ascii=False, indent=4)
-                file.write(data.encode('utf-8'))
-                file.seek(0)
-                return send_file(file, download_name=f'alita_prompts_{date.today()}.json', as_attachment=False)
-            return result, 200
+    def get(self, project_id: int, prompt_id: int = None, **kwargs):
+        if 'to_dial' in request.args:
+            result = prompts_export_to_dial(project_id, prompt_id)
+        else:
+            result = prompts_export(project_id, prompt_id)
+        if 'as_file' in request.args:
+            file = BytesIO()
+            data = json.dumps(result, ensure_ascii=False, indent=4)
+            file.write(data.encode('utf-8'))
+            file.seek(0)
+            return send_file(file, download_name=f'alita_prompts_{date.today()}.json', as_attachment=False)
+        return result, 200
 
     def post(self, project_id: int, **kwargs):
-        try:
-            prompts_data = DialImportModel.parse_obj(request.json)
-        except Exception as e:
-            log.critical(str(e))
-            return {'error': str(e)}, 400
+        created = []
+        errors = []
 
-        prompts_dict = prompts_data.dict(exclude_unset=True)
-        log.info('settings parse result: %s', prompts_dict)
+        if 'from_dial' in request.args:
+            try:
+                imported_data = DialImportModel.parse_obj(request.json)
+            except Exception as e:
+                log.critical(str(e))
+                return {'error': str(e)}, 400
 
-        with db.with_project_schema_session(project_id) as session:
-            for prompt_dict in prompts_dict['prompts']:
-                prompt = Prompt(
-                    name=prompt_dict['name'],
-                    description=prompt_dict.get('description'),
-                    owner_id=project_id
-                )
-                ver = PromptVersionBaseModel(
-                    name='latest',
-                    author_id=g.auth.id,
-                    context=prompt_dict['content'],
-                    type='chat'
-                )
-                create_version(ver, prompt=prompt, session=session)
-                session.add(prompt)
-            session.commit()
+            prompts_data = imported_data.dict(exclude_unset=True)
 
-        return '', 201
+            with db.with_project_schema_session(project_id) as session:
+                for prompt_data in prompts_data['prompts']:
+                    prompt = prompts_import_from_dial(project_id, prompt_data, session)
+                    result = PromptDetailModel.from_orm(prompt)
+                    created.append(json.loads(result.json()))
+                session.commit()
+
+        else:
+            imported_data = dict(request.json)
+
+            with db.with_project_schema_session(project_id) as session:
+                for raw in imported_data.get('prompts'):
+                    raw["owner_id"] = project_id
+                    for version in raw.get("versions", []):
+                        version["author_id"] = g.auth.id
+                    try:
+                        prompt_data = PromptCreateModel.parse_obj(raw)
+                    except ValidationError as e:
+                        errors.append(e.errors())
+                        continue
+
+                    prompt = create_prompt(prompt_data, session)
+                    result = PromptDetailModel.from_orm(prompt)
+                    created.append(json.loads(result.json()))
+                session.commit()
+
+        return {'created': created, 'errors': errors}, 201
 
 
 class API(api_tools.APIBase):

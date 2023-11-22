@@ -1,6 +1,6 @@
 from ..models.all import PromptVersion, PromptVariable, Prompt, PromptMessage, PromptTag
 from ..models.pd.base import PromptVariableBaseModel, PromptMessageBaseModel, PromptTagBaseModel
-from ..models.pd.create import PromptVersionCreateModel
+from ..models.pd.create import PromptCreateModel, PromptVersionCreateModel
 from typing import Generator, List
 
 
@@ -103,3 +103,15 @@ def create_version(
     if session:
         session.add(prompt_version)
     return prompt_version
+
+
+def create_prompt(prompt_data: PromptCreateModel, session=None) -> Prompt:
+    prompt = Prompt(
+        **prompt_data.dict(exclude_unset=True, exclude={"versions"})
+    )
+
+    for ver in prompt_data.versions:
+        create_version(ver, prompt=prompt, session=session)
+    if session:
+        session.add(prompt)
+    return prompt
