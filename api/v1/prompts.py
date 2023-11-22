@@ -124,6 +124,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         with db.with_project_schema_session(project_id) as session:
             prompt = create_prompt(prompt_data, session)
+            session.commit()
 
             result = PromptDetailModel.from_orm(prompt)
             result.version_details = PromptVersionDetailModel.from_orm(

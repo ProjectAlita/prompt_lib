@@ -1,6 +1,6 @@
 from ..models.all import PromptVersion, PromptVariable, Prompt, PromptMessage, PromptTag
 from ..models.pd.base import PromptVariableBaseModel, PromptMessageBaseModel, PromptTagBaseModel
-from ..models.pd.create import PromptCreateModel, PromptVersionCreateModel
+from ..models.pd.create import PromptCreateModel, PromptVersionCreateModel, PromptVersionLatestCreateModel
 from typing import Generator, List
 
 
@@ -78,7 +78,7 @@ def generate_tags(
 
 
 def create_version(
-        version_data: PromptVersionCreateModel,
+        version_data: PromptVersionCreateModel | PromptVersionLatestCreateModel,
         prompt: Prompt | None = None,
         session=None
 ) -> PromptVersion:
