@@ -92,14 +92,14 @@ def _update_related_table(session, version, version_data, db_model):
         session.delete(entity)
 
 
-def prompts_update_version(project_id: int, version_data: PromptVersionUpdateModel) -> List[dict]:
+def prompts_update_version(project_id: int, version_data: PromptVersionUpdateModel) -> dict:
     with db.with_project_schema_session(project_id) as session:
         if version_data.id:
-            version = session.query(PromptVersion).filter(
+            version: PromptVersion = session.query(PromptVersion).filter(
                 PromptVersion.id == version_data.id
             ).first()
         else:
-            version = session.query(PromptVersion).filter(
+            version: PromptVersion = session.query(PromptVersion).filter(
                 PromptVersion.prompt_id == version_data.prompt_id,
                 PromptVersion.name == version_data.name,
             ).first()
@@ -109,10 +109,24 @@ def prompts_update_version(project_id: int, version_data: PromptVersionUpdateMod
         if version.name != 'latest':
             return {'updated': False, 'msg': 'Only latest prompt version can be updated'}
 
-        for key, value in version_data.dict(exclude={'variables', 'messages', 'tags'}, exclude_unset=True).items():
+        for key, value in version_data.dict(exclude={'variables', 'messages', 'tags'}).items():
             setattr(version, key, value)
+
+        # Updating variables
+        result_variables = []
+        for update_var in version_data.variables:
+            for existing_var in version.variables:
+                if existing_var.name == update_var.name:
+                    existing_var.value = update_var.value
+                    result_variables.append(existing_var)
+                    break
+            else:
+                variable = PromptVariable(**update_var.dict())
+                variable.prompt_version = version
+                result_variables.append(variable)
+        version.variables = result_variables
+
         try:
-            _update_related_table(session, version, version_data.variables, PromptVariable)
             _update_related_table(session, version, version_data.messages, PromptMessage)
 
             version.tags.clear()

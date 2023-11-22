@@ -40,9 +40,9 @@ class PromptVersion(db_tools.AbstractBaseMixin, db.Base):
     context: Mapped[str] = mapped_column(String, nullable=True)
     author_id: Mapped[int] = mapped_column(Integer, nullable=False)
     variables: Mapped[List['PromptVariable']] = relationship(back_populates='prompt_version', lazy=True,
-                                                             cascade='all, delete')
+                                                             cascade='all, delete-orphan')
     messages: Mapped[List['PromptMessage']] = relationship(back_populates='prompt_version', lazy=True,
-                                                           cascade='all, delete', order_by='PromptMessage.id')
+                                                           cascade='all, delete-orphan', order_by='PromptMessage.id')
     tags: Mapped[List['PromptTag']] = relationship(secondary=lambda: PromptVersionTagAssociation,
                                                    backref='prompt_version', lazy='joined')
     model_settings: Mapped[dict] = mapped_column(JSON, nullable=True)
@@ -79,6 +79,7 @@ class PromptMessage(db_tools.AbstractBaseMixin, db.Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, onupdate=func.now())
     custom_content: Mapped[dict] = mapped_column(JSON, nullable=True)
+    # todo: add order
 
 
 class PromptTag(db_tools.AbstractBaseMixin, db.Base):
