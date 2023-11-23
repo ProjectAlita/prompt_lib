@@ -35,9 +35,12 @@ class RPC:
             section_name='ai'
         )
 
+        personal_project_id = self.context.rpc_manager.timeout(2).projects_get_personal_project_id(user_id)
+
         data = ModelsConfig(
             url=url,
             project_id=project_id,
+            personal_project_id=personal_project_id,
             token=token,
             integrations=[i.dict(include={'id', 'uid', 'name', 'is_default', 'config'}) for i in ai_integrations]
         )
