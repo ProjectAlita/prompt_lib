@@ -89,6 +89,14 @@ class PromptLibAPI(api_tools.APIModeHandler):
             result.version_details.author = auth.get_user(user_id=prompt_version.author_id)
             return json.loads(result.json()), 200
 
+    def delete(self, project_id, prompt_id):
+        with db.with_project_schema_session(project_id) as session:
+            if prompt := session.query(Prompt).get(prompt_id):
+                session.delete(prompt)
+                session.commit()
+                return '', 204
+            return '', 404
+
 
 class API(api_tools.APIBase):
     url_params = api_tools.with_modes([

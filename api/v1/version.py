@@ -50,7 +50,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             version_details.author = auth.get_user(user_id=prompt_version.author_id)
             return json.loads(version_details.json()), 201
 
-    def put(self, project_id, prompt_id, version_id=None, **kwargs):
+    def put(self, project_id: int, prompt_id: int, version_id: int = None, **kwargs):
         version_data = dict(request.json)
         version_data['author_id'] = g.auth.id
         version_data['prompt_id'] = prompt_id
@@ -64,6 +64,15 @@ class PromptLibAPI(api_tools.APIModeHandler):
             return res['msg'], 400
         return res['data'], 200
 
+    def delete(self, project_id: int, prompt_id: int, version_id: int = None):
+        with db.with_project_schema_session(project_id) as session:
+            if version := session.query(PromptVersion).get(version_id):
+                if version.name == 'latest':
+                    return {'error': 'You cannot delete latest prompt version'}, 400
+                session.delete(version)
+                session.commit()
+                return '', 204
+            return '', 404
 
 class API(api_tools.APIBase):
     url_params = api_tools.with_modes([
