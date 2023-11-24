@@ -13,6 +13,15 @@ from ...utils.constants import PROMPT_LIB_MODE
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
+    @auth.decorators.check_api(
+        {
+            "permissions": ["models.prompt_lib.prompts.search"],
+            "recommended_roles": {
+                c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+                c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+            },
+        }
+    )
     def get(self, project_id: int):
         args = request.args
         search_query = "%{}%".format(args.get('query', ''))

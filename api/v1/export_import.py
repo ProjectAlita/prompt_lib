@@ -119,7 +119,12 @@ class ProjectAPI(api_tools.APIModeHandler):
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
-
+    @auth.decorators.check_api({
+        "permissions": ["models.prompt_lib.export_import.export"],
+        "recommended_roles": {
+            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+        }})
     def get(self, project_id: int, prompt_id: int = None, **kwargs):
         if 'to_dial' in request.args:
             result = prompts_export_to_dial(project_id, prompt_id)
@@ -133,6 +138,12 @@ class PromptLibAPI(api_tools.APIModeHandler):
             return send_file(file, download_name=f'alita_prompts_{date.today()}.json', as_attachment=False)
         return result, 200
 
+    @auth.decorators.check_api({
+        "permissions": ["models.prompt_lib.export_import.import"],
+        "recommended_roles": {
+            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+        }})
     def post(self, project_id: int, **kwargs):
         created = []
         errors = []
