@@ -8,7 +8,7 @@ from pylon.core.tools import log
 
 from ..models.all import Prompt, PromptVersion
 from ..models.pd.base import PromptBaseModel, PromptVersionBaseModel
-from ..models.pd.dial import DialImportModel, DialModelImportModel, DialPromptImportModel
+from ..models.pd.export_import import DialImportModel, DialModelImportModel, DialPromptImportModel
 from ..utils.create_utils import create_version
 
 

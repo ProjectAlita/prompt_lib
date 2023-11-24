@@ -21,6 +21,7 @@ class TokenPD(BaseModel):
 class ModelsConfig(BaseModel):
     token: Optional[TokenPD] = None
     project_id: int
+    personal_project_id: int
     integrations: list = []
     url: str
 
