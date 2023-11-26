@@ -1,4 +1,6 @@
 from typing import Optional, List, Dict
+
+# from pylon.core.tools import log
 from pydantic import BaseModel, root_validator
 from .base import (
     AuthorBaseModel,
@@ -24,6 +26,7 @@ class CollectionModel(BaseModel):
 
 
 class PromptVersionModel(BaseModel):
+    version_id: int
     version_name: str
     commit_message: Optional[str]
     author_id: int
@@ -45,6 +48,7 @@ class PromptVersionModel(BaseModel):
             "version_name": "name",
             "prompt": {"exclude": True},
             "author_id": {"exclude": True},
+            "version_id": "id",
         }
 
     @root_validator
@@ -54,6 +58,7 @@ class PromptVersionModel(BaseModel):
             values["prompt_name"] = prompt.name
             values["description"] = prompt.description
             values["owner_id"] = prompt.owner_id
+            values["prompt_id"] = prompt.id
         return values
 
 
