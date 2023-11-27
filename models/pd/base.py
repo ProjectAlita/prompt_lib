@@ -75,7 +75,6 @@ class PromptVersionBaseModel(BaseModel):
 
 
 class PromptBaseModel(BaseModel):
-    id: int
     name: str
     description: Optional[str]
     owner_id: int

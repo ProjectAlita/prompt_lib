@@ -16,6 +16,9 @@ from ..models.pd.collections import (
 class PromptInaccessableError(Exception):
     "Raised when prompt in project for which user doesn't have permission"
 
+    def __init__(self, message):
+        self.message = message
+
 
 def check_prompts_addability(context, project_id: int, user_id: int):
     membership_check = context.rpc_manager.call.admin_check_user_in_project
@@ -84,12 +87,12 @@ def update_collection(context, project_id: int, collection_id: int, data: dict):
             #     )
 
             for prompt in data.get("prompts", []):
-                project_id = prompt["project_id"]
+                prompt_project_id = prompt["project_id"]
                 if not check_prompts_addability(
-                    context, project_id, collection.author_id
+                    context, prompt_project_id, collection.author_id
                 ):
                     raise PromptInaccessableError(
-                        f"User doesn't have access to project '{project_id}'"
+                        f"User doesn't have access to project '{prompt_project_id}'"
                     )
 
             for field, value in data.items():
@@ -148,10 +151,10 @@ def create_collection(context, project_id: int, data):
     user_id = data["author_id"]
 
     for prompt in collection.prompts:
-        project_id = prompt.project_id
-        if not check_prompts_addability(context, project_id, user_id):
+        prompt_project_id = prompt.project_id
+        if not check_prompts_addability(context, prompt_project_id, user_id):
             raise PromptInaccessableError(
-                f"User doesn't have access to project '{project_id}'"
+                f"User doesn't have access to project '{prompt_project_id}'"
             )
 
     with db.with_project_schema_session(project_id) as session:

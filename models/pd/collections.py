@@ -4,7 +4,6 @@ from typing import Optional, List, Dict
 from pydantic import BaseModel, root_validator
 from .base import (
     AuthorBaseModel,
-    PromptBaseModel,
     PromptMessageBaseModel,
     PromptVariableBaseModel,
     PromptTagBaseModel,
@@ -23,6 +22,16 @@ class CollectionModel(BaseModel):
     owner_id: int
     author_id: Optional[int]
     prompts: Optional[List[PromptIds]] = []
+
+
+class PromptBaseModel(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]
+    owner_id: int
+
+    class Config:
+        orm_mode = True
 
 
 class PromptVersionModel(BaseModel):
@@ -72,7 +81,6 @@ class CollectionDetailModel(BaseModel):
     owner_id: int
     author_id: int
     prompts: Optional[List[PromptVersionModel]]
-    # prompts: Optional[Dict[int, int]] = {}
     author: Optional[AuthorBaseModel]
 
     class Config:

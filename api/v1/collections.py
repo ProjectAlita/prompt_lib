@@ -6,7 +6,11 @@ from tools import api_tools, config as c, db, auth
 from pylon.core.tools import log
 from pydantic import ValidationError
 from ...models.pd.collections import CollectionListModel
-from ...utils.collections import list_collections, create_collection
+from ...utils.collections import (
+    list_collections,
+    create_collection,
+    PromptInaccessableError,
+)
 
 import json
 
@@ -42,6 +46,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
             return result, 201
         except ValidationError as e:
             return e.errors(), 400
+        except PromptInaccessableError as e:
+            return {"error": e.message}, 403
 
 
 class API(api_tools.APIBase):

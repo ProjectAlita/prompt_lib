@@ -165,7 +165,7 @@ class Collection(db_tools.AbstractBaseMixin, db.Base):
     __tablename__ = "prompt_collections"
     __table_args__ = ({"schema": c.POSTGRES_TENANT_SCHEMA},)
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
     owner_id: Mapped[int] = mapped_column(Integer, nullable=False)
     author_id: Mapped[int] = mapped_column(Integer, nullable=False)
     # prompts: Mapped[List["PromptVersion"]] = relationship(
