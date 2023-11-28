@@ -1,26 +1,27 @@
-from typing import Optional, List, Dict
+from typing import Optional, List
 
 # from pylon.core.tools import log
 from pydantic import BaseModel, root_validator
-from .base import (
-    AuthorBaseModel,
-    PromptMessageBaseModel,
-    PromptVariableBaseModel,
-    PromptTagBaseModel,
-    ModelSettingsBaseModel,
-    PromptVersionType,
-)
+from .base import AuthorBaseModel
+from .list import PromptListModel
+from ..enums.all import CollectionPatchOperations
 
 
 class PromptIds(BaseModel):
     id: int
-    project_id: int
+    owner_id: int
+
+
+class CollectionPatchModel(BaseModel):
+    operation: CollectionPatchOperations
+    prompt: PromptIds
 
 
 class CollectionModel(BaseModel):
     name: str
     owner_id: int
     author_id: Optional[int]
+    description: Optional[str]
     prompts: Optional[List[PromptIds]] = []
 
 
@@ -34,53 +35,17 @@ class PromptBaseModel(BaseModel):
         orm_mode = True
 
 
-class PromptVersionModel(BaseModel):
-    version_id: int
-    version_name: str
-    commit_message: Optional[str]
-    author_id: int
-    context: Optional[str]
-    variables: Optional[List[PromptVariableBaseModel]]
-    messages: Optional[List[PromptMessageBaseModel]]
-    tags: Optional[List[PromptTagBaseModel]]
-    model_settings: Optional[ModelSettingsBaseModel]
-    embedding_settings: Optional[dict]  # todo: create model for this field
-    type: PromptVersionType
-    prompt_name: Optional[str]
-    description: Optional[str]
-    owner_id: Optional[int]
-    prompt: PromptBaseModel
-
-    class Config:
-        orm_mode = True
-        fields = {
-            "version_name": "name",
-            "prompt": {"exclude": True},
-            "author_id": {"exclude": True},
-            "version_id": "id",
-        }
-
-    @root_validator
-    def extract_prompt_name(cls, values):
-        prompt = values.get("prompt")
-        if prompt:
-            values["prompt_name"] = prompt.name
-            values["description"] = prompt.description
-            values["owner_id"] = prompt.owner_id
-            values["prompt_id"] = prompt.id
-        return values
-
-
-class MultiplePromptVersionModel(BaseModel):
-    prompts: Optional[List[PromptVersionModel]]
+class MultiplePromptModel(BaseModel):
+    prompts: Optional[List[PromptListModel]]
 
 
 class CollectionDetailModel(BaseModel):
     id: int
     name: str
+    description: Optional[str]
     owner_id: int
     author_id: int
-    prompts: Optional[List[PromptVersionModel]]
+    prompts: Optional[List[PromptListModel]] = []
     author: Optional[AuthorBaseModel]
 
     class Config:
@@ -89,6 +54,7 @@ class CollectionDetailModel(BaseModel):
 
 class CollectionUpdateModel(BaseModel):
     name: Optional[str]
+    description: Optional[str]
     owner_id: Optional[int]
     prompts: Optional[List[PromptIds]] = {}
 
@@ -96,9 +62,21 @@ class CollectionUpdateModel(BaseModel):
 class CollectionListModel(BaseModel):
     id: int
     name: str
+    description: Optional[str]
     owner_id: int
     author_id: int
     author: Optional[AuthorBaseModel]
+    prompts: Optional[List] = []
 
     class Config:
         orm_mode = True
+        fields = {
+            "prompts": {"exclude": True},
+        }
+
+    @root_validator
+    def count_prompts(cls, values):
+        count = len(values.get("prompts"))
+        values["prompt_count"] = count
+        return values
+    

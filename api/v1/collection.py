@@ -3,9 +3,16 @@ from flask import request
 from pydantic import ValidationError
 from pylon.core.tools import log
 
-from ...models.pd.collections import CollectionUpdateModel
+from ...models.pd.collections import CollectionUpdateModel, CollectionPatchModel
 from ...utils.constants import PROMPT_LIB_MODE
-from ...utils.collections import delete_collection, update_collection, get_collection
+from ...utils.collections import (
+    delete_collection, 
+    update_collection, 
+    get_collection, 
+    patch_collection,
+    PromptDoesntExist,
+    PromptInaccessableError,
+)
 
 from tools import api_tools, auth, config as c, db
 
@@ -29,10 +36,31 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 self.module.context, project_id, collection_id, payload
             )
             if not result:
+                return {"error": f"No collection found with id '{collection_id}'"}, 404
+            return result, 200
+        except ValidationError as e:
+            return e.errors(), 400
+        except Exception as e:
+            log.info(traceback.format_exc())
+            return {"error": str(e)}, 400
+
+
+    def patch(self, project_id, collection_id):
+        try:
+            payload = request.get_json()
+            collection_data = CollectionPatchModel.validate(payload)
+            result = patch_collection(
+                self.module.context, project_id, collection_id, collection_data
+            )
+            if not result:
                 return {"error": f"No collection found with id '{collection_id}'"}, 400
             return result, 200
         except ValidationError as e:
             return e.errors(), 400
+        except PromptDoesntExist as e:
+            return {"error": e.message}, 404
+        except PromptInaccessableError as e:
+            return {"error": e.message}, 403
         except Exception as e:
             log.info(traceback.format_exc())
             return {"error": str(e)}, 400
