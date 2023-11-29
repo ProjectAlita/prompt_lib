@@ -14,7 +14,7 @@ from ...utils.collections import (
     PromptInaccessableError,
 )
 
-from tools import api_tools, auth, config as c, db
+from tools import api_tools
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
@@ -53,7 +53,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 self.module.context, project_id, collection_id, collection_data
             )
             if not result:
-                return {"error": f"No collection found with id '{collection_id}'"}, 400
+                return {"error": f"No collection found with id '{collection_id}'"}, 404
             return result, 200
         except ValidationError as e:
             return e.errors(), 400

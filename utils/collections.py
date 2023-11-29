@@ -199,13 +199,13 @@ def patch_collection(context, project_id, collection_id, data: CollectionPatchMo
 
 
     with db.with_project_schema_session(project_id) as session:
-        collection = session.query(Collection).get(collection_id)
-        
-        if not check_prompts_addability(context, prompt_data.owner_id, collection.author_id):
-            raise PromptInaccessableError(
-                f"User doesn't have access to project '{prompt_data.owner_id}'"
-            )
-        
-        result = op_map[data.operation](collection, prompt_data)
-        session.commit()
-        return result
+        if collection := session.query(Collection).get(collection_id):
+            if not check_prompts_addability(context, prompt_data.owner_id, collection.author_id):
+                raise PromptInaccessableError(
+                    f"User doesn't have access to project '{prompt_data.owner_id}'"
+                )
+            
+            result = op_map[data.operation](collection, prompt_data)
+            session.commit()
+            return result
+        return None
