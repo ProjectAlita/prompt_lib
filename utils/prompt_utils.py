@@ -5,14 +5,15 @@ from sqlalchemy import func, cast, String
 from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import IntegrityError
 
-from tools import db
+from tools import db, auth, rpc_tools
 from pylon.core.tools import log
 
 from ..models.all import Prompt, PromptVersion, PromptVariable, PromptMessage, PromptTag, PromptVersionTagAssociation
 from ..models.pd.legacy.variable import VariableModel
 from ..models.pd.update import PromptVersionUpdateModel
-from ..models.pd.detail import PromptVersionDetailModel
+from ..models.pd.detail import PromptDetailModel, PromptVersionDetailModel, PublishedPromptDetailModel
 from ..models.pd.list import PromptTagListModel
+from ..models.enums.all import PromptVersionStatus
 
 
 def create_variables_bulk(project_id: int, variables: List[dict], **kwargs) -> List[dict]:
@@ -176,3 +177,76 @@ def list_prompts(project_id: int,
         query = query.limit(limit).offset(offset)
         prompts: List[Prompt] = query.all()
     return total, prompts
+
+
+def is_personal_project(project_id):
+    user_id = auth.current_user().get("id")
+    personal_project_id = rpc_tools.RpcMixin().rpc.call.projects_get_personal_project_id(user_id)
+    return personal_project_id == project_id
+
+
+def get_prompt_details(project_id: int, prompt_id: int, version_name: str = 'latest') -> dict:
+    with db.with_project_schema_session(project_id) as session:
+        prompt_version = session.query(PromptVersion).options(
+            joinedload(PromptVersion.prompt)
+        ).options(
+            joinedload(PromptVersion.variables)
+        ).options(
+            joinedload(PromptVersion.messages)
+        ).filter(
+            PromptVersion.prompt_id == prompt_id,
+            PromptVersion.name == version_name
+        ).first()
+        if not prompt_version:
+            return {'ok': False, 'msg': f'No prompt found with id \'{prompt_id}\' or no version \'{version_name}\''}
+        result = PromptDetailModel.from_orm(prompt_version.prompt)
+        result.version_details = PromptVersionDetailModel.from_orm(prompt_version)
+        result.version_details.author = auth.get_user(user_id=prompt_version.author_id)
+    return {'ok': True, 'data': result.json()}
+
+
+def get_published_prompt_details(project_id: int, prompt_id: int, version_name: str = None) -> dict:
+    with db.with_project_schema_session(project_id) as session:
+        prompt = session.query(Prompt).options(
+            joinedload(Prompt.versions)
+        ).filter(
+            Prompt.id == prompt_id
+        ).first()
+        if not prompt:
+            return {'ok': False, 'msg': f'No prompt found with id \'{prompt_id}\''}
+
+        version_statuses = {}
+        for version in prompt.versions:
+            version_statuses.setdefault(version.status, []).append(version)
+
+        published_versions = version_statuses.get(PromptVersionStatus.published)
+        # version_statuses = {version.status for version in prompt.versions}
+        # published_versions = {version for version in prompt.versions if version.status == PromptVersionStatus.published}
+        if not published_versions:
+            return {'ok': False, 'msg': f'Prompt with id \'{prompt_id}\' has no published versions'}
+
+        if version_name:
+            version_id = next((version.id for version in published_versions if version.name == version_name), None)
+        else:
+            version_id = next((version.id for version in published_versions if version.name == 'latest'), None)
+            if not version_id:
+                version_id = sorted(published_versions, key=lambda x: x.created_at)[-1].id
+
+        if not version_id:
+            return {'ok': False, 'msg': f'Prompt version \'{version_name}\' is not published'}
+
+        prompt_version = session.query(PromptVersion).options(
+            joinedload(PromptVersion.variables)
+        ).options(
+            joinedload(PromptVersion.messages)
+        ).filter(
+            PromptVersion.prompt_id == prompt_id,
+            PromptVersion.id == version_id
+        ).first()
+
+        prompt.versions = list(published_versions)
+        result = PublishedPromptDetailModel.from_orm(prompt)
+        result.version_statuses = list(version_statuses.keys())
+        result.version_details = PromptVersionDetailModel.from_orm(prompt_version)
+        result.version_details.author = auth.get_user(user_id=prompt_version.author_id)
+    return {'ok': True, 'data': result.json()}

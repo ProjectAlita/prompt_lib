@@ -39,3 +39,6 @@ class PromptDetailModel(PromptBaseModel):
     versions: List[PromptVersionListModel]
     version_details: Optional[PromptVersionDetailModel]
     created_at: datetime
+
+class PublishedPromptDetailModel(PromptDetailModel):
+    version_statuses: Optional[List[PromptVersionStatus]]

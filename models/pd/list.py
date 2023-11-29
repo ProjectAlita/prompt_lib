@@ -39,4 +39,6 @@ class PromptListModel(BaseModel):
         ]
 
 
+class PublishedPromptListModel(PromptListModel):
+    version_statuses: Optional[List[PromptVersionStatus]]
 
