@@ -21,7 +21,10 @@ class ProjectAPI(api_tools.APIModeHandler):
         token_data = {'key': 'token', 'value': {'token': None, 'expires': None}, 'weight': 6}
         if data.token:
             token_data['value']['token'] = data.token.encoded
-            token_data['value']['expires'] = data.token.expires.isoformat(timespec='seconds')
+            try:
+                token_data['value']['expires'] = data.token.expires.isoformat(timespec='seconds')
+            except AttributeError:
+                token_data['value']['expires'] = None
         table_data.append(token_data)
 
         integrations_data = {

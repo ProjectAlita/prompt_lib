@@ -24,3 +24,8 @@ class MessageRoles(StrEnum):
     system = 'system'
     user = 'user'
     assistant = 'assistant'
+
+
+class CollectionPatchOperations(StrEnum):
+    add = 'add'
+    remove = 'remove'
