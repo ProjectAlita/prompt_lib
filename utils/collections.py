@@ -176,8 +176,8 @@ def add_prompt_to_collection(collection, prompt_data: PromptIds):
 def remove_prompt_from_collection(collection, prompt_data: PromptIds):
     prompts_list = [
         copy.deepcopy(prompt) for prompt in collection.prompts 
-        if int(prompt['owner_id']) != prompt_data.owner_id and \
-            int(prompt['id']) != prompt_data.id
+        if not(int(prompt['owner_id']) == prompt_data.owner_id and \
+            int(prompt['id']) == prompt_data.id)
     ]
     collection.prompts = prompts_list
     return get_detail_collection(collection)
