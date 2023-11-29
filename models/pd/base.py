@@ -1,6 +1,14 @@
 from typing import Optional, List
 
-from pydantic import BaseModel, PositiveInt, ConstrainedFloat, StrictStr, constr, confloat, conint
+from pydantic import (
+    BaseModel,
+    PositiveInt,
+    ConstrainedFloat,
+    StrictStr,
+    constr,
+    confloat,
+    conint,
+)
 from ..enums.all import MessageRoles, PromptVersionType
 
 
@@ -39,8 +47,10 @@ class PromptMessageBaseModel(BaseModel):
 
 
 class PromptVariableBaseModel(BaseModel):
-    name: constr(regex=r'^[a-zA-Z_][a-zA-Z0-9_]*$', )
-    value: Optional[str] = ''
+    name: constr(
+        regex=r"^[a-zA-Z_][a-zA-Z0-9_]*$",
+    )
+    value: Optional[str] = ""
     prompt_version_id: Optional[int]
 
     class Config:

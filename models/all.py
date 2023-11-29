@@ -101,3 +101,13 @@ PromptVersionTagAssociation = Table(
     Column('tag_id', ForeignKey(f'{c.POSTGRES_TENANT_SCHEMA}.prompt_tags.id')),
     schema=c.POSTGRES_TENANT_SCHEMA
 )
+
+class Collection(db_tools.AbstractBaseMixin, db.Base):
+    __tablename__ = "prompt_collections"
+    __table_args__ = ({"schema": c.POSTGRES_TENANT_SCHEMA},)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str] = mapped_column(String, nullable=True)
+    owner_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    author_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    prompts: Mapped[dict] = mapped_column(JSON, nullable=True)
