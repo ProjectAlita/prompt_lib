@@ -62,12 +62,12 @@ class PromptLibAPI(api_tools.APIModeHandler):
             version_details.author = auth.get_user(user_id=prompt_version.author_id)
             return json.loads(version_details.json()), 201
 
-    @auth.decorators.check_api({
-        "permissions": ["models.prompt_lib.version.update"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-        }})
+    # @auth.decorators.check_api({
+    #     "permissions": ["models.prompt_lib.version.update"],
+    #     "recommended_roles": {
+    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+    #     }})
     def put(self, project_id: int, prompt_id: int, version_id: int = None, **kwargs):
         version_data = dict(request.json)
         version_data['author_id'] = g.auth.id
