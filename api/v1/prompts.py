@@ -51,10 +51,10 @@ class ProjectAPI(api_tools.APIModeHandler):
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
-    def _get_project_id(self, project_id: int | None) -> int:
-        if not project_id:
-            project_id = 0  # todo: get user personal project id here
-        return project_id
+    # def _get_project_id(self, project_id: int | None) -> int:
+    #     if not project_id:
+    #         project_id = 0  # todo: get user personal project id here
+    #     return project_id
 
     # @auth.decorators.check_api(
     #     {
@@ -66,7 +66,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
     #     }
     # )
     def get(self, project_id: int | None = None, **kwargs):
-        project_id = self._get_project_id(project_id)
+        # project_id = self._get_project_id(project_id)
 
         filters = []
         if tags := request.args.get('tags'):
@@ -75,6 +75,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
             if isinstance(tags, str):
                 tags = tags.split(',')
             filters.append(Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags))))
+
+        if author_id := request.args.get('author_id'):
+            filters.append(Prompt.versions.any(PromptVersion.author_id == author_id))
 
         # Pagination parameters
         limit = request.args.get("limit", default=10, type=int)
@@ -129,7 +132,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
     #     }
     # )
     def post(self, project_id: int | None = None, **kwargs):
-        project_id = self._get_project_id(project_id)
+        # project_id = self._get_project_id(project_id)
 
         raw = dict(request.json)
         raw["owner_id"] = project_id
