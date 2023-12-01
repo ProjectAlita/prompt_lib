@@ -133,8 +133,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         raw = dict(request.json)
         raw["owner_id"] = project_id
+        author_id = auth.current_user().get("id")
         for version in raw.get("versions", []):
-            version["author_id"] = auth.current_user().get("id")
+            version["author_id"] = author_id
         try:
             prompt_data = PromptCreateModel.parse_obj(raw)
         except ValidationError as e:

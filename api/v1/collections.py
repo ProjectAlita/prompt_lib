@@ -16,13 +16,13 @@ import json
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
-    def _get_project_id(self, project_id: int | None) -> int:
-        if not project_id:
-            project_id = 0  # todo: get user personal project id here
-        return project_id
+    # def _get_project_id(self, project_id: int | None) -> int:
+    #     if not project_id:
+    #         project_id = 0  # todo: get user personal project id here
+    #     return project_id
 
     def get(self, project_id: int | None = None, **kwargs):
-        project_id = self._get_project_id(project_id)
+        # project_id = self._get_project_id(project_id)
         # list prompts
         total, collections = list_collections(project_id, request.args)
         # parsing
@@ -38,9 +38,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
         }, 200
 
     def post(self, project_id: int | None = None, **kwargs):
-        project_id = self._get_project_id(project_id)
+        # project_id = self._get_project_id(project_id)
         data = request.get_json()
-        data["owner_id"], data["author_id"] = project_id, g.auth.id
+        author_id = auth.current_user().get("id")
+        data["owner_id"], data["author_id"] = project_id, author_id
         try:
             result = create_collection(self.module.context, project_id, data)
             return result, 201
@@ -53,7 +54,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
 class API(api_tools.APIBase):
     url_params = api_tools.with_modes(
         [
-            "",
+            # "",
             "<int:project_id>",
         ]
     )
