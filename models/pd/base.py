@@ -3,7 +3,6 @@ from typing import Optional, List
 from pydantic import (
     BaseModel,
     PositiveInt,
-    ConstrainedFloat,
     StrictStr,
     constr,
     confloat,
@@ -69,6 +68,8 @@ class PromptVersionBaseModel(BaseModel):
     embedding_settings: Optional[dict]  # todo: create model for this field
     type: PromptVersionType
     prompt_id: Optional[int]
+    origin: Optional[dict]
+    origin_hash: Optional[str]
 
     class Config:
         orm_mode = True
