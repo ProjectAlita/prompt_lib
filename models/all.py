@@ -48,6 +48,9 @@ class PromptVersion(db_tools.AbstractBaseMixin, db.Base):
     model_settings: Mapped[dict] = mapped_column(JSON, nullable=True)
     embedding_settings: Mapped[dict] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    origin: Mapped[dict] = mapped_column(JSON, nullable=True)
+    origin_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=True)
+
 
 
 class PromptVariable(db_tools.AbstractBaseMixin, db.Base):
