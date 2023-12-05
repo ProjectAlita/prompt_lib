@@ -6,11 +6,11 @@ from typing import List
 from pylon.core.tools import web, log
 from tools import api_tools, config as c, db, auth
 from ...models.all import Prompt, PromptVersion, PromptTag
-from ...models.pd.list import PromptTagListModel, PublishedPromptListModel
+from ...models.pd.list import PromptListModel, PromptTagListModel
 from ...models.enums.all import PromptVersionStatus
 
 from ...utils.constants import PROMPT_LIB_MODE
-from ...utils.prompt_utils import list_prompts, is_personal_project
+from ...utils.prompt_utils import add_publuc_project_id, list_prompts
 
 
 
@@ -25,10 +25,12 @@ class PromptLibAPI(api_tools.APIModeHandler):
     #         },
     #     }
     # )
-    def get(self, project_id: int | None = None, **kwargs):
+    @add_publuc_project_id
+    def get(self, **kwargs):
+        ai_project_id = kwargs.get('project_id')
         filters = []
-        if not is_personal_project(project_id):
-            filters.append(Prompt.versions.any(PromptVersion.status == PromptVersionStatus.published))
+        filters.append(Prompt.versions.any(PromptVersion.status == PromptVersionStatus.published))
+
         if tags := request.args.get('tags'):
             # # Filtering parameters
             # tags = request.args.getlist("tags", type=int)
@@ -46,7 +48,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         # list prompts
         total, prompts = list_prompts(
-            project_id,
+            project_id=ai_project_id,
             limit=limit,
             offset=offset,
             sort_by=sort_by,
@@ -55,20 +57,17 @@ class PromptLibAPI(api_tools.APIModeHandler):
         )
         # parsing
         all_authors = set()
-        parsed: List[PublishedPromptListModel] = []
+        parsed: List[PromptListModel] = []
         for i in prompts:
-            p = PublishedPromptListModel.from_orm(i)
+            p = PromptListModel.from_orm(i)
             # p.author_ids = set()
             tags = dict()
-            version_statuses = set()
             for v in i.versions:
                 for t in v.tags:
                     tags[t.name] = PromptTagListModel.from_orm(t).dict()
                 p.author_ids.add(v.author_id)
-                version_statuses.add(v.status)
                 all_authors.update(p.author_ids)
             p.tags = list(tags.values())
-            p.version_statuses = version_statuses
             parsed.append(p)
 
         users = auth.list_users(user_ids=list(all_authors))
@@ -78,7 +77,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             i.set_authors(user_map)
 
         return {
-            "rows": [json.loads(i.json(exclude={"author_ids"})) for i in parsed],
+            "rows": [json.loads(i.json(exclude={"author_ids", "status"})) for i in parsed],
             "total": total
         },  200
 
@@ -87,7 +86,6 @@ class API(api_tools.APIBase):
     url_params = api_tools.with_modes(
         [
             "",
-            "<int:project_id>",
         ]
     )
 

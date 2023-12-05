@@ -29,6 +29,7 @@ class PromptListModel(BaseModel):
     author_ids: set[int] = set()
     authors: List[AuthorBaseModel] = []
     tags: Optional[PromptTagBaseModel]
+    status: Optional[PromptVersionStatus]
 
     class Config:
         orm_mode = True
@@ -37,8 +38,4 @@ class PromptListModel(BaseModel):
         self.authors = [
             user_map.get(i) for i in self.author_ids
         ]
-
-
-class PublishedPromptListModel(PromptListModel):
-    version_statuses: Optional[List[PromptVersionStatus]]
 

@@ -41,4 +41,7 @@ class PromptDetailModel(PromptBaseModel):
     created_at: datetime
 
 class PublishedPromptDetailModel(PromptDetailModel):
-    version_statuses: Optional[List[PromptVersionStatus]]
+
+    @validator('versions')
+    def check_versions(cls, value: list) -> list:
+        return [version for version in value if version.status == PromptVersionStatus.published]

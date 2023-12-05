@@ -12,7 +12,7 @@ from ...models.pd.list import PromptListModel, PromptTagListModel
 
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.create_utils import create_prompt
-from ...utils.prompt_utils import list_prompts
+from ...utils.prompt_utils import determine_prompt_status, list_prompts
 from ...utils.prompt_utils_legacy import prompts_create_prompt
 
 
@@ -100,12 +100,15 @@ class PromptLibAPI(api_tools.APIModeHandler):
             p = PromptListModel.from_orm(i)
             # p.author_ids = set()
             tags = dict()
+            version_statuses = set()
             for v in i.versions:
                 for t in v.tags:
                     tags[t.name] = PromptTagListModel.from_orm(t).dict()
                 p.author_ids.add(v.author_id)
+                version_statuses.add(v.status)
                 all_authors.update(p.author_ids)
             p.tags = list(tags.values())
+            p.status = determine_prompt_status(version_statuses)
             parsed.append(p)
 
         users = auth.list_users(user_ids=list(all_authors))
