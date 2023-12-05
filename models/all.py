@@ -11,7 +11,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship, backref
 
 class Prompt(db_tools.AbstractBaseMixin, db.Base):
     __tablename__ = 'prompts'
-    __table_args__ = ({'schema': c.POSTGRES_TENANT_SCHEMA},)
+    __table_args__ = (
+        UniqueConstraint('shared_owner_id', 'shared_id', name='_shared_origin'),
+        {'schema': c.POSTGRES_TENANT_SCHEMA},
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -19,9 +22,12 @@ class Prompt(db_tools.AbstractBaseMixin, db.Base):
     versions: Mapped[List['PromptVersion']] = relationship(back_populates='prompt', lazy=True, cascade='all, delete')
     owner_id: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    shared_owner_id: Mapped[int] = mapped_column(Integer, nullable=True)
+    shared_id: Mapped[int] = mapped_column(Integer, nullable=True)
 
     def get_latest_version(self):
         return next(version for version in self.versions if version.name == 'latest')
+
 
 class PromptVersion(db_tools.AbstractBaseMixin, db.Base):
     __tablename__ = 'prompt_versions'
@@ -48,9 +54,6 @@ class PromptVersion(db_tools.AbstractBaseMixin, db.Base):
     model_settings: Mapped[dict] = mapped_column(JSON, nullable=True)
     embedding_settings: Mapped[dict] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
-    origin: Mapped[dict] = mapped_column(JSON, nullable=True)
-    origin_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=True)
-
 
 
 class PromptVariable(db_tools.AbstractBaseMixin, db.Base):

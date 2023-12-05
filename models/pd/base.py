@@ -68,8 +68,6 @@ class PromptVersionBaseModel(BaseModel):
     embedding_settings: Optional[dict]  # todo: create model for this field
     type: PromptVersionType
     prompt_id: Optional[int]
-    origin: Optional[dict]
-    origin_hash: Optional[str]
 
     class Config:
         orm_mode = True
@@ -80,6 +78,8 @@ class PromptBaseModel(BaseModel):
     description: Optional[str]
     owner_id: int
     versions: Optional[List[PromptVersionBaseModel]]
+    shared_id: Optional[int]
+    shared_owner_id: Optional[int]
 
     class Config:
         orm_mode = True
