@@ -1,4 +1,4 @@
-import functools
+from functools import wraps
 from json import loads
 import json
 from typing import List, Optional, Set, Callable
@@ -49,7 +49,7 @@ def get_prompt_tags(project_id: int, prompt_id: int) -> List[dict]:
         return [PromptTagListModel.from_orm(tag).dict() for tag in query.all()]
 
 
-def get_all_ranked_tags(project_id: int, top_n: int=20) -> List[dict]:
+def get_all_ranked_tags(project_id: int, top_n: int = 20) -> List[dict]:
     with db.with_project_schema_session(project_id) as session:
         query = (
             session.query(
@@ -211,7 +211,7 @@ def get_published_prompt_details(project_id: int, prompt_id: int, version_name: 
         filters = [
             PromptVersion.prompt_id == prompt_id,
             PromptVersion.status == PromptVersionStatus.published
-            ]
+        ]
         if version_name:
             filters.append(PromptVersion.name == version_name)
 
@@ -249,10 +249,16 @@ def determine_prompt_status(version_statuses: Set[PromptVersionStatus]) -> Promp
             return status
 
 
-def add_publuc_project_id(f: Callable) -> Callable:
-    functools.wraps(f)
+def add_public_project_id(f: Callable) -> Callable:
+    wraps(f)
+
     def wrapper(*args, **kwargs):
         secrets = VaultClient().get_all_secrets()
-        kwargs.update({'project_id': secrets.get("ai_project_id")})
+        try:
+            public_project_id = secrets['ai_project_id']
+        except KeyError:
+            return {'error': "'ai_project_id' not set"}, 400
+        kwargs.update({'project_id': public_project_id})
         return f(*args, **kwargs)
+
     return wrapper

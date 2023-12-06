@@ -10,8 +10,7 @@ from ...models.pd.list import PromptListModel, PromptTagListModel
 from ...models.enums.all import PromptVersionStatus
 
 from ...utils.constants import PROMPT_LIB_MODE
-from ...utils.prompt_utils import add_publuc_project_id, list_prompts
-
+from ...utils.prompt_utils import add_public_project_id, list_prompts
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
@@ -25,11 +24,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
     #         },
     #     }
     # )
-    @add_publuc_project_id
-    def get(self, **kwargs):
-        ai_project_id = kwargs.get('project_id')
-        filters = []
-        filters.append(Prompt.versions.any(PromptVersion.status == PromptVersionStatus.published))
+    @add_public_project_id
+    def get(self, *, project_id, **kwargs):
+        ai_project_id = project_id
+        filters = [Prompt.versions.any(PromptVersion.status == PromptVersionStatus.published)]
 
         if tags := request.args.get('tags'):
             # # Filtering parameters
@@ -79,7 +77,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         return {
             "rows": [json.loads(i.json(exclude={"author_ids", "status"})) for i in parsed],
             "total": total
-        },  200
+        }, 200
 
 
 class API(api_tools.APIBase):
