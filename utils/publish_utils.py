@@ -61,7 +61,7 @@ class Publishing:
                     }
                 
                 if self._latest(private_prompt_version):
-                    return {"ok": False, "error": "The version is latest"}
+                    return {"ok": False, "error": "Version 'latest' cannot be published"}
                 
                 # setting data
                 self.prompt_version_data: dict = private_prompt_version.to_json()
