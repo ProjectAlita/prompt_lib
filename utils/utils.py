@@ -1,4 +1,4 @@
-import functools
+from functools import wraps
 from typing import Set, Callable
 
 from tools import VaultClient
@@ -19,10 +19,15 @@ def determine_prompt_status(version_statuses: Set[PromptVersionStatus]) -> Promp
             return status
 
 
-def add_publuc_project_id(f: Callable) -> Callable:
-    functools.wraps(f)
+def add_public_project_id(f: Callable) -> Callable:
+    wraps(f)
     def wrapper(*args, **kwargs):
         secrets = VaultClient().get_all_secrets()
-        kwargs.update({'project_id': secrets.get("ai_project_id")})
+        try:
+            public_project_id = secrets['ai_project_id']
+        except KeyError:
+            return {'error': "'ai_project_id' not set"}, 400
+        kwargs.update({'project_id': public_project_id})
         return f(*args, **kwargs)
+
     return wrapper

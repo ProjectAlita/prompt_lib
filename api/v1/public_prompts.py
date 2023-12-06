@@ -9,9 +9,8 @@ from ...models.pd.list import MultiplePromptListModel
 from ...models.enums.all import PromptVersionStatus
 
 from ...utils.constants import PROMPT_LIB_MODE
-
 from ...utils.prompt_utils import list_prompts
-from ...utils.utils import add_publuc_project_id
+from ...utils.utils import add_public_project_id
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
