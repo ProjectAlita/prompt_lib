@@ -1,12 +1,10 @@
-import functools
 from json import loads
-import json
-from typing import List, Optional, Set, Callable
+from typing import List, Optional
 from sqlalchemy import func, cast, String
 from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import IntegrityError
 
-from tools import db, auth, rpc_tools, VaultClient
+from tools import db, auth, rpc_tools
 from pylon.core.tools import log
 
 from ..models.all import Prompt, PromptVersion, PromptVariable, PromptMessage, PromptTag, PromptVersionTagAssociation
@@ -188,18 +186,35 @@ def list_prompts(project_id: int,
 
 def get_prompt_details(project_id: int, prompt_id: int, version_name: str = 'latest') -> dict:
     with db.with_project_schema_session(project_id) as session:
-        prompt_version = session.query(PromptVersion).options(
-            joinedload(PromptVersion.prompt)
-        ).options(
-            joinedload(PromptVersion.variables)
-        ).options(
-            joinedload(PromptVersion.messages)
-        ).filter(
+        filters = [
             PromptVersion.prompt_id == prompt_id,
             PromptVersion.name == version_name
-        ).first()
+        ]
+        options = [
+            joinedload(PromptVersion.prompt).options(joinedload(Prompt.versions)),
+            joinedload(PromptVersion.variables),
+            joinedload(PromptVersion.messages)
+        ]
+        query = session.query(PromptVersion).filter(*filters).options(*options)
+        prompt_version = query.first()
+
+        if not prompt_version and version_name == 'latest':
+            filters = [PromptVersion.prompt_id == prompt_id,]
+
+            query = (
+                session.query(PromptVersion)
+                .filter(*filters)
+                .options(*options)
+                .order_by(PromptVersion.created_at.desc())
+            )
+            prompt_version = query.first()
+
         if not prompt_version:
-            return {'ok': False, 'msg': f'No prompt found with id \'{prompt_id}\' or no version \'{version_name}\''}
+            return {
+                'ok': False,
+                'msg': f'No prompt found with id \'{prompt_id}\' or no version \'{version_name}\''
+                }
+
         result = PromptDetailModel.from_orm(prompt_version.prompt)
         result.version_details = PromptVersionDetailModel.from_orm(prompt_version)
         result.version_details.author = auth.get_user(user_id=prompt_version.author_id)
@@ -215,44 +230,25 @@ def get_published_prompt_details(project_id: int, prompt_id: int, version_name: 
         if version_name:
             filters.append(PromptVersion.name == version_name)
 
-        prompt_version = session.query(PromptVersion).options(
-            joinedload(PromptVersion.prompt).joinedload(Prompt.versions)
-        ).options(
-            joinedload(PromptVersion.variables)
-        ).options(
-            joinedload(PromptVersion.messages)
-        ).filter(
-            *filters
-        ).order_by(
-            PromptVersion.created_at.desc()
-        ).first()
+        query = (
+            session.query(PromptVersion)
+            .filter(*filters)
+            .options(
+                joinedload(PromptVersion.prompt).options(joinedload(Prompt.versions)),
+                joinedload(PromptVersion.variables),
+                joinedload(PromptVersion.messages)
+            )
+            .order_by(PromptVersion.created_at.desc())
+        )
+        prompt_version = query.first()
+
         if not prompt_version:
-            return {'ok': False, 'msg': f'No prompt found with id \'{prompt_id}\' or no version \'{version_name}\''}
+            return {
+                'ok': False,
+                'msg': f'No prompt found with id \'{prompt_id}\' or no version \'{version_name}\''
+                }
         result = PublishedPromptDetailModel.from_orm(prompt_version.prompt)
         result.version_details = PromptVersionDetailModel.from_orm(prompt_version)
         result.version_details.author = auth.get_user(user_id=prompt_version.author_id)
 
     return {'ok': True, 'data': result.json()}
-
-
-def determine_prompt_status(version_statuses: Set[PromptVersionStatus]) -> PromptVersionStatus:
-    status_priority = (
-        PromptVersionStatus.rejected,
-        PromptVersionStatus.on_moderation,
-        PromptVersionStatus.published,
-        PromptVersionStatus.draft,
-        # PromptVersionStatus.user_approval,
-    )
-
-    for status in status_priority:
-        if status in version_statuses:
-            return status
-
-
-def add_publuc_project_id(f: Callable) -> Callable:
-    functools.wraps(f)
-    def wrapper(*args, **kwargs):
-        secrets = VaultClient().get_all_secrets()
-        kwargs.update({'project_id': secrets.get("ai_project_id")})
-        return f(*args, **kwargs)
-    return wrapper

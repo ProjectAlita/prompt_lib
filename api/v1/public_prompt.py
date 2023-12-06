@@ -4,7 +4,8 @@ from flask import request
 from pydantic import ValidationError
 from pylon.core.tools import log
 
-from ...utils.prompt_utils import get_published_prompt_details, add_publuc_project_id
+from ...utils.prompt_utils import get_published_prompt_details
+from ...utils.utils import add_publuc_project_id
 from ...utils.constants import PROMPT_LIB_MODE
 
 from tools import api_tools, auth, config as c

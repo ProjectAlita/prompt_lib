@@ -8,11 +8,11 @@ from tools import api_tools, config as c, db, auth
 from ...models.all import Prompt, PromptVersion, PromptTag
 from ...models.pd.create import PromptCreateModel
 from ...models.pd.detail import PromptDetailModel, PromptVersionDetailModel
-from ...models.pd.list import PromptListModel, PromptTagListModel
+from ...models.pd.list import MultiplePromptListModel
 
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.create_utils import create_prompt
-from ...utils.prompt_utils import determine_prompt_status, list_prompts
+from ...utils.prompt_utils import list_prompts
 from ...utils.prompt_utils_legacy import prompts_create_prompt
 
 
@@ -76,6 +76,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 tags = tags.split(',')
             filters.append(Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags))))
 
+        if statuses := request.args.get('statuses'):
+            statuses = statuses.split(',')
+            filters.append(Prompt.versions.any(PromptVersion.status.in_(statuses)))
+
         # Pagination parameters
         limit = request.args.get("limit", default=10, type=int)
         offset = request.args.get("offset", default=0, type=int)
@@ -94,31 +98,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
             filters=filters
         )
         # parsing
-        all_authors = set()
-        parsed: List[PromptListModel] = []
-        for i in prompts:
-            p = PromptListModel.from_orm(i)
-            # p.author_ids = set()
-            tags = dict()
-            version_statuses = set()
-            for v in i.versions:
-                for t in v.tags:
-                    tags[t.name] = PromptTagListModel.from_orm(t).dict()
-                p.author_ids.add(v.author_id)
-                version_statuses.add(v.status)
-                all_authors.update(p.author_ids)
-            p.tags = list(tags.values())
-            p.status = determine_prompt_status(version_statuses)
-            parsed.append(p)
-
-        users = auth.list_users(user_ids=list(all_authors))
-        user_map = {i["id"]: i for i in users}
-
-        for i in parsed:
-            i.set_authors(user_map)
+        parsed = MultiplePromptListModel(prompts=prompts)
 
         return {
-            "rows": [json.loads(i.json(exclude={"author_ids"})) for i in parsed],
+            "rows": [json.loads(i.json()) for i in parsed.prompts],
             "total": total
         },  200
 

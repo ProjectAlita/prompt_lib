@@ -1,14 +1,13 @@
 import json
 from typing import List
 from flask import request
-from pydantic import ValidationError
 from pylon.core.tools import log
-from sqlalchemy import or_, and_
+from sqlalchemy import or_
 
 from tools import api_tools, auth, config as c
 
 from ...models.all import Prompt
-from ...models.pd.list import PromptListModel, PromptTagListModel
+from ...models.pd.list import MultiplePromptListModel
 from ...utils.constants import PROMPT_LIB_MODE
 
 
@@ -37,28 +36,11 @@ class PromptLibAPI(api_tools.APIModeHandler):
             is_project_schema=True
             )
 
-        all_authors = set()
-        parsed: List[PromptListModel] = []
-        for prompt in res:
-            prompt_data = PromptListModel.from_orm(prompt)
-            tags = dict()
-            for version in prompt.versions:
-                for tag in version.tags:
-                    tags[tag.name] = PromptTagListModel.from_orm(tag).dict()
-                prompt_data.author_ids.add(version.author_id)
-                all_authors.update(prompt_data.author_ids)
-            prompt_data.tags = list(tags.values())
-            parsed.append(prompt_data)
-
-        users = auth.list_users(user_ids=list(all_authors))
-        user_map = {i["id"]: i for i in users}
-
-        for i in parsed:
-            i.set_authors(user_map)
+        parsed = MultiplePromptListModel(prompts=res)
 
         return {
             "total": total,
-            "rows": [json.loads(prompt.json(exclude={"author_ids"})) for prompt in parsed]
+            "rows": [json.loads(prompt.json()) for prompt in parsed.prompts]
             }, 200
 
 class API(api_tools.APIBase):
