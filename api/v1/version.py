@@ -43,7 +43,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
     #     }})
     def post(self, project_id: int, prompt_id: int, **kwargs):
         data = dict(request.json)
-        data['author_id'] = g.auth.id
+        data['author_id'] = auth.current_user().get("id")
         data['prompt_id'] = prompt_id
 
         try:
@@ -70,7 +70,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
     #     }})
     def put(self, project_id: int, prompt_id: int, version_id: int = None, **kwargs):
         version_data = dict(request.json)
-        version_data['author_id'] = g.auth.id
+        version_data['author_id'] = auth.current_user().get("id")
         version_data['prompt_id'] = prompt_id
         version_data['id'] = version_id
         try:
@@ -97,6 +97,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 session.commit()
                 return '', 204
             return '', 404
+
 
 class API(api_tools.APIBase):
     url_params = api_tools.with_modes([

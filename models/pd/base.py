@@ -3,7 +3,6 @@ from typing import Optional, List
 from pydantic import (
     BaseModel,
     PositiveInt,
-    ConstrainedFloat,
     StrictStr,
     constr,
     confloat,
@@ -79,6 +78,8 @@ class PromptBaseModel(BaseModel):
     description: Optional[str]
     owner_id: int
     versions: Optional[List[PromptVersionBaseModel]]
+    shared_id: Optional[int]
+    shared_owner_id: Optional[int]
 
     class Config:
         orm_mode = True

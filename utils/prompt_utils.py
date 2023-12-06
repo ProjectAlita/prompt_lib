@@ -47,7 +47,7 @@ def get_prompt_tags(project_id: int, prompt_id: int) -> List[dict]:
         return [PromptTagListModel.from_orm(tag).dict() for tag in query.all()]
 
 
-def get_all_ranked_tags(project_id: int, top_n: int=20) -> List[dict]:
+def get_all_ranked_tags(project_id: int, top_n: int = 20) -> List[dict]:
     with db.with_project_schema_session(project_id) as session:
         query = (
             session.query(
@@ -226,7 +226,7 @@ def get_published_prompt_details(project_id: int, prompt_id: int, version_name: 
         filters = [
             PromptVersion.prompt_id == prompt_id,
             PromptVersion.status == PromptVersionStatus.published
-            ]
+        ]
         if version_name:
             filters.append(PromptVersion.name == version_name)
 
