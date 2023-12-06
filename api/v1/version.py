@@ -13,6 +13,7 @@ from ...models.pd.detail import PromptVersionDetailModel
 from ...models.pd.update import PromptVersionUpdateModel
 from ...utils.create_utils import create_version
 from ...utils.prompt_utils import prompts_update_version
+from ...utils.publish_utils import fire_version_deleted_event
 from ...utils.constants import PROMPT_LIB_MODE
 
 
@@ -91,10 +92,13 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def delete(self, project_id: int, prompt_id: int, version_id: int = None):
         with db.with_project_schema_session(project_id) as session:
             if version := session.query(PromptVersion).get(version_id):
+                version_data = version.to_json()
+                prompt_data = version.prompt.to_json()
                 if version.name == 'latest':
                     return {'error': 'You cannot delete latest prompt version'}, 400
                 session.delete(version)
                 session.commit()
+                fire_version_deleted_event(project_id, version_data, prompt_data)
                 return '', 204
             return '', 404
 
