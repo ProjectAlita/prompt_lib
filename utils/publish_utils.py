@@ -1,6 +1,8 @@
 import json
-
-from tools import db, VaultClient, auth
+from sqlalchemy.orm import aliased
+from sqlalchemy.sql import exists, and_
+from tools import db, VaultClient, auth, rpc_tools
+from pylon.core.tools import log
 
 from ..models.all import Prompt, PromptVersion
 from ..models.pd.create import PromptVersionBaseModel
@@ -48,6 +50,11 @@ class Publishing:
             instance.pop('updated_at', None)
             result.append(instance)
         return result 
+
+    def _publishing_from_public(self):
+        if self.public_id == self.original_project:
+            return {"ok": False, "error": "It is already public"}
+        return {"ok": True}
 
     def prepare_private_prompt_data(self):
         with db.with_project_schema_session(self.original_project) as session:
@@ -102,6 +109,10 @@ class Publishing:
             return {"ok": True}
 
     def publish(self):
+        result = self._publishing_from_public()
+        if not result['ok']:
+            return result
+
         result = self.prepare_private_prompt_data()
         if not result['ok']:
             return result
@@ -130,11 +141,21 @@ class Publishing:
             return prompt
 
     def check_already_published(self) -> bool:
-        prompt_id = self.prompt_data['shared_id']
+        shared_id = self.prompt_data['shared_id']
+        shared_owner_id = self.prompt_data['shared_owner_id']
         name = self.prompt_version_data['name']
         with db.with_project_schema_session(self.public_id) as session:
-            prompt_version = session.query(PromptVersion).filter_by(name=name, prompt_id=prompt_id).first()
-            return bool(prompt_version)
+            prompt_alias = aliased(Prompt)
+            exists_query = (
+                session.query(exists().where(and_(
+                    prompt_alias.shared_id == shared_id,
+                    prompt_alias.shared_owner_id == shared_owner_id,
+                    PromptVersion.prompt_id == prompt_alias.id,
+                    PromptVersion.name == name,
+                )))
+            ).scalar()
+
+            return exists_query
     
     def _set_status(self, project_id, id, status: PromptVersionStatus):
         with db.with_project_schema_session(project_id) as session:
@@ -169,3 +190,72 @@ class Publishing:
             version_details = PromptVersionDetailModel.from_orm(version)
             version_details.author = auth.get_user(user_id=version.author_id)
             return {"ok": True, "prompt_version": json.loads(version_details.json())}
+
+
+def close_private_version(shared_owner_id, shared_id, version_name, session):
+    prompt = session.query(Prompt).filter_by(owner_id=shared_owner_id, id=shared_id).first()
+    if not prompt:
+        return
+    
+    version = session.query(PromptVersion).filter_by(prompt_id=prompt.id, name=version_name).first()
+    if not version:
+        return
+    
+    version.status = PromptVersionStatus.draft
+
+
+def close_private_prompt(shared_owner_id, shared_id, session):
+    prompt = session.query(Prompt).filter_by(owner_id=shared_owner_id, id=shared_id).first()
+    if not prompt:
+        return
+        # raise Exception("Private prompt not found")
+    session.query(PromptVersion).filter(PromptVersion.prompt_id==prompt.id).update(
+        {PromptVersion.status: PromptVersionStatus.draft}
+    )
+
+
+def delete_public_version(prompt_owner_id, prompt_id, version_name, session):
+    prompt = session.query(Prompt).filter_by(
+        shared_owner_id=prompt_owner_id,
+        shared_id=prompt_id
+    ).first()
+    #
+    if not prompt:
+        return
+    #
+    version = session.query(PromptVersion).filter_by(
+        prompt_id=prompt.id,
+        name=version_name
+    ).first()
+
+    session.delete(version)
+
+
+def delete_public_prompt(prompt_owner_id, prompt_id, session):
+    prompt = session.query(Prompt).filter_by(
+        shared_owner_id=prompt_owner_id,
+        shared_id=prompt_id
+    ).first()
+    #
+    if not prompt:
+        return
+    #
+    session.delete(prompt)
+
+
+def fire_version_deleted_event(project_id, version: dict, prompt: dict):
+    payload = {
+        'prompt_data':prompt,
+        'version_data': version,
+        'project_id': project_id,
+    }
+    log.info(payload)
+    rpc_tools.EventManagerMixin().event_manager.fire_event('prompt_deleted', payload)
+
+
+def fire_prompt_deleted_event(project_id, prompt: dict):
+    payload = {
+        'prompt_data': prompt,
+        'project_id': project_id,
+    }
+    rpc_tools.EventManagerMixin().event_manager.fire_event('prompt_deleted', payload)    
