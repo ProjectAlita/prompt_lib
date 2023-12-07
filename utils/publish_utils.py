@@ -1,4 +1,5 @@
 import json
+
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql import exists, and_
 from tools import db, VaultClient, auth, rpc_tools
@@ -11,8 +12,27 @@ from .create_utils import create_version
 from ..models.pd.detail import PromptVersionDetailModel
 
 
-class Publishing:
-    def __init__(self, project_id, prompt_version_id):
+def set_status(project_id: int, prompt_version_name_or_id: int | str, status: PromptVersionStatus) -> dict:
+    f = [PromptVersion.name == prompt_version_name_or_id]
+    if isinstance(prompt_version_name_or_id, int):
+        f = [PromptVersion.id == prompt_version_name_or_id]
+    log.info(f'set_status {project_id=} {prompt_version_name_or_id=} {status=}')
+    with db.with_project_schema_session(project_id) as session:
+        try:
+            version = session.query(PromptVersion).filter(*f).first()
+            version.status = status
+            session.commit()
+        except:
+            session.rollback()
+            return {
+                "ok": False,
+                "error": f"Error happened while setting status for {project_id=}, {prompt_version_name_or_id=}, {status=}"
+            }
+    return {"ok": True}
+
+
+class Publishing(rpc_tools.EventManagerMixin):
+    def __init__(self, project_id: int, prompt_version_id: int):
         self.public_version_id = None
         self.prompt_version_data = None
         self.prompt_data = None
@@ -35,11 +55,11 @@ class Publishing:
 
     def _get_public_project_id(self) -> int:
         secrets = VaultClient().get_all_secrets()
-        public_id = secrets.get("ai_project_id")
-        if public_id is None:
+        try:
+            return int(secrets['ai_project_id'])
+        except (KeyError, ValueError):
             raise Exception("Public project doesn't exists or ai_project_id is not set in secrets")
-        return int(public_id)
-    
+
     def __jsonify_relationships(self, items):
         result = []
         for item in items:
@@ -49,7 +69,7 @@ class Publishing:
             instance.pop('created_at', None)
             instance.pop('updated_at', None)
             result.append(instance)
-        return result 
+        return result
 
     def _publishing_from_public(self):
         if self.public_id == self.original_project:
@@ -62,14 +82,14 @@ class Publishing:
                 private_prompt_version = session.query(PromptVersion).get(self.original_version)
                 if not private_prompt_version:
                     return {
-                        "ok": False, 
+                        "ok": False,
                         "error": f"Prompt version with id '{self.original_version}' not found",
                         "error_code": 404
                     }
-                
+
                 if self._latest(private_prompt_version):
                     return {"ok": False, "error": "Version 'latest' cannot be published"}
-                
+
                 # setting data
                 self.prompt_version_data: dict = private_prompt_version.to_json()
                 self.prompt_version_data.pop('created_at', None)
@@ -79,7 +99,7 @@ class Publishing:
                 self.prompt_version_data['messages'] = self.__jsonify_relationships(private_prompt_version.messages)
                 self.prompt_version_data['tags'] = self.__jsonify_relationships(private_prompt_version.tags)
                 self.prompt_version_data['variables'] = self.__jsonify_relationships(private_prompt_version.variables)
-                
+
                 # setting prompt shared data
                 self.prompt_data = private_prompt_version.prompt.to_json()
                 self.prompt_data.pop('created_at', None)
@@ -97,8 +117,8 @@ class Publishing:
                 prompt = self.get_public_prompt()
                 if not prompt:
                     prompt = self._create_prompt(self.prompt_data)
-                    session.flush()    
-                
+                    session.flush()
+
                 self.prompt_version_data['prompt_id'] = prompt.id
                 public_version = self._create_new_version(self.prompt_version_data, prompt, session)
                 session.commit()
@@ -116,7 +136,7 @@ class Publishing:
         result = self.prepare_private_prompt_data()
         if not result['ok']:
             return result
-        
+
         published = self.check_already_published()
         if published:
             return {"ok": False, "error": 'Already published'}
@@ -124,19 +144,19 @@ class Publishing:
         result = self.create_in_public()
         if not result['ok']:
             return result
-        
+
         result = self.set_statuses(PromptVersionStatus.on_moderation)
         if not result['ok']:
             return result
-        
+
         return self.retrieve_private_prompt()
-    
+
     def get_public_prompt(self) -> bool:
         shared_id = self.prompt_data['shared_id']
         shared_owner_id = self.prompt_data['shared_owner_id']
         with db.with_project_schema_session(self.public_id) as session:
             prompt = session.query(Prompt).filter_by(
-                shared_id=shared_id, shared_owner_id=shared_owner_id 
+                shared_id=shared_id, shared_owner_id=shared_owner_id
             ).first()
             return prompt
 
@@ -157,32 +177,23 @@ class Publishing:
 
             return exists_query
     
-    def _set_status(self, project_id, id, status: PromptVersionStatus):
-        with db.with_project_schema_session(project_id) as session:
-            try:
-                version = session.query(PromptVersion).filter_by(id=id).first()
-                version.status = status
-                session.commit()
-            except Exception as e:
-                session.rollback()
-                return {
-                    "ok": False, 
-                    "error": f"Error happened while setting status for project_id={project_id}, id={id}, status={status}"
-                }
-        return {"ok": True}
-    
     def set_statuses(self, status: PromptVersionStatus):
         if not (self.public_version_id and self.original_project):
             return
-        
-        # set status of public prompt version
-        result = self._set_status(self.public_id, self.public_version_id, status)
-        if not result['ok']:
-            return result
 
-        # set status of private prompt version
-        result = self._set_status(self.original_project, self.original_version, status)
+        # set status of public prompt version
+        result = set_status(project_id=self.public_id, prompt_version_name_or_id=self.public_version_id, status=status)
+        if result['ok']:
+            self.event_manager.fire_event('prompt_public_version_status_change', {
+                'public_project_id': self.public_id,
+                'public_version_id': self.public_version_id,
+                'status': status
+            })
         return result
+
+        # # set status of private prompt version
+        # result = set_status(self.original_project, self.original_version, status)
+        # return result
 
     def retrieve_private_prompt(self):
         with db.with_project_schema_session(self.original_project) as session:
@@ -196,11 +207,11 @@ def close_private_version(shared_owner_id, shared_id, version_name, session):
     prompt = session.query(Prompt).filter_by(owner_id=shared_owner_id, id=shared_id).first()
     if not prompt:
         return
-    
+
     version = session.query(PromptVersion).filter_by(prompt_id=prompt.id, name=version_name).first()
     if not version:
         return
-    
+
     version.status = PromptVersionStatus.draft
 
 
@@ -209,7 +220,7 @@ def close_private_prompt(shared_owner_id, shared_id, session):
     if not prompt:
         return
         # raise Exception("Private prompt not found")
-    session.query(PromptVersion).filter(PromptVersion.prompt_id==prompt.id).update(
+    session.query(PromptVersion).filter(PromptVersion.prompt_id == prompt.id).update(
         {PromptVersion.status: PromptVersionStatus.draft}
     )
 
@@ -258,4 +269,4 @@ def fire_prompt_deleted_event(project_id, prompt: dict):
         'prompt_data': prompt,
         'project_id': project_id,
     }
-    rpc_tools.EventManagerMixin().event_manager.fire_event('prompt_deleted', payload)    
+    rpc_tools.EventManagerMixin().event_manager.fire_event('prompt_deleted', payload)

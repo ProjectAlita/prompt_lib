@@ -53,11 +53,11 @@ class PromptLibAPI(api_tools.APIModeHandler):
             return e.errors(), 400
 
         with db.with_project_schema_session(project_id) as session:
-            prompt_version = create_version(version_data, session=session)
             try:
+                prompt_version = create_version(version_data, session=session)
                 session.commit()
             except IntegrityError:
-                return {'error': f'Version with name {prompt_version.name} already exists'}, 400
+                return {'error': f'Version with name {version_data.name} already exists'}, 400
 
             version_details = PromptVersionDetailModel.from_orm(prompt_version)
             version_details.author = auth.get_user(user_id=prompt_version.author_id)
