@@ -19,7 +19,9 @@ class Prompt(db_tools.AbstractBaseMixin, db.Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(String, nullable=True)
-    versions: Mapped[List['PromptVersion']] = relationship(back_populates='prompt', lazy=True, cascade='all, delete')
+    versions: Mapped[List['PromptVersion']] = relationship(back_populates='prompt', lazy=True,
+                                                           cascade='all, delete',
+                                                           order_by='PromptVersion.created_at.desc()')
     owner_id: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     shared_owner_id: Mapped[int] = mapped_column(Integer, nullable=True)

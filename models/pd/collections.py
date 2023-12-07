@@ -35,10 +35,6 @@ class PromptBaseModel(BaseModel):
         orm_mode = True
 
 
-class MultiplePromptModel(BaseModel):
-    prompts: Optional[List[PromptListModel]]
-
-
 class CollectionDetailModel(BaseModel):
     id: int
     name: str
@@ -79,4 +75,4 @@ class CollectionListModel(BaseModel):
         count = len(values.get("prompts"))
         values["prompt_count"] = count
         return values
-    
+

@@ -7,10 +7,10 @@ import copy
 from pylon.core.tools import log
 from ..models.enums.all import CollectionPatchOperations
 from ..models.all import Collection, Prompt
+from ..models.pd.list import MultiplePromptListModel
 from ..models.pd.collections import (
     CollectionDetailModel,
     CollectionModel,
-    MultiplePromptModel,
     PromptIds,
     CollectionPatchModel,
 )
@@ -124,7 +124,7 @@ def get_detail_collection(collection: Collection):
                 session.query(Prompt).filter(Prompt.id.in_(ids)).all()
             )
             prompts.extend(
-                json.loads(MultiplePromptModel(prompts=project_prompts).json())[
+                json.loads(MultiplePromptListModel(prompts=project_prompts).json())[
                     "prompts"
                 ]
             )
@@ -175,7 +175,7 @@ def add_prompt_to_collection(collection, prompt_data: PromptIds):
 
 def remove_prompt_from_collection(collection, prompt_data: PromptIds):
     prompts_list = [
-        copy.deepcopy(prompt) for prompt in collection.prompts 
+        copy.deepcopy(prompt) for prompt in collection.prompts
         if not(int(prompt['owner_id']) == prompt_data.owner_id and \
             int(prompt['id']) == prompt_data.id)
     ]
@@ -189,7 +189,7 @@ def patch_collection(context, project_id, collection_id, data: CollectionPatchMo
         CollectionPatchOperations.remove: remove_prompt_from_collection
     }
     prompt_data = data.prompt
-    
+
     with db.with_project_schema_session(prompt_data.owner_id) as prompt_session:
         prompt = prompt_session.query(Prompt).filter_by(id=prompt_data.id).first()
         if not prompt:
@@ -204,7 +204,7 @@ def patch_collection(context, project_id, collection_id, data: CollectionPatchMo
                 raise PromptInaccessableError(
                     f"User doesn't have access to project '{prompt_data.owner_id}'"
                 )
-            
+
             result = op_map[data.operation](collection, prompt_data)
             session.commit()
             return result

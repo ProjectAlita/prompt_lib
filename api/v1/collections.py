@@ -40,8 +40,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def post(self, project_id: int | None = None, **kwargs):
         # project_id = self._get_project_id(project_id)
         data = request.get_json()
+
         author_id = auth.current_user().get("id")
         data["owner_id"], data["author_id"] = project_id, author_id
+
         try:
             result = create_collection(self.module.context, project_id, data)
             return result, 201
