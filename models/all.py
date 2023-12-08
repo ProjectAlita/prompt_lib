@@ -119,3 +119,5 @@ class Collection(db_tools.AbstractBaseMixin, db.Base):
     owner_id: Mapped[int] = mapped_column(Integer, nullable=False)
     author_id: Mapped[int] = mapped_column(Integer, nullable=False)
     prompts: Mapped[dict] = mapped_column(JSON, nullable=True)
+    # ALTER TABLE carrier."P_1".prompt_collections ADD COLUMN created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP;
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())

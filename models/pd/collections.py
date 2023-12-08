@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional, List
 
 # from pylon.core.tools import log
@@ -43,6 +44,7 @@ class CollectionDetailModel(BaseModel):
     author_id: int
     prompts: Optional[List[PromptListModel]] = []
     author: Optional[AuthorBaseModel]
+    created_at: datetime
 
     class Config:
         orm_mode = True
