@@ -21,7 +21,7 @@ class DialFolderImportModel(BaseModel):
 
 
 class DialPromptImportModel(BaseModel):
-    id: str
+    id: Optional[str]
     name: str
     description: Optional[str]
     content: str = ''

@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import date
 import json
 from io import BytesIO
@@ -12,6 +13,7 @@ from sqlalchemy.orm import joinedload
 
 from ...models.pd.detail import PromptDetailModel
 from ...models.pd.base import PromptBaseModel
+from ...models.pd.collections import PromptIds
 from tools import api_tools, db, auth, config as c
 
 # from ...models.pd.example import ExampleModel
@@ -22,6 +24,7 @@ from ...models.all import Prompt
 from ...models.pd.export_import import DialImportModel
 
 from ...utils.create_utils import create_prompt
+from ...utils.collections import create_collection
 from ...utils.export_import_utils import prompts_export, prompts_export_to_dial, prompts_import_from_dial
 from ...utils.constants import PROMPT_LIB_MODE
 
@@ -147,6 +150,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def post(self, project_id: int, **kwargs):
         created = []
         errors = []
+        author_id = auth.current_user().get("id")
 
         if 'from_dial' in request.args:
             try:
@@ -155,14 +159,31 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 log.critical(str(e))
                 return {'error': str(e)}, 400
 
+            folders = defaultdict(list)
             prompts_data = imported_data.dict(exclude_unset=True)
 
             with db.with_project_schema_session(project_id) as session:
                 for prompt_data in prompts_data['prompts']:
+                    prompt_data["author_id"] = author_id
                     prompt = prompts_import_from_dial(project_id, prompt_data, session)
                     result = PromptDetailModel.from_orm(prompt)
+                    if folder_id := prompt_data['folderId']:
+                        folders[folder_id].append(prompt.id)
                     created.append(json.loads(result.json()))
                 session.commit()
+
+            if prompts_data['folders']:
+                created_collections = []
+                for folder_data in prompts_data['folders']:
+                    folder_data["owner_id"] = project_id
+                    folder_data["author_id"] = author_id
+                    folder_data["prompts"] = [
+                        PromptIds(id=id_, owner_id=project_id)
+                        for id_ in folders[folder_data['id']]
+                        ]
+                    result = create_collection(self.module.context, project_id, folder_data)
+                    created_collections.append(result)
+                created.append({'collections': created_collections})
 
         else:
             imported_data = dict(request.json)
@@ -171,7 +192,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 for raw in imported_data.get('prompts'):
                     raw["owner_id"] = project_id
                     for version in raw.get("versions", []):
-                        version["author_id"] = g.auth.id
+                        version["author_id"] = author_id
                     try:
                         prompt_data = PromptBaseModel.parse_obj(raw)
                     except ValidationError as e:
