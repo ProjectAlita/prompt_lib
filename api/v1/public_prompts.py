@@ -14,17 +14,16 @@ from ...utils.utils import add_public_project_id
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
-
-    # @auth.decorators.check_api(
-    #     {
-    #         "permissions": ["models.prompt_lib.prompts.list"],
-    #         "recommended_roles": {
-    #             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-    #             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-    #         },
-    #     }
-    # )
     @add_public_project_id
+    @auth.decorators.check_api(
+        {
+            "permissions": ["models.prompt_lib.public_prompts.list"],
+            "recommended_roles": {
+                c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+                c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+            },
+        }
+    )
     def get(self, *, project_id, **kwargs):
         ai_project_id = project_id
         filters = [Prompt.versions.any(PromptVersion.status == PromptVersionStatus.published)]

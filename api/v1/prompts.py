@@ -56,15 +56,15 @@ class PromptLibAPI(api_tools.APIModeHandler):
     #         project_id = 0  # todo: get user personal project id here
     #     return project_id
 
-    # @auth.decorators.check_api(
-    #     {
-    #         "permissions": ["models.prompt_lib.prompts.list"],
-    #         "recommended_roles": {
-    #             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-    #             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-    #         },
-    #     }
-    # )
+    @auth.decorators.check_api(
+        {
+            "permissions": ["models.prompt_lib.prompts.list"],
+            "recommended_roles": {
+                c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+                c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+            },
+        }
+    )
     def get(self, project_id: int | None = None, **kwargs):
         # project_id = self._get_project_id(project_id)
 
@@ -108,15 +108,15 @@ class PromptLibAPI(api_tools.APIModeHandler):
             "total": total
         },  200
 
-    # @auth.decorators.check_api(
-    #     {
-    #         "permissions": ["models.prompt_lib.prompts.create"],
-    #         "recommended_roles": {
-    #             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-    #             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-    #         },
-    #     }
-    # )
+    @auth.decorators.check_api(
+        {
+            "permissions": ["models.prompt_lib.prompts.create"],
+            "recommended_roles": {
+                c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+                c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+            },
+        }
+    )
     def post(self, project_id: int | None = None, **kwargs):
         # project_id = self._get_project_id(project_id)
 
