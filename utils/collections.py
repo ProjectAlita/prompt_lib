@@ -1,12 +1,14 @@
 import json
 from collections import defaultdict
 from typing import List
+from sqlalchemy.orm import joinedload
 from tools import auth, db, VaultClient, rpc_tools
 import copy
 
 from pylon.core.tools import log
 from ..models.enums.all import CollectionPatchOperations
-from ..models.all import Collection, Prompt
+from ..models.all import Collection, Prompt, PromptVersion
+from ..models.pd.base import PromptTagBaseModel
 from ..models.pd.list import MultiplePromptListModel
 from ..models.pd.collections import (
     CollectionDetailModel,
@@ -209,3 +211,27 @@ def patch_collection(context, project_id, collection_id, data: CollectionPatchMo
             session.commit()
             return result
         return None
+
+def get_collection_tags(prompts: List[dict]) -> list:
+    tags = dict()
+
+    prompts_data = defaultdict(list)
+    for prompt_data in prompts:
+        prompts_data[prompt_data['owner_id']].append(prompt_data['id'])
+
+    for project_id, prompt_ids in prompts_data.items():
+        with db.with_project_schema_session(project_id) as session:
+            for prompt_id in prompt_ids:
+                query = (
+                    session.query(Prompt)
+                    .options(
+                        joinedload(Prompt.versions).joinedload(PromptVersion.tags)
+                    )
+                )
+                prompt = query.get(prompt_id)
+
+                for version in prompt.versions:
+                    for tag in version.tags:
+                        tags[tag.name] = PromptTagBaseModel.from_orm(tag)
+
+    return list(tags.values())

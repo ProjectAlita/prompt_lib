@@ -5,6 +5,7 @@ from typing import Optional, List
 from pydantic import BaseModel, root_validator
 from .base import AuthorBaseModel
 from .list import PromptListModel
+from .detail import PromptTagDetailModel
 from ..enums.all import CollectionPatchOperations
 
 
@@ -65,6 +66,7 @@ class CollectionListModel(BaseModel):
     author_id: int
     author: Optional[AuthorBaseModel]
     prompts: Optional[List] = []
+    tags: List[PromptTagDetailModel] = []
 
     class Config:
         orm_mode = True

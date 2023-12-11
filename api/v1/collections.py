@@ -7,6 +7,7 @@ from pylon.core.tools import log
 from pydantic import ValidationError
 from ...models.pd.collections import CollectionListModel
 from ...utils.collections import (
+    get_collection_tags,
     list_collections,
     create_collection,
     PromptInaccessableError,
@@ -30,12 +31,15 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def get(self, project_id: int | None = None, **kwargs):
         # project_id = self._get_project_id(project_id)
         # list prompts
+        need_tags = not 'no_tags' in request.args
         total, collections = list_collections(project_id, request.args)
         # parsing
         parsed: List[CollectionListModel] = []
         for col in collections:
             col_model = CollectionListModel.from_orm(col)
             col_model.author = auth.get_user(user_id=col_model.author_id)
+            if need_tags:
+                col_model.tags = get_collection_tags(col.prompts)
             parsed.append(col_model)
 
         return {
