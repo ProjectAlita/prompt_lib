@@ -72,8 +72,13 @@ class Publishing(rpc_tools.EventManagerMixin):
         return result
 
     def _publishing_from_public(self):
-        if self.public_id == self.original_project:
-            return {"ok": False, "error": "It is already public"}
+        # update PromptVersion status to on_moderation
+        with db.with_project_schema_session(self.original_project) as session:
+            version = session.query(PromptVersion).get(self.original_version)
+            if not version:
+                return {"ok": False, "error": f"Prompt version with id '{self.original_version}' not found"}
+            version.status = PromptVersionStatus.on_moderation
+            session.commit()
         return {"ok": True}
 
     def prepare_private_prompt_data(self):
@@ -95,6 +100,8 @@ class Publishing(rpc_tools.EventManagerMixin):
                 self.prompt_version_data.pop('created_at', None)
                 self.prompt_version_data.pop('id', None)
                 self.prompt_version_data.pop('prompt_id', None)
+                self.prompt_version_data['shared_owner_id'] = self.original_project
+                self.prompt_version_data['shared_id'] = self.original_version
                 #
                 self.prompt_version_data['messages'] = self.__jsonify_relationships(private_prompt_version.messages)
                 self.prompt_version_data['tags'] = self.__jsonify_relationships(private_prompt_version.tags)
@@ -129,9 +136,11 @@ class Publishing(rpc_tools.EventManagerMixin):
             return {"ok": True}
 
     def publish(self):
-        result = self._publishing_from_public()
-        if not result['ok']:
-            return result
+        if self.public_id == self.original_project:
+            result = self._publishing_from_public()
+            if not result['ok']:
+                return result
+            return self.retrieve_private_prompt()
 
         result = self.prepare_private_prompt_data()
         if not result['ok']:
@@ -203,46 +212,25 @@ class Publishing(rpc_tools.EventManagerMixin):
             return {"ok": True, "prompt_version": json.loads(version_details.json())}
 
 
-def close_private_version(shared_owner_id, shared_id, version_name, session):
-    prompt = session.query(Prompt).filter_by(owner_id=shared_owner_id, id=shared_id).first()
-    if not prompt:
-        return
 
-    version = session.query(PromptVersion).filter_by(prompt_id=prompt.id, name=version_name).first()
+def close_private_version(shared_owner_id, shared_id, session):
+    version = session.query(PromptVersion).filter_by(id=shared_id).first()
     if not version:
+        log.warning(f"Private prompt version is not found(shared_id={shared_id}, shared_owner_id={shared_owner_id})")
         return
 
     version.status = PromptVersionStatus.draft
 
 
-def close_private_prompt(shared_owner_id, shared_id, session):
-    prompt = session.query(Prompt).filter_by(owner_id=shared_owner_id, id=shared_id).first()
-    if not prompt:
-        return
-        # raise Exception("Private prompt not found")
-    session.query(PromptVersion).filter(PromptVersion.prompt_id == prompt.id).update(
-        {PromptVersion.status: PromptVersionStatus.draft}
-    )
-
-
-def delete_public_version(prompt_owner_id, prompt_id, version_name, session):
-    prompt = session.query(Prompt).filter_by(
-        shared_owner_id=prompt_owner_id,
-        shared_id=prompt_id
-    ).first()
-    #
-    if not prompt:
-        return
-    #
+def delete_public_version(shared_owner_id, shared_id, session):
     version = session.query(PromptVersion).filter_by(
-        prompt_id=prompt.id,
-        name=version_name
+        shared_id=shared_id,
+        shared_owner_id=shared_owner_id
     ).first()
-
     session.delete(version)
 
 
-def delete_public_prompt(prompt_owner_id, prompt_id, session):
+def delete_public_prompt_versions(prompt_owner_id, prompt_id, session):
     prompt = session.query(Prompt).filter_by(
         shared_owner_id=prompt_owner_id,
         shared_id=prompt_id
@@ -251,22 +239,50 @@ def delete_public_prompt(prompt_owner_id, prompt_id, session):
     if not prompt:
         return
     #
-    session.delete(prompt)
+    versions = session.query(PromptVersion).filter(PromptVersion.prompt_id==prompt.id)
+    for version in versions:
+        session.delete(version)
 
 
 def fire_version_deleted_event(project_id, version: dict, prompt: dict):
+    try:
+        public, public_id = is_public_project(project_id)
+    except Exception:
+        log.error("No public project is not set and post prompt deletion event is skipped")
+        return
     payload = {
         'prompt_data':prompt,
         'version_data': version,
         'project_id': project_id,
+        'public_id': public_id,
     }
-    log.info(payload)
-    rpc_tools.EventManagerMixin().event_manager.fire_event('prompt_deleted', payload)
+    prefix = "private" if not public else "public"
+    
+    rpc_tools.EventManagerMixin().event_manager.fire_event(
+        f'{prefix}_prompt_version_deleted', payload
+    )
 
 
 def fire_prompt_deleted_event(project_id, prompt: dict):
+    try:
+        public, public_id = is_public_project(project_id)
+    except Exception:
+        log.error("No public project is not set and post prompt deletion event is skipped")
+        return
+    
     payload = {
         'prompt_data': prompt,
-        'project_id': project_id,
+        'public_id': public_id,
     }
-    rpc_tools.EventManagerMixin().event_manager.fire_event('prompt_deleted', payload)
+    # public prompts deletion is not allowed
+    if public:
+        return
+    rpc_tools.EventManagerMixin().event_manager.fire_event('private_prompt_deleted', payload)
+
+
+def is_public_project(project_id: int):
+    secrets = VaultClient().get_all_secrets()
+    ai_project_id = secrets.get("ai_project_id")
+    if not ai_project_id:
+        raise Exception("Public project is not set")
+    return int(ai_project_id) == project_id, int(ai_project_id)
