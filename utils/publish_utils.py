@@ -58,7 +58,7 @@ class Publishing(rpc_tools.EventManagerMixin):
         try:
             return int(secrets['ai_project_id'])
         except (KeyError, ValueError):
-            raise Exception("Public project doesn't exists or ai_project_id is not set in secrets")
+            raise Exception("Public project doesn't exist")
 
     def __jsonify_relationships(self, items):
         result = []
@@ -198,11 +198,10 @@ class Publishing(rpc_tools.EventManagerMixin):
                 'public_version_id': self.public_version_id,
                 'status': status
             })
+        
+        # set status of private prompt version
+        result = set_status(self.original_project, self.original_version, status)
         return result
-
-        # # set status of private prompt version
-        # result = set_status(self.original_project, self.original_version, status)
-        # return result
 
     def retrieve_private_prompt(self):
         with db.with_project_schema_session(self.original_project) as session:

@@ -91,9 +91,14 @@ class PromptLibAPI(api_tools.APIModeHandler):
     #     }})
     def delete(self, project_id, prompt_id):
         with db.with_project_schema_session(project_id) as session:
-            is_public, _ = is_public_project(project_id)
-            if is_public:
-                return "Deleting from public project is prohibited", 403
+            try:
+                is_public, _ = is_public_project(project_id)
+                if is_public:
+                    return "Deleting from public project is prohibited", 403
+            except Exception:
+                log.warning('Public project is not set so any prompt can be deleted')
+                pass
+
             if prompt := session.query(Prompt).get(prompt_id):
                 prompt_data = prompt.to_json()
                 fire_prompt_deleted_event(project_id, prompt_data)
