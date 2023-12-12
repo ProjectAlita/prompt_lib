@@ -279,9 +279,45 @@ def fire_prompt_deleted_event(project_id, prompt: dict):
     rpc_tools.EventManagerMixin().event_manager.fire_event('private_prompt_deleted', payload)
 
 
-def is_public_project(project_id: int):
+def is_public_project(project_id: int = None):
+    ai_project_id = get_public_project_id()
+    return ai_project_id == project_id, int(ai_project_id)
+
+
+def get_public_project_id():
     secrets = VaultClient().get_all_secrets()
-    ai_project_id = secrets.get("ai_project_id")
-    if not ai_project_id:
+    project_id = secrets.get("ai_project_id")
+    if not project_id:
         raise Exception("Public project is not set")
-    return int(ai_project_id) == project_id, int(ai_project_id)
+    return int(project_id)
+
+
+def unpublish(current_user_id, version_id):
+    #TODO: implement ownership check
+    public_id = get_public_project_id()
+    with db.with_project_schema_session(public_id) as session:
+        version = session.query(PromptVersion).filter_by(id=version_id).first()
+        if not version:
+            return {
+                "ok": False, 
+                "error": f"Public version with id '{version_id}'",
+                "error_code": 404,
+            }
+        
+        if int(version.author_id) != int(current_user_id):
+            return {
+                "ok": False, 
+                "error": "Current user is not author of the prompt version",
+                "error_code": 403
+            }
+
+        if version.status != PromptVersionStatus.published:
+            return {"ok": False, "error": "Version is not public yet"}
+        
+        version_data = version.to_json()
+        prompt_data = version.prompt.to_json()
+        session.delete(version)
+        session.commit()
+        fire_version_deleted_event(public_id, version_data, prompt_data)
+        return {"ok": True, "msg": "Successfully unpublished"}
+        
