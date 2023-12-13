@@ -94,7 +94,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             try:
                 is_public, _ = is_public_project(project_id)
                 if is_public:
-                    return "Deleting from public project is prohibited", 403
+                    return {"ok": False, "error": "Deleting from public project is prohibited"}, 403
             except Exception:
                 log.warning('Public project is not set so any prompt can be deleted')
                 pass
@@ -105,7 +105,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 session.delete(prompt)
                 session.commit()
                 return '', 204
-            return '', 404
+            return {"ok": False, "error": "Prompt is not found"}, 404
 
 
 class API(api_tools.APIBase):
