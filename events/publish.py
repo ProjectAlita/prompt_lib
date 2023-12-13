@@ -74,8 +74,11 @@ class Event:
                         break
                 payload['status'] = new_status
                 sleep(60)
-                public_version.status = new_status
-                session.commit()
+                try:
+                    public_version.status = new_status
+                    session.commit()
+                except:
+                    return log.info("The version is already stale")
                 return context.event_manager.fire_event('prompt_public_version_status_change', payload)
                 
             set_status(
