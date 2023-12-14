@@ -32,7 +32,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
             if not prompt_version:
                 return {'error': f'Prompt[{prompt_id}] version[{version_id}] not found'}, 400
             version_details = PromptVersionDetailModel.from_orm(prompt_version)
-            version_details.author = auth.get_user(user_id=prompt_version.author_id)
             return json.loads(version_details.json()), 200
 
     @auth.decorators.check_api({
@@ -59,7 +58,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 return {'error': f'Version with name {prompt_version.name} already exists'}, 400
 
             version_details = PromptVersionDetailModel.from_orm(prompt_version)
-            version_details.author = auth.get_user(user_id=prompt_version.author_id)
             return json.loads(version_details.json()), 201
 
     @auth.decorators.check_api({

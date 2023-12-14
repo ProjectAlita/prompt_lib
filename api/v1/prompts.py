@@ -138,9 +138,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             result.version_details = PromptVersionDetailModel.from_orm(
                 prompt.versions[0]
             )
-            result.version_details.author = auth.get_user(
-                user_id=result.version_details.author_id
-            )
+
             return json.loads(result.json()), 201
 
 
