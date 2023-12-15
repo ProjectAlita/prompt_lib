@@ -26,6 +26,7 @@ class Prompt(db_tools.AbstractBaseMixin, db.Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     shared_owner_id: Mapped[int] = mapped_column(Integer, nullable=True)
     shared_id: Mapped[int] = mapped_column(Integer, nullable=True)
+    collections: Mapped[list] = mapped_column(JSON, nullable=True, default=list)
 
     def get_latest_version(self):
         return next(version for version in self.versions if version.name == 'latest')
