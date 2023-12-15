@@ -122,7 +122,9 @@ class Publishing(rpc_tools.EventManagerMixin):
         with db.with_project_schema_session(self.public_id) as session:
             try:
                 prompt = self.get_public_prompt()
+                # new_prompt_created = False
                 if not prompt:
+                    # new_prompt_created = True
                     prompt = self._create_prompt(self.prompt_data)
                     session.flush()
 
@@ -130,6 +132,8 @@ class Publishing(rpc_tools.EventManagerMixin):
                 public_version = self._create_new_version(self.prompt_version_data, prompt, session)
                 session.commit()
                 self.public_version_id = public_version.id
+                # if new_prompt_created:
+                #     fire_public_prompt_created(prompt.to_json())
             except Exception as e:
                 session.rollback()
                 return {"ok": False, "error": str(e)}
@@ -242,6 +246,17 @@ def delete_public_prompt_versions(prompt_owner_id, prompt_id, session):
         session.delete(version)
 
 
+def fire_public_prompt_created(shared_owner_id, shared_id, public_prompt_id):
+    rpc_tools.EventManagerMixin().event_manager.fire_event(
+        "prompt_lib_prompt_published", 
+        {
+            "shared_owner_id": shared_owner_id,
+            "shared_id": shared_id,
+            "public_prompt_id": public_prompt_id
+        }
+    )
+
+
 def fire_version_deleted_event(project_id, version: dict, prompt: dict):
     try:
         public, public_id = is_public_project(project_id)
@@ -292,7 +307,6 @@ def get_public_project_id():
 
 
 def unpublish(current_user_id, version_id):
-    #TODO: implement ownership check
     public_id = get_public_project_id()
     with db.with_project_schema_session(public_id) as session:
         version = session.query(PromptVersion).filter_by(id=version_id).first()

@@ -72,7 +72,6 @@ class PromptVersionBaseModel(BaseModel):
     shared_id: Optional[int]
     shared_owner_id: Optional[int]
 
-
     class Config:
         orm_mode = True
 

@@ -6,7 +6,6 @@ from copy import deepcopy
 
 
 class Event:
-
     @web.event("prompt_lib_collection_updated")
     def handle_collection_updated(self, context, event, payload: dict):
         added_prompts = payload['added_prompts']
@@ -70,6 +69,17 @@ class Event:
             ]
             collection.prompts = clean_prompts
             session.commit()
+
+
+    @web.event('prompt_lib_prompt_published')
+    def handle_prompt_publishing(self, context, event, payload: dict) -> None:
+        shared_owner_id = payload['shared_owner_id']
+        shared_id = payload['shared_id']
+        public_prompt_id = payload['public_prompt_id']
+        
+        # # get all related collections
+        # with db.with_project_schema_session(shared_owner_id) as session:
+        #     session.query(Collection).filter_by()
 
 
 def group_by_project_id(data, data_type='dict'):

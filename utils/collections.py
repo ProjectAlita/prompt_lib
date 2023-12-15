@@ -4,6 +4,8 @@ from typing import List
 from sqlalchemy.orm import joinedload
 from tools import auth, db, VaultClient, rpc_tools
 import copy
+from sqlalchemy import or_, and_
+from sqlalchemy.sql import exists
 
 from pylon.core.tools import log
 from ..models.enums.all import CollectionPatchOperations
@@ -16,6 +18,7 @@ from ..models.pd.collections import (
     PromptIds,
     CollectionPatchModel,
 )
+from .publish_utils import get_public_project_id
 
 
 class PromptInaccessableError(Exception):
@@ -31,8 +34,8 @@ class PromptDoesntExist(Exception):
         self.message = message
 
 
-def check_prompts_addability(context, owner_id: int, user_id: int):
-    membership_check = context.rpc_manager.call.admin_check_user_in_project
+def check_prompts_addability(owner_id: int, user_id: int):
+    membership_check = rpc_tools.RpcMixin().rpc.call.admin_check_user_in_project
     secrets = VaultClient().get_all_secrets()
     ai_project_id = secrets.get("ai_project_id")
     return (
@@ -84,14 +87,12 @@ def fire_collection_deleted_event(collection_data: dict):
     )
 
 
-def update_collection(context, project_id: int, collection_id: int, data: dict):
+def update_collection(project_id: int, collection_id: int, data: dict):
     with db.with_project_schema_session(project_id) as session:
         if collection := session.query(Collection).get(collection_id):
             for prompt in data.get("prompts", []):
                 owner_id = prompt["owner_id"]
-                if not check_prompts_addability(
-                    context, owner_id, collection.author_id
-                ):
+                if not check_prompts_addability(owner_id, collection.author_id):
                     raise PromptInaccessableError(
                         f"User doesn't have access to project '{owner_id}'"
                     )
@@ -190,13 +191,13 @@ def prune_stale_prompts(collection, collection_prompts: dict, actual_prompts: di
     )
 
 
-def create_collection(context, project_id: int, data):
+def create_collection(project_id: int, data):
     collection: CollectionModel = CollectionModel.parse_obj(data)
     user_id = data["author_id"]
 
     for prompt in collection.prompts:
         owner_id = prompt.owner_id
-        if not check_prompts_addability(context, owner_id, user_id):
+        if not check_prompts_addability(owner_id, user_id):
             raise PromptInaccessableError(
                 f"User doesn't have access to project '{owner_id}'"
             )
@@ -250,8 +251,7 @@ def fire_patch_collection_event(old_state, operartion, prompt_data):
         }
     )
 
-
-def patch_collection(context, project_id, collection_id, data: CollectionPatchModel):
+def patch_collection(project_id, collection_id, data: CollectionPatchModel):
     op_map = {
         CollectionPatchOperations.add: add_prompt_to_collection,
         CollectionPatchOperations.remove: remove_prompt_from_collection
@@ -267,7 +267,7 @@ def patch_collection(context, project_id, collection_id, data: CollectionPatchMo
 
     with db.with_project_schema_session(project_id) as session:
         if collection := session.query(Collection).get(collection_id):
-            if not check_prompts_addability(context, prompt_data.owner_id, collection.author_id):
+            if not check_prompts_addability(prompt_data.owner_id, collection.author_id):
                 raise PromptInaccessableError(
                     f"User doesn't have access to project '{prompt_data.owner_id}'"
                 )
@@ -304,3 +304,63 @@ def get_collection_tags(prompts: List[dict]) -> list:
                         tags[tag.name] = PromptTagBaseModel.from_orm(tag)
 
     return list(tags.values())
+
+class CollectionPublishing:
+    def __init__(self, project_id: int, collection_id: int):
+        self._project_id = project_id
+        self._collection_id = collection_id
+        self._public_id = get_public_project_id()
+
+    def check_already_published(self):
+        with db.with_project_schema_session(self._public_id) as session:
+            exist_query = (
+                session.query(exists().where(and_(
+                    Collection.shared_id==self._collection_id,
+                    Collection.shared_owner_id==self._project_id,
+                )))
+            ).scalar()
+            return exist_query
+
+    def get_public_prompts_of_collection(self, private_prompt_ids: List[dict]):
+        with db.with_project_schema_session(self._public_id) as session:
+            prompt_ids = session.query(Prompt.id).filter(
+                or_(
+                    *[ 
+                        and_(
+                            Prompt.shared_id==data['id'],
+                            Prompt.shared_owner_id==data['owner_id']
+                        ) for data in private_prompt_ids
+                    ]
+                )
+            ).all()
+        result = [{"id": prompt_id[0], "owner_id": self._public_id} for prompt_id in prompt_ids]
+        return result
+
+    def publish(self):
+        if self.check_already_published():
+            return {
+                "ok": False,
+                "error": "Already published"
+            }
+
+        collection_data = None
+        with db.with_project_schema_session(self._project_id) as session:
+            collection = session.query(Collection).get(self._collection_id)
+            if not collection:
+                return {
+                    "ok": False, 
+                    "error": "Collection is not found",
+                    "error_code": 404 
+                }
+
+            collection_data = collection.to_json()
+            collection_data['shared_id'] = collection_data.pop('id')
+            collection_data['shared_owner_id'] = collection_data.pop('owner_id')
+            collection_data['owner_id'] = self._public_id
+            collection_data['prompts'] = self.get_public_prompts_of_collection(collection_data['prompts'])
+        
+        new_collection = create_collection(self._public_id, collection_data)
+        return {
+            "ok": True,
+            "new_collection": new_collection
+        }
