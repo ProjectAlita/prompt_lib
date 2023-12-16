@@ -118,7 +118,7 @@ PromptVersionTagAssociation = Table(
 class Collection(db_tools.AbstractBaseMixin, db.Base):
     __tablename__ = "prompt_collections"
     __table_args__ = (
-        UniqueConstraint('shared_owner_id', 'shared_id', name='_version_shared_origin'),
+        UniqueConstraint('shared_owner_id', 'shared_id', name='_collection_shared_origin'),
         {"schema": c.POSTGRES_TENANT_SCHEMA},
     )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

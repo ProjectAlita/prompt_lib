@@ -232,21 +232,21 @@ def remove_prompt_from_collection(collection, prompt_data: PromptIds):
     return get_detail_collection(collection)
 
 
-def fire_patch_collection_event(old_state, operartion, prompt_data):
+def fire_patch_collection_event(collection_data, operartion, prompt_data):
     if operartion == CollectionPatchOperations.add:
         removed_prompts = tuple()
-        added_prompts = [(prompt_data.owner_id, prompt_data.id)]
+        added_prompts = [(prompt_data['owner_id'], prompt_data['id'])]
     else:
         added_prompts = tuple()
-        removed_prompts = [(prompt_data.owner_id, prompt_data.id)]
+        removed_prompts = [(prompt_data['owner_id'], prompt_data['id'])]
 
     rpc_tools.EventManagerMixin().event_manager.fire_event(
         'prompt_lib_collection_updated', {
             "removed_prompts": removed_prompts,
             "added_prompts": added_prompts,
             "collection_data": {
-                "owner_id": old_state['owner_id'],
-                "id": old_state['id']
+                "owner_id": collection_data['owner_id'],
+                "id": collection_data['id']
             }
         }
     )
@@ -276,7 +276,7 @@ def patch_collection(project_id, collection_id, data: CollectionPatchModel):
             collection_data = collection.to_json()
             session.commit()
             fire_patch_collection_event(
-                collection_data, data.operation, prompt_data
+                collection_data, data.operation, prompt_data.dict()
             )
             return result
         return None
