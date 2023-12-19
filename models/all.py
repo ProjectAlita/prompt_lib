@@ -26,6 +26,7 @@ class Prompt(db_tools.AbstractBaseMixin, db.Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     shared_owner_id: Mapped[int] = mapped_column(Integer, nullable=True)
     shared_id: Mapped[int] = mapped_column(Integer, nullable=True)
+    collections: Mapped[list] = mapped_column(JSON, nullable=True, default=list)
 
     def get_latest_version(self):
         return next(version for version in self.versions if version.name == 'latest')
@@ -34,6 +35,7 @@ class Prompt(db_tools.AbstractBaseMixin, db.Base):
 class PromptVersion(db_tools.AbstractBaseMixin, db.Base):
     __tablename__ = 'prompt_versions'
     __table_args__ = (
+        UniqueConstraint('shared_owner_id', 'shared_id', name='_version_shared_origin'),
         UniqueConstraint('prompt_id', 'name', name='_prompt_name_uc'),
         {'schema': c.POSTGRES_TENANT_SCHEMA},
     )
@@ -56,6 +58,9 @@ class PromptVersion(db_tools.AbstractBaseMixin, db.Base):
     model_settings: Mapped[dict] = mapped_column(JSON, nullable=True)
     embedding_settings: Mapped[dict] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    # reference fields to origin 
+    shared_owner_id: Mapped[int] = mapped_column(Integer, nullable=True)
+    shared_id: Mapped[int] = mapped_column(Integer, nullable=True)
 
 
 class PromptVariable(db_tools.AbstractBaseMixin, db.Base):

@@ -70,11 +70,18 @@ def list_collections(project_id: int, args=None):
 
 def delete_collection(project_id: int, collection_id: int):
     with db.with_project_schema_session(project_id) as session:
-        if prompt := session.query(Collection).get(collection_id):
-            session.delete(prompt)
+        if collection := session.query(Collection).get(collection_id):
+            collection_data = collection.to_json()
+            session.delete(collection)
             session.commit()
+            fire_collection_deleted_event(collection_data)
             return True
     return False
+
+def fire_collection_deleted_event(collection_data: dict):
+    rpc_tools.EventManagerMixin().event_manager.fire_event(
+        'prompt_lib_collection_deleted', collection_data
+    )
 
 
 def update_collection(context, project_id: int, collection_id: int, data: dict):
@@ -89,13 +96,46 @@ def update_collection(context, project_id: int, collection_id: int, data: dict):
                         f"User doesn't have access to project '{owner_id}'"
                     )
 
+            # snapshoting old state
+            old_state = collection.to_json()
+
             for field, value in data.items():
                 if hasattr(collection, field):
                     setattr(collection, field, value)
-
             session.commit()
+
+            fire_collection_updated_event(old_state, data)            
             return get_detail_collection(collection)
         return None
+
+
+def fire_collection_updated_event(old_state: dict, collection_payload: dict):
+    if 'prompts' not in collection_payload:
+        return
+    
+    # old state map
+    old_state_tuple_set = set()
+    for prompt in old_state['prompts']:
+        old_state_tuple_set.add((prompt['owner_id'], prompt['id']))
+
+    # new state map
+    new_state_tuple_set = set()
+    for prompt in collection_payload['prompts']:
+        new_state_tuple_set.add((prompt['owner_id'], prompt['id']))
+    
+    removed_prompts = old_state_tuple_set - new_state_tuple_set
+    added_prompts = new_state_tuple_set - old_state_tuple_set
+
+    rpc_tools.EventManagerMixin().event_manager.fire_event(
+        'prompt_lib_collection_updated', {
+            "removed_prompts": removed_prompts,
+            "added_prompts": added_prompts,
+            "collection_data": {
+                "owner_id": old_state['owner_id'],
+                "id": old_state['id']
+            }
+        }
+    )
 
 
 def get_collection(project_id: int, collection_id: int):
@@ -165,8 +205,14 @@ def create_collection(context, project_id: int, data):
         collection = Collection(**collection.dict())
         session.add(collection)
         session.commit()
+        fire_collection_created_event(collection.to_json())
         return get_detail_collection(collection)
 
+
+def fire_collection_created_event(collection_data: dict):
+    rpc_tools.EventManagerMixin().event_manager.fire_event(
+        'prompt_lib_collection_added', collection_data
+    )
 
 def add_prompt_to_collection(collection, prompt_data: PromptIds):
     prompts_list: List = copy.deepcopy(collection.prompts)
@@ -185,6 +231,26 @@ def remove_prompt_from_collection(collection, prompt_data: PromptIds):
     return get_detail_collection(collection)
 
 
+def fire_patch_collection_event(old_state, operartion, prompt_data):
+    if operartion == CollectionPatchOperations.add:
+        removed_prompts = tuple()
+        added_prompts = [(prompt_data.owner_id, prompt_data.id)]
+    else:
+        added_prompts = tuple()
+        removed_prompts = [(prompt_data.owner_id, prompt_data.id)]
+
+    rpc_tools.EventManagerMixin().event_manager.fire_event(
+        'prompt_lib_collection_updated', {
+            "removed_prompts": removed_prompts,
+            "added_prompts": added_prompts,
+            "collection_data": {
+                "owner_id": old_state['owner_id'],
+                "id": old_state['id']
+            }
+        }
+    )
+
+
 def patch_collection(context, project_id, collection_id, data: CollectionPatchModel):
     op_map = {
         CollectionPatchOperations.add: add_prompt_to_collection,
@@ -199,7 +265,6 @@ def patch_collection(context, project_id, collection_id, data: CollectionPatchMo
                 f"Prompt '{prompt_data.id}' in project '{prompt_data.owner_id}' doesn't exist"
             )
 
-
     with db.with_project_schema_session(project_id) as session:
         if collection := session.query(Collection).get(collection_id):
             if not check_prompts_addability(context, prompt_data.owner_id, collection.author_id):
@@ -208,7 +273,11 @@ def patch_collection(context, project_id, collection_id, data: CollectionPatchMo
                 )
 
             result = op_map[data.operation](collection, prompt_data)
+            collection_data = collection.to_json()
             session.commit()
+            fire_patch_collection_event(
+                collection_data, data.operation, prompt_data
+            )
             return result
         return None
 
