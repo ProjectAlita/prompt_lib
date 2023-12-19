@@ -1,7 +1,8 @@
+from flask import g
 from functools import wraps
 from typing import Set, Callable
 
-from tools import VaultClient
+from tools import VaultClient, auth
 from ..models.enums.all import PromptVersionStatus
 
 
@@ -29,5 +30,15 @@ def add_public_project_id(f: Callable) -> Callable:
             return {'error': "'ai_project_id' not set"}, 400
         kwargs.update({'project_id': public_project_id})
         return f(*args, **kwargs)
-
     return wrapper
+
+
+def get_author_data(author_id: int) -> dict:
+    author_data = auth.get_user(user_id=author_id)
+    try:
+        auth_ctx = auth.get_referenced_auth_context(g.auth.reference)
+        avatar = auth_ctx['provider_attr']['attributes']['picture']
+    except (AttributeError, KeyError):
+        avatar = None
+    author_data['avatar'] = avatar
+    return author_data

@@ -1,9 +1,11 @@
+from datetime import datetime
 from typing import Optional, List
 
 # from pylon.core.tools import log
 from pydantic import BaseModel, root_validator
 from .base import AuthorBaseModel
 from .list import PromptListModel
+from .detail import PromptTagDetailModel
 from ..enums.all import CollectionPatchOperations
 
 
@@ -43,6 +45,7 @@ class CollectionDetailModel(BaseModel):
     author_id: int
     prompts: Optional[List[PromptListModel]] = []
     author: Optional[AuthorBaseModel]
+    created_at: datetime
 
     class Config:
         orm_mode = True
@@ -63,6 +66,7 @@ class CollectionListModel(BaseModel):
     author_id: int
     author: Optional[AuthorBaseModel]
     prompts: Optional[List] = []
+    tags: List[PromptTagDetailModel] = []
 
     class Config:
         orm_mode = True

@@ -70,7 +70,7 @@ def prompts_import_from_dial(project_id: int, prompt_data: dict, session: None) 
     )
     ver = PromptVersionBaseModel(
         name='latest',
-        author_id=g.auth.id,
+        author_id=prompt_data['author_id'],
         context=prompt_data['content'],
         type='chat'
     )

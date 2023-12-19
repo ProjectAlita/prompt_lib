@@ -1,6 +1,7 @@
 from typing import Optional, List
 
 from pydantic import (
+    AnyUrl,
     BaseModel,
     PositiveInt,
     StrictStr,
@@ -91,3 +92,5 @@ class PromptBaseModel(BaseModel):
 class AuthorBaseModel(BaseModel):
     id: int
     email: str
+    name: Optional[str]
+    avatar: Optional[AnyUrl]

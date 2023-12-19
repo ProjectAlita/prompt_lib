@@ -217,7 +217,6 @@ def get_prompt_details(project_id: int, prompt_id: int, version_name: str = 'lat
 
         result = PromptDetailModel.from_orm(prompt_version.prompt)
         result.version_details = PromptVersionDetailModel.from_orm(prompt_version)
-        result.version_details.author = auth.get_user(user_id=prompt_version.author_id)
     return {'ok': True, 'data': result.json()}
 
 
@@ -249,6 +248,5 @@ def get_published_prompt_details(project_id: int, prompt_id: int, version_name: 
                 }
         result = PublishedPromptDetailModel.from_orm(prompt_version.prompt)
         result.version_details = PromptVersionDetailModel.from_orm(prompt_version)
-        result.version_details.author = auth.get_user(user_id=prompt_version.author_id)
 
     return {'ok': True, 'data': result.json()}
