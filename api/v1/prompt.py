@@ -71,24 +71,24 @@ class ProjectAPI(api_tools.APIModeHandler):
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
-    # @auth.decorators.check_api({
-    #     "permissions": ["models.prompt_lib.prompt.details"],
-    #     "recommended_roles": {
-    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-    #     }})
+    @auth.decorators.check_api({
+        "permissions": ["models.prompt_lib.prompt.details"],
+        "recommended_roles": {
+            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+        }})
     def get(self, project_id: int, prompt_id: int, version_name: str = 'latest', **kwargs):
         result = get_prompt_details(project_id, prompt_id, version_name)
         if not result['ok']:
             return {'error': result['msg']}, 400
         return json.loads(result['data']), 200
 
-    # @auth.decorators.check_api({
-    #     "permissions": ["models.prompt_lib.prompt.delete"],
-    #     "recommended_roles": {
-    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-    #     }})
+    @auth.decorators.check_api({
+        "permissions": ["models.prompt_lib.prompt.delete"],
+        "recommended_roles": {
+            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+        }})
     def delete(self, project_id, prompt_id):
         with db.with_project_schema_session(project_id) as session:
             if prompt := session.query(Prompt).get(prompt_id):

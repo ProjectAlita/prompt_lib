@@ -6,6 +6,7 @@ from .base import PromptTagBaseModel, PromptBaseModel, PromptVersionBaseModel, A
     PromptMessageBaseModel
 from .list import PromptVersionListModel
 from ..enums.all import PromptVersionStatus
+from ...utils.utils import get_author_data
 
 
 class PromptTagDetailModel(PromptTagBaseModel):
@@ -33,6 +34,11 @@ class PromptVersionDetailModel(PromptVersionBaseModel):
     author: Optional[AuthorBaseModel]
     tags: Optional[List[PromptTagDetailModel]]
 
+    @validator('author', always=True)
+    def add_author_data(cls, value: dict, values: dict) -> AuthorBaseModel:
+        author_data = get_author_data(values['author_id'])
+        return AuthorBaseModel(**author_data)
+
 
 class PromptDetailModel(PromptBaseModel):
     id: int
@@ -40,7 +46,18 @@ class PromptDetailModel(PromptBaseModel):
     version_details: Optional[PromptVersionDetailModel]
     created_at: datetime
 
+
+class PublishedPromptVersionListModel(PromptVersionListModel):
+    author: Optional[AuthorBaseModel]
+
+    @validator('author', always=True)
+    def add_author_data(cls, value: dict, values: dict) -> AuthorBaseModel:
+        author_data = get_author_data(values['author_id'])
+        return AuthorBaseModel(**author_data)
+
+
 class PublishedPromptDetailModel(PromptDetailModel):
+    versions: List[PublishedPromptVersionListModel]
 
     @validator('versions')
     def check_versions(cls, value: list) -> list:

@@ -199,7 +199,6 @@ class Publishing(rpc_tools.EventManagerMixin):
         with db.with_project_schema_session(self.original_project) as session:
             version = session.query(PromptVersion).filter_by(id=self.original_version).first()
             version_details = PromptVersionDetailModel.from_orm(version)
-            version_details.author = auth.get_user(user_id=version.author_id)
             return {"ok": True, "prompt_version": json.loads(version_details.json())}
 
 
