@@ -25,6 +25,8 @@ class CollectionModel(BaseModel):
     author_id: Optional[int]
     description: Optional[str]
     prompts: Optional[List[PromptIds]] = []
+    shared_id: Optional[int]
+    shared_owner_id: Optional[int]
 
 
 class PromptBaseModel(BaseModel):

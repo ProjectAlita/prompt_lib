@@ -6,7 +6,7 @@ from pylon.core.tools import log
 
 from .enums.all import PromptVersionStatus, PromptVersionType, MessageRoles
 from sqlalchemy import Integer, String, DateTime, func, ForeignKey, JSON, Table, Column, UniqueConstraint, MetaData
-from sqlalchemy.orm import Mapped, mapped_column, relationship, backref
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
 class Prompt(db_tools.AbstractBaseMixin, db.Base):
@@ -117,7 +117,10 @@ PromptVersionTagAssociation = Table(
 
 class Collection(db_tools.AbstractBaseMixin, db.Base):
     __tablename__ = "prompt_collections"
-    __table_args__ = ({"schema": c.POSTGRES_TENANT_SCHEMA},)
+    __table_args__ = (
+        UniqueConstraint('shared_owner_id', 'shared_id', name='_collection_shared_origin'),
+        {"schema": c.POSTGRES_TENANT_SCHEMA},
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(String, nullable=True)
@@ -126,3 +129,6 @@ class Collection(db_tools.AbstractBaseMixin, db.Base):
     prompts: Mapped[dict] = mapped_column(JSON, nullable=True)
     # ALTER TABLE carrier."P_1".prompt_collections ADD COLUMN created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP;
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    # reference fields to origin 
+    shared_owner_id: Mapped[int] = mapped_column(Integer, nullable=True)
+    shared_id: Mapped[int] = mapped_column(Integer, nullable=True)

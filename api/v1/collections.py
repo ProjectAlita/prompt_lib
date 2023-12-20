@@ -61,7 +61,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         data["owner_id"], data["author_id"] = project_id, author_id
 
         try:
-            result = create_collection(self.module.context, project_id, data)
+            result = create_collection(project_id, data)
             return result, 201
         except ValidationError as e:
             return e.errors(), 400

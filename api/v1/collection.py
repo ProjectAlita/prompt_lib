@@ -50,9 +50,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         try:
             payload = request.get_json()
             CollectionUpdateModel.validate(payload)
-            result = update_collection(
-                self.module.context, project_id, collection_id, payload
-            )
+            result = update_collection(project_id, collection_id, payload)
             if not result:
                 return {"error": f"No collection found with id '{collection_id}'"}, 404
             return result, 200
@@ -72,9 +70,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         try:
             payload = request.get_json()
             collection_data = CollectionPatchModel.validate(payload)
-            result = patch_collection(
-                self.module.context, project_id, collection_id, collection_data
-            )
+            result = patch_collection(project_id, collection_id, collection_data)
             if not result:
                 return {"error": f"No collection found with id '{collection_id}'"}, 404
             return result, 200

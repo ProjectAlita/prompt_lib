@@ -2,11 +2,13 @@ from pylon.core.tools import log, web
 from collections import defaultdict
 from tools import db
 from ..models.all import Collection, Prompt
+from ..models.enums.all import CollectionPatchOperations
 from copy import deepcopy
+from ..utils.collections import fire_patch_collection_event
+from sqlalchemy import or_, and_
 
 
 class Event:
-
     @web.event("prompt_lib_collection_updated")
     def handle_collection_updated(self, context, event, payload: dict):
         added_prompts = payload['added_prompts']
@@ -70,6 +72,40 @@ class Event:
             ]
             collection.prompts = clean_prompts
             session.commit()
+
+
+    @web.event('prompt_lib_prompt_published')
+    def handle_prompt_publishing(self, context, event, payload: dict) -> None:
+        prompt_data = payload['prompt_data']
+        owner_id = prompt_data['owner_id']
+        collections = payload['collections']
+        
+        with db.with_project_schema_session(owner_id) as session:
+            collections = session.query(Collection).filter(
+                or_(
+                    *[ 
+                        and_(
+                            Collection.shared_id==collection['id'],
+                            Collection.shared_owner_id==collection['owner_id']
+                        ) for collection in collections
+                    ]
+                )
+            ).all()
+
+            for collection in collections:
+                prompts = deepcopy(collection.prompts)
+                prompts.append({
+                    "owner_id": owner_id,
+                    "id": prompt_data['id']
+                })
+                collection.prompts = prompts
+            session.commit()
+
+            for collection in collections:
+                fire_patch_collection_event(
+                    collection.to_json(), CollectionPatchOperations.add, prompt_data
+                )
+
 
 
 def group_by_project_id(data, data_type='dict'):
