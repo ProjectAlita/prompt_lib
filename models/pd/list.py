@@ -42,6 +42,7 @@ class PromptListModel(BaseModel):
     authors: List[AuthorBaseModel] = []
     tags: Optional[PromptTagBaseModel]
     status: Optional[PromptVersionStatus]
+    likes: Optional[int]
 
     class Config:
         orm_mode = True
