@@ -1,8 +1,11 @@
 from json import loads
+from queue import Empty
 from typing import List, Optional
-from sqlalchemy import func, cast, String
-from sqlalchemy.orm import joinedload
+from sqlalchemy import func, cast, String, desc
+from sqlalchemy.orm import joinedload, with_expression, defer
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.sql import literal
+# from ...social.models.likes import Like
 
 from tools import db, auth, rpc_tools
 from pylon.core.tools import log
@@ -158,24 +161,62 @@ def list_prompts(project_id: int,
         filters = []
 
     with db.with_project_schema_session(project_id) as session:
-        query = session.query(Prompt).options(
-            joinedload(Prompt.versions).joinedload(PromptVersion.tags)
+
+        # query = (
+        #     session.query(Prompt)
+        #     .options(joinedload(Prompt.versions).joinedload(PromptVersion.tags))
+        #     .options(with_expression(Prompt.likes, func.count(likes_subquery.c.user_id)))
+        #     .outerjoin(likes_subquery, likes_subquery.c.entity_id == Prompt.id)
+        #     .group_by(Prompt)
+        # )
+
+        query = (
+            session.query(Prompt)
+            .options(joinedload(Prompt.versions).joinedload(PromptVersion.tags))
         )
+
+        # Add likes count to the query if social plugin is available
+        try:
+            Like = rpc_tools.RpcMixin().rpc.timeout(2).social_get_like_model()
+        except Empty:
+            Like = None
+
+        if Like:
+            likes_subquery = Like.query.filter(
+                Like.project_id == project_id,
+                Like.entity == 'prompt'
+                ).subquery()
+
+            query = (
+                query
+                .options(defer(Prompt.collections))
+                .add_columns(func.count(likes_subquery.c.user_id).label('likes'))
+                .outerjoin(likes_subquery, likes_subquery.c.entity_id == Prompt.id)
+                .group_by(Prompt.id)
+            )
+        else:
+            query = query.add_columns(literal(0).label('likes'))
 
         if filters:
             query = query.filter(*filters)
 
         # Apply sorting
         if sort_order.lower() == "asc":
-            query = query.order_by(getattr(Prompt, sort_by))
+            query = query.order_by(getattr(Prompt, sort_by, sort_by))
         else:
-            query = query.order_by(getattr(Prompt, sort_by).desc())
+            query = query.order_by(desc(getattr(Prompt, sort_by, sort_by)))
 
         total = query.count()
         # Apply limit and offset for pagination
         query = query.limit(limit).offset(offset)
-        prompts: List[Prompt] = query.all()
-    return total, prompts
+        prompts: List[tuple[Prompt, int]] = query.all()
+
+        prompts_with_likes = []
+        for prompt, likes in prompts:
+            prompt.likes = likes
+            prompts_with_likes.append(prompt)
+
+    return total, prompts_with_likes
 
 
 # def is_personal_project(project_id: int) -> bool:
@@ -248,5 +289,7 @@ def get_published_prompt_details(project_id: int, prompt_id: int, version_name: 
                 }
         result = PublishedPromptDetailModel.from_orm(prompt_version.prompt)
         result.version_details = PromptVersionDetailModel.from_orm(prompt_version)
+        result.get_likes(project_id)
+        result.check_is_liked(project_id)
 
     return {'ok': True, 'data': result.json()}

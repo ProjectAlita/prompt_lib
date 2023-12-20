@@ -35,6 +35,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 tags = tags.split(',')
             filters.append(Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags))))
 
+        if author_id := request.args.get('author_id'):
+            filters.append(Prompt.versions.any(PromptVersion.author_id == author_id))
+
         # Pagination parameters
         limit = request.args.get("limit", default=10, type=int)
         offset = request.args.get("offset", default=0, type=int)

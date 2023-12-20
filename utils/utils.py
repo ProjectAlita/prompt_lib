@@ -1,8 +1,8 @@
-from flask import g
+from queue import Empty
 from functools import wraps
 from typing import Set, Callable
 
-from tools import VaultClient, auth
+from tools import VaultClient, auth, rpc_tools
 from ..models.enums.all import PromptVersionStatus
 
 
@@ -34,11 +34,14 @@ def add_public_project_id(f: Callable) -> Callable:
 
 
 def get_author_data(author_id: int) -> dict:
-    author_data = auth.get_user(user_id=author_id)
     try:
-        auth_ctx = auth.get_referenced_auth_context(g.auth.reference)
-        avatar = auth_ctx['provider_attr']['attributes']['picture']
-    except (AttributeError, KeyError):
+        author_data = auth.get_user(user_id=author_id)
+    except RuntimeError:
+        return {}
+    try:
+        user_data = rpc_tools.RpcMixin().rpc.timeout(2).social_get_user(author_data['id'])
+        avatar = user_data['avatar']
+    except (Empty, KeyError):
         avatar = None
     author_data['avatar'] = avatar
     return author_data
