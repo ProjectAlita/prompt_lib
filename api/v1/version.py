@@ -18,12 +18,12 @@ from ...utils.constants import PROMPT_LIB_MODE
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
-    @auth.decorators.check_api({
-        "permissions": ["models.prompt_lib.version.details"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-        }})
+    # @auth.decorators.check_api({
+    #     "permissions": ["models.prompt_lib.version.details"],
+    #     "recommended_roles": {
+    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+    #     }})
     def get(self, project_id: int, prompt_id: int, version_id: int, **kwargs):
         with db.with_project_schema_session(project_id) as session:
             prompt_version = session.query(PromptVersion).filter(
@@ -35,12 +35,12 @@ class PromptLibAPI(api_tools.APIModeHandler):
             version_details = PromptVersionDetailModel.from_orm(prompt_version)
             return json.loads(version_details.json()), 200
 
-    @auth.decorators.check_api({
-        "permissions": ["models.prompt_lib.version.create"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-        }})
+    # @auth.decorators.check_api({
+    #     "permissions": ["models.prompt_lib.version.create"],
+    #     "recommended_roles": {
+    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+    #     }})
     def post(self, project_id: int, prompt_id: int, **kwargs):
         data = dict(request.json)
         data['author_id'] = auth.current_user().get("id")
@@ -61,12 +61,12 @@ class PromptLibAPI(api_tools.APIModeHandler):
             version_details = PromptVersionDetailModel.from_orm(prompt_version)
             return json.loads(version_details.json()), 201
 
-    @auth.decorators.check_api({
-        "permissions": ["models.prompt_lib.version.update"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-        }})
+    # @auth.decorators.check_api({
+    #     "permissions": ["models.prompt_lib.version.update"],
+    #     "recommended_roles": {
+    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+    #     }})
     def put(self, project_id: int, prompt_id: int, version_id: int = None, **kwargs):
         version_data = dict(request.json)
         version_data['author_id'] = auth.current_user().get("id")
@@ -81,12 +81,12 @@ class PromptLibAPI(api_tools.APIModeHandler):
             return res['msg'], 400
         return res['data'], 200
 
-    @auth.decorators.check_api({
-        "permissions": ["models.prompt_lib.version.delete"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-        }})
+    # @auth.decorators.check_api({
+    #     "permissions": ["models.prompt_lib.version.delete"],
+    #     "recommended_roles": {
+    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+    #     }})
     def delete(self, project_id: int, prompt_id: int, version_id: int = None):
         with db.with_project_schema_session(project_id) as session:
             if version := session.query(PromptVersion).get(version_id):

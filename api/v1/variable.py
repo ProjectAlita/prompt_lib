@@ -8,12 +8,12 @@ from sqlalchemy.exc import IntegrityError
 
 
 class ProjectAPI(api_tools.APIModeHandler):
-    @auth.decorators.check_api({
-        "permissions": ["models.prompts.variable.create"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-        }})
+    # @auth.decorators.check_api({
+    #     "permissions": ["models.prompts.variable.create"],
+    #     "recommended_roles": {
+    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+    #     }})
     def post(self, project_id):
         try:
             # variable = self.module.create_variable(project_id, request.json)
@@ -37,12 +37,12 @@ class ProjectAPI(api_tools.APIModeHandler):
         except IntegrityError:
             return [{'loc': ['name'], 'msg': 'Variable already exists'}], 400
 
-    @auth.decorators.check_api({
-        "permissions": ["models.prompts.variable.update"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-        }})
+    # @auth.decorators.check_api({
+    #     "permissions": ["models.prompts.variable.update"],
+    #     "recommended_roles": {
+    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+    #     }})
     def put(self, project_id):
         try:
             variable = self.module.update_variable(project_id, request.json)
@@ -52,12 +52,12 @@ class ProjectAPI(api_tools.APIModeHandler):
         except IntegrityError:
             return [{'loc': ['name'], 'msg': 'Variable already exists'}], 400
 
-    @auth.decorators.check_api({
-        "permissions": ["models.prompts.variable.delete"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-        }})
+    # @auth.decorators.check_api({
+    #     "permissions": ["models.prompts.variable.delete"],
+    #     "recommended_roles": {
+    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+    #     }})
     def delete(self, project_id, variable_id):
         self.module.delete_variable(project_id, variable_id)
         return '', 204

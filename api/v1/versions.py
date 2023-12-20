@@ -9,23 +9,23 @@ from ...models.all import Prompt
 
 
 class ProjectAPI(api_tools.APIModeHandler):
-    @auth.decorators.check_api({
-        "permissions": ["models.prompts.versions.get"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-        }})
+    # @auth.decorators.check_api({
+    #     "permissions": ["models.prompts.versions.get"],
+    #     "recommended_roles": {
+    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+    #     }})
     def get(self, project_id, prompt_id: str, **kwargs):
         with db.with_project_schema_session(project_id) as session:
             prompt = session.query(Prompt).get(prompt_id)
             return [VersionV1Model(**version.to_json()).dict() for version in prompt.versions]
 
-    @auth.decorators.check_api({
-        "permissions": ["models.prompts.versions.create"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-        }})
+    # @auth.decorators.check_api({
+    #     "permissions": ["models.prompts.versions.create"],
+    #     "recommended_roles": {
+    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+    #     }})
     def post(self, project_id, **kwargs):
         prompt_data = self.module.get_by_id(project_id, request.json['prompt_id'])
         prompt_data.pop('test_input')

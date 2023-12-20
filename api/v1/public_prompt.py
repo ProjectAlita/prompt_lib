@@ -13,12 +13,12 @@ from tools import api_tools, auth, config as c
 
 class PromptLibAPI(api_tools.APIModeHandler):
     @add_public_project_id
-    @auth.decorators.check_api({
-        "permissions": ["models.prompt_lib.public_prompt.details"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-        }})
+    # @auth.decorators.check_api({
+    #     "permissions": ["models.prompt_lib.public_prompt.details"],
+    #     "recommended_roles": {
+    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+    #     }})
     def get(self, prompt_id: int, version_name: str = None, *, project_id, **kwargs):
         ai_project_id = project_id
         result = get_published_prompt_details(ai_project_id, prompt_id, version_name)

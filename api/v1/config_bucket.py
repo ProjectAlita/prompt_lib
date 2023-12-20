@@ -10,12 +10,12 @@ from hurry.filesize import size
 
 
 class ProjectAPI(api_tools.APIModeHandler):
-    @auth.decorators.check_api({
-        "permissions": ["models.config"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-        }})
+    # @auth.decorators.check_api({
+    #     "permissions": ["models.config"],
+    #     "recommended_roles": {
+    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+    #     }})
     def get(self, project_id: int, file_name: Optional[str] = None, **kwargs):
         project = self.module.context.rpc_manager.call.project_get_or_404(project_id=project_id)
         # s3_settings = test_data['test_config'].get(

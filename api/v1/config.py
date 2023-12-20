@@ -7,12 +7,12 @@ from ...models.pd.legacy.config_pd import ModelsConfig, TokenPD
 
 
 class ProjectAPI(api_tools.APIModeHandler):
-    @auth.decorators.check_api({
-        "permissions": ["models.config"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-        }})
+    # @auth.decorators.check_api({
+    #     "permissions": ["models.config"],
+    #     "recommended_roles": {
+    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+    #     }})
     def get(self, project_id: int, **kwargs):
         data: ModelsConfig = self.module.get_config(project_id=project_id, user_id=g.auth.id)
 
@@ -37,12 +37,12 @@ class ProjectAPI(api_tools.APIModeHandler):
 
         return table_data, 200
 
-    @auth.decorators.check_api({
-        "permissions": ["models.config"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-        }})
+    # @auth.decorators.check_api({
+    #     "permissions": ["models.config"],
+    #     "recommended_roles": {
+    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+    #     }})
     def put(self, project_id: int, **kwargs):
         # used to regenerate token from ui
         token: TokenPD = self.module.regenerate_token(user_id=g.auth.id)
