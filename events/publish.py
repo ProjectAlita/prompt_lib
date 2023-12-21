@@ -10,8 +10,9 @@ from ..utils.publish_utils import set_status
 
 from time import sleep
 from ..utils.publish_utils import (
-    close_private_version,
-    delete_public_prompt_versions,
+    close_private_version, 
+    fire_prompt_deleted_event,
+    delete_public_prompt,
     delete_public_version,
 )
 
@@ -46,8 +47,9 @@ class Event:
         with db.with_project_schema_session(public_id) as session:
             prompt_owner_id = prompt_data['owner_id']
             prompt_id = prompt_data['id']
-            delete_public_prompt_versions(prompt_owner_id, prompt_id, session)
-            return session.commit()
+            delete_public_prompt(prompt_owner_id, prompt_id, session)
+            session.commit()
+            return fire_prompt_deleted_event(public_id, prompt_data)
 
     @web.event('prompt_public_version_status_change')
     def handle_on_moderation(self, context, event, payload: dict) -> None:

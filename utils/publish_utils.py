@@ -235,6 +235,19 @@ def delete_public_version(shared_owner_id, shared_id, session):
     session.delete(version)
 
 
+def delete_public_prompt(prompt_owner_id, prompt_id, session):
+    prompt = session.query(Prompt).filter_by(
+        shared_owner_id=prompt_owner_id,
+        shared_id=prompt_id
+    ).first()
+
+    if not prompt:
+        return
+    
+    session.delete(prompt)
+    
+
+
 def delete_public_prompt_versions(prompt_owner_id, prompt_id, session):
     prompt = session.query(Prompt).filter_by(
         shared_owner_id=prompt_owner_id,
