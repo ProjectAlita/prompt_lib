@@ -350,7 +350,7 @@ def unpublish(current_user_id, version_id):
                 "error_code": 403
             }
 
-        if version.status != PromptVersionStatus.published:
+        if not version.status in [PromptVersionStatus.draft, PromptVersionStatus.rejected]:
             return {"ok": False, "error": "Version is not public yet"}
         
         version_data = version.to_json()

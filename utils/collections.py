@@ -428,3 +428,31 @@ class CollectionPublishing:
             "ok": True,
             "new_collection": result
         }
+
+
+def unpublish(current_user_id, collection_id):
+    public_id = get_public_project_id()
+    with db.with_project_schema_session(public_id) as session:
+        collection = session.query(Collection).get(collection_id)
+        if not collection:
+            return {
+                "ok": False, 
+                "error": f"Public collection with id '{collection_id}'",
+                "error_code": 404,
+            }
+        
+        if int(collection.author_id) != int(current_user_id):
+            return {
+                "ok": False, 
+                "error": "Current user is not author of the collection",
+                "error_code": 403
+            }
+
+        if collection.status  == CollectionStatus.draft:
+            return {"ok": False, "error": "Collection is not public yet"}
+        
+        collection_data = collection.to_json()
+        session.delete(collection)
+        session.commit()
+        fire_collection_deleted_event(collection_data)
+        return {"ok": True, "msg": "Successfully unpublished"}
