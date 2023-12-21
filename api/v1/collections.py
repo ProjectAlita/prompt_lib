@@ -10,6 +10,7 @@ from ...utils.collections import (
     get_collection_tags,
     list_collections,
     create_collection,
+    get_detail_collection,
     PromptInaccessableError,
 )
 
@@ -65,7 +66,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
         data["owner_id"], data["author_id"] = project_id, author_id
 
         try:
-            result = create_collection(project_id, data)
+            new_collection = create_collection(project_id, data)
+            result = get_detail_collection(new_collection)
             return result, 201
         except ValidationError as e:
             return e.errors(), 400

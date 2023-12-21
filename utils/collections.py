@@ -75,6 +75,14 @@ def list_collections(project_id: int, args:  MultiDict[str, str] | dict | None =
         # Search query filters
         search = args.get("query")
 
+    # filtering
+    filters = []
+    if author_id := args.get('author_id'):
+        filters.append(Collection.author_id==author_id)
+
+    if status := args.get('status'):
+        filters.append(Collection.status == status)
+
     with db.with_project_schema_session(project_id) as session:
         query = session.query(Collection)
 
@@ -85,6 +93,9 @@ def list_collections(project_id: int, args:  MultiDict[str, str] | dict | None =
                     Collection.description.ilike(f"%{search}%")
                 )
             )
+
+        if filters:
+            query = query.filter(*filters)
 
         # Apply sorting
         if sort_order.lower() == "asc":
