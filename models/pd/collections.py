@@ -44,6 +44,7 @@ class CollectionDetailModel(BaseModel):
     name: str
     description: Optional[str]
     owner_id: int
+    status: str
     author_id: int
     prompts: Optional[List[PromptListModel]] = []
     author: Optional[AuthorBaseModel]
@@ -57,6 +58,7 @@ class CollectionUpdateModel(BaseModel):
     name: Optional[str]
     description: Optional[str]
     owner_id: Optional[int]
+    status: str
     prompts: Optional[List[PromptIds]] = {}
 
 
@@ -66,6 +68,7 @@ class CollectionListModel(BaseModel):
     description: Optional[str]
     owner_id: int
     author_id: int
+    status: str
     author: Optional[AuthorBaseModel]
     prompts: Optional[List] = []
     tags: List[PromptTagDetailModel] = []

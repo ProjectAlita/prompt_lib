@@ -4,7 +4,7 @@ from typing import List
 from tools import db_tools, db, rpc_tools, config as c
 from pylon.core.tools import log
 
-from .enums.all import PromptVersionStatus, PromptVersionType, MessageRoles
+from .enums.all import PromptVersionStatus, PromptVersionType, MessageRoles, CollectionStatus
 from sqlalchemy import Integer, String, DateTime, func, ForeignKey, JSON, Table, Column, UniqueConstraint, MetaData
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -127,6 +127,7 @@ class Collection(db_tools.AbstractBaseMixin, db.Base):
     owner_id: Mapped[int] = mapped_column(Integer, nullable=False)
     author_id: Mapped[int] = mapped_column(Integer, nullable=False)
     prompts: Mapped[dict] = mapped_column(JSON, nullable=True)
+    status: Mapped[CollectionStatus] = mapped_column(String, nullable=False, default=CollectionStatus.draft)
     # ALTER TABLE carrier."P_1".prompt_collections ADD COLUMN created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP;
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     # reference fields to origin 
