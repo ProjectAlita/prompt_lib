@@ -232,7 +232,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                     messages.append(i.dict(exclude_unset=True))
 
             if payload.user_input:
-                user = auth.get_user(user_id=g.auth.id)
+                user = auth.current_user()
                 messages.append(PromptMessagePredictModel(
                     role=MessageRoles.user,
                     content=payload.user_input,

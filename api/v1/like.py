@@ -1,4 +1,5 @@
 from flask import request
+from sqlalchemy.exc import IntegrityError
 
 from pylon.core.tools import log
 from tools import api_tools, auth, config as c
@@ -15,8 +16,11 @@ class PromptLibAPI(api_tools.APIModeHandler):
     #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
     #     }})
     def post(self, project_id, entity, entity_id):
-        result = self.module.context.rpc_manager.call.social_like(
-            project_id=project_id, entity=entity, entity_id=entity_id)
+        try:
+            result = self.module.context.rpc_manager.call.social_like(
+                project_id=project_id, entity=entity, entity_id=entity_id)
+        except IntegrityError:
+            return {"ok": False, "error": "Already liked"}, 400
         return result, 201
 
     # @auth.decorators.check_api({

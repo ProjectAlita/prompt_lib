@@ -10,7 +10,7 @@ from ..utils.publish_utils import set_status
 
 from time import sleep
 from ..utils.publish_utils import (
-    close_private_version, 
+    close_private_version,
     delete_public_prompt_versions,
     delete_public_version,
 )
@@ -25,7 +25,6 @@ class Event:
             shared_id = version_data['shared_id']
             close_private_version(shared_owner_id, shared_id, session)
             return session.commit()
-        
 
     @web.event("private_prompt_version_deleted")
     def handler(self, context, event, payload: dict):
@@ -37,8 +36,7 @@ class Event:
             shared_owner_id = prompt_data['owner_id']
             shared_id = version_data['id']
             delete_public_version(shared_owner_id, shared_id, session)
-            return session.commit() 
-
+            return session.commit()
 
     @web.event("private_prompt_deleted")
     def handler(self, context, event, payload: dict):
@@ -50,7 +48,6 @@ class Event:
             prompt_id = prompt_data['id']
             delete_public_prompt_versions(prompt_owner_id, prompt_id, session)
             return session.commit()
-
 
     @web.event('prompt_public_version_status_change')
     def handle_on_moderation(self, context, event, payload: dict) -> None:
@@ -65,13 +62,18 @@ class Event:
             ).filter(
                 PromptVersion.id == public_version_id,
             ).first()
-            
+
             if status == PromptVersionStatus.on_moderation:
-                new_status = PromptVersionStatus.published
+                new_status = None
                 for i in public_version.tags:
                     if i.name == PromptVersionStatus.rejected:
                         new_status = PromptVersionStatus.rejected
                         break
+                    if i.name == PromptVersionStatus.published:
+                        new_status = PromptVersionStatus.published
+                        break
+                if not new_status:
+                    return
                 payload['status'] = new_status
                 sleep(60)
                 try:
@@ -80,7 +82,7 @@ class Event:
                 except:
                     return log.info("The version is already stale")
                 return context.event_manager.fire_event('prompt_public_version_status_change', payload)
-                
+
             set_status(
                 project_id=public_version.prompt.shared_owner_id,
                 # prompt_version_id=public_version.prompt.shared_id,

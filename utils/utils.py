@@ -1,6 +1,6 @@
 from queue import Empty
 from functools import wraps
-from typing import Set, Callable
+from typing import List, Set, Callable
 
 from tools import VaultClient, auth, rpc_tools
 from ..models.enums.all import PromptVersionStatus
@@ -33,15 +33,34 @@ def add_public_project_id(f: Callable) -> Callable:
     return wrapper
 
 
-def get_author_data(author_id: int) -> dict:
+# def get_author_data(author_id: int) -> dict:
+#     try:
+#         author_data = auth.get_user(user_id=author_id)
+#     except RuntimeError:
+#         return {}
+#     try:
+#         user_data = rpc_tools.RpcMixin().rpc.timeout(2).social_get_user(author_data['id'])
+#         avatar = user_data['avatar']
+#     except (Empty, KeyError):
+#         avatar = None
+#     author_data['avatar'] = avatar
+#     return author_data
+
+
+def get_authors_data(author_ids: List[int]) -> List[dict]:
     try:
-        author_data = auth.get_user(user_id=author_id)
+        users_data: list = auth.list_users(user_ids=author_ids)
     except RuntimeError:
-        return {}
+        return []
     try:
-        user_data = rpc_tools.RpcMixin().rpc.timeout(2).social_get_user(author_data['id'])
-        avatar = user_data['avatar']
+        social_data: list = rpc_tools.RpcMixin().rpc.timeout(2).social_get_users(author_ids)
     except (Empty, KeyError):
-        avatar = None
-    author_data['avatar'] = avatar
-    return author_data
+        social_data = []
+
+    for user in users_data:
+        for social_user in social_data:
+            if user['id'] == social_user['id']:
+                user['avatar'] = social_user.get('avatar')
+                break
+
+    return users_data
