@@ -8,7 +8,7 @@ from pydantic import BaseModel, root_validator, validator
 
 from .base import PromptTagBaseModel, AuthorBaseModel
 from ..enums.all import PromptVersionStatus
-from ...utils.utils import determine_prompt_status
+from ...utils.utils import determine_prompt_status, get_authors_data
 
 
 class PromptTagListModel(PromptTagBaseModel):
@@ -68,7 +68,7 @@ class PromptListModel(BaseModel):
 
     def set_authors(self, user_map: dict) -> None:
         self.authors = [
-            user_map.get(i) for i in self.author_ids
+            AuthorBaseModel(**user_map[author_id]) for author_id in self.author_ids
         ]
 
 
@@ -81,8 +81,8 @@ class MultiplePromptListModel(BaseModel):
         for prompt in values['prompts']:
             all_authors.update(prompt.author_ids)
 
-        users = auth.list_users(user_ids=list(all_authors))
-        user_map = {i["id"]: i for i in users}
+        users = get_authors_data(list(all_authors))
+        user_map = {i['id']: i for i in users}
 
         for prompt in values['prompts']:
             prompt.set_authors(user_map)

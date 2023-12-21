@@ -1,6 +1,7 @@
 import json
 from flask import request, g
 from typing import List
+from sqlalchemy import or_
 
 from pylon.core.tools import web, log
 from tools import api_tools, config as c, db, auth
@@ -37,6 +38,15 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         if author_id := request.args.get('author_id'):
             filters.append(Prompt.versions.any(PromptVersion.author_id == author_id))
+
+        # Search parameters
+        if search := request.args.get('query'):
+            filters.append(
+                or_(
+                    Prompt.name.ilike(f"%{search}%"),
+                    Prompt.description.ilike(f"%{search}%")
+                )
+            )
 
         # Pagination parameters
         limit = request.args.get("limit", default=10, type=int)
