@@ -12,7 +12,7 @@ from .create_utils import create_version
 from ..models.pd.detail import PromptVersionDetailModel
 
 
-def set_status(project_id: int, prompt_version_name_or_id: int | str, status: PromptVersionStatus) -> dict:
+def set_status(project_id: int, prompt_version_name_or_id: int | str, status: PromptVersionStatus, return_data=False) -> dict:
     f = [PromptVersion.name == prompt_version_name_or_id]
     if isinstance(prompt_version_name_or_id, int):
         f = [PromptVersion.id == prompt_version_name_or_id]
@@ -20,14 +20,25 @@ def set_status(project_id: int, prompt_version_name_or_id: int | str, status: Pr
     with db.with_project_schema_session(project_id) as session:
         try:
             version = session.query(PromptVersion).filter(*f).first()
+            if not version:
+                return {
+                    "ok": False, 
+                    "error": f"Version with id '{version.id}' not found",
+                    "error_code": 404,
+                }
             version.status = status
             session.commit()
+            if return_data:
+                version_detail = PromptVersionDetailModel.from_orm(version)
         except:
             session.rollback()
             return {
                 "ok": False,
                 "error": f"Error happened while setting status for {project_id=}, {prompt_version_name_or_id=}, {status=}"
             }
+    
+    if return_data:
+        return {"ok": True, "result": json.loads(version_detail.json())}
     return {"ok": True}
 
 
@@ -199,12 +210,12 @@ class Publishing(rpc_tools.EventManagerMixin):
 
         # set status of public prompt version
         result = set_status(project_id=self.public_id, prompt_version_name_or_id=self.public_version_id, status=status)
-        if result['ok']:
-            self.event_manager.fire_event('prompt_public_version_status_change', {
-                'public_project_id': self.public_id,
-                'public_version_id': self.public_version_id,
-                'status': status
-            })
+        # if result['ok']:
+        #     self.event_manager.fire_event('prompt_public_version_status_change', {
+        #         'public_project_id': self.public_id,
+        #         'public_version_id': self.public_version_id,
+        #         'status': status
+        #     })
         
         # set status of private prompt version
         result = set_status(self.original_project, self.original_version, status)
@@ -348,4 +359,30 @@ def unpublish(current_user_id, version_id):
         session.commit()
         fire_version_deleted_event(public_id, version_data, prompt_data)
         return {"ok": True, "msg": "Successfully unpublished"}
-        
+
+
+
+def fire_public_version_status_change_event(shared_owner_id, shared_id, status):
+    rpc_tools.EventManagerMixin().event_manager.fire_event(
+        'prompt_public_version_status_change', {
+        'private_project_id': shared_owner_id,
+        'private_version_id': shared_id,
+        'status': status
+    })
+
+
+def set_public_version_status(version_id: int, status):
+    public_id = get_public_project_id()
+    result = set_status(
+        project_id=public_id,
+        prompt_version_name_or_id=version_id,
+        status=status,
+        return_data=True
+    )
+    if result['ok']:
+        fire_public_version_status_change_event(
+            shared_owner_id=result['result']['shared_owner_id'],
+            shared_id=result['result']['shared_id'],
+            status=status
+        )
+    return result
