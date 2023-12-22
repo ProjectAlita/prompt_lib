@@ -59,7 +59,7 @@ def get_authors_data(author_ids: List[int]) -> List[dict]:
 
     for user in users_data:
         for social_user in social_data:
-            if user['id'] == social_user['id']:
+            if user['id'] == social_user['user_id']:
                 user['avatar'] = social_user.get('avatar')
                 break
 
