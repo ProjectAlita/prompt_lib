@@ -14,6 +14,11 @@ class PromptVersionStatus(StrEnum):
     user_approval = 'user_approval'
 
 
+class CollectionStatus(StrEnum):
+    draft = 'draft'
+    published = 'published'
+
+
 class PromptVersionType(StrEnum):
     chat = 'chat'
     structured = 'structured'

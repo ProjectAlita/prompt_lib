@@ -13,7 +13,7 @@ from sqlalchemy.sql import exists
 from pylon.core.tools import log
 
 from .utils import get_authors_data
-from ..models.enums.all import CollectionPatchOperations
+from ..models.enums.all import CollectionPatchOperations, CollectionStatus
 from ..models.all import Collection, Prompt, PromptVersion
 from ..models.pd.base import PromptTagBaseModel
 from ..models.pd.list import MultiplePromptListModel
@@ -75,6 +75,14 @@ def list_collections(project_id: int, args:  MultiDict[str, str] | dict | None =
         # Search query filters
         search = args.get("query")
 
+    # filtering
+    filters = []
+    if author_id := args.get('author_id'):
+        filters.append(Collection.author_id==author_id)
+
+    if status := args.get('status'):
+        filters.append(Collection.status == status)
+
     with db.with_project_schema_session(project_id) as session:
         query = session.query(Collection)
 
@@ -85,6 +93,9 @@ def list_collections(project_id: int, args:  MultiDict[str, str] | dict | None =
                     Collection.description.ilike(f"%{search}%")
                 )
             )
+
+        if filters:
+            query = query.filter(*filters)
 
         # Apply sorting
         if sort_order.lower() == "asc":
@@ -239,7 +250,7 @@ def create_collection(project_id: int, data):
         session.add(collection)
         session.commit()
         fire_collection_created_event(collection.to_json())
-        return get_detail_collection(collection)
+        return collection
 
 
 def fire_collection_created_event(collection_data: dict):
@@ -368,6 +379,25 @@ class CollectionPublishing:
         result = [{"id": prompt_id[0], "owner_id": self._public_id} for prompt_id in prompt_ids]
         return result
 
+
+    def _set_status(self, project_id, collection_id, status: CollectionStatus):
+        with db.with_project_schema_session(project_id) as session:
+            collection = session.query(Collection).get(collection_id)
+            #
+            if not collection:
+                return
+            #
+            collection.status = status
+            session.commit()
+
+    def set_statuses_published(self, public_collection_data: Collection):
+        # set public collection published
+        collection_id = public_collection_data.id
+        self._set_status(self._public_id, collection_id, CollectionStatus.published)
+
+        # set private collection published
+        self._set_status(self._project_id, self._collection_id, CollectionStatus.published)
+
     def publish(self):
         if self.check_already_published():
             return {
@@ -392,7 +422,37 @@ class CollectionPublishing:
             collection_data['prompts'] = self.get_public_prompts_of_collection(collection_data['prompts'])
         
         new_collection = create_collection(self._public_id, collection_data)
+        result = get_detail_collection(new_collection)
+        self.set_statuses_published(new_collection)
         return {
             "ok": True,
-            "new_collection": new_collection
+            "new_collection": result
         }
+
+
+def unpublish(current_user_id, collection_id):
+    public_id = get_public_project_id()
+    with db.with_project_schema_session(public_id) as session:
+        collection = session.query(Collection).get(collection_id)
+        if not collection:
+            return {
+                "ok": False, 
+                "error": f"Public collection with id '{collection_id}'",
+                "error_code": 404,
+            }
+        
+        if int(collection.author_id) != int(current_user_id):
+            return {
+                "ok": False, 
+                "error": "Current user is not author of the collection",
+                "error_code": 403
+            }
+
+        if collection.status  == CollectionStatus.draft:
+            return {"ok": False, "error": "Collection is not public yet"}
+        
+        collection_data = collection.to_json()
+        session.delete(collection)
+        session.commit()
+        fire_collection_deleted_event(collection_data)
+        return {"ok": True, "msg": "Successfully unpublished"}

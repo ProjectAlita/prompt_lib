@@ -8,11 +8,12 @@ from ..models.enums.all import PromptVersionStatus
 
 from ..utils.publish_utils import set_status
 
-from time import sleep
 from ..utils.publish_utils import (
-    close_private_version,
-    delete_public_prompt_versions,
+    close_private_version, 
+    fire_prompt_deleted_event,
+    delete_public_prompt,
     delete_public_version,
+    close_private_versions
 )
 
 
@@ -46,46 +47,29 @@ class Event:
         with db.with_project_schema_session(public_id) as session:
             prompt_owner_id = prompt_data['owner_id']
             prompt_id = prompt_data['id']
-            delete_public_prompt_versions(prompt_owner_id, prompt_id, session)
-            return session.commit()
+            delete_public_prompt(prompt_owner_id, prompt_id, session)
+            session.commit()
+            return fire_prompt_deleted_event(public_id, prompt_data)
+
+
+    @web.event("public_prompt_deleted")
+    def handler(self, context, event, payload: dict):
+        prompt_data = payload['prompt_data']
+        #
+        prompt_owner_id = prompt_data['shared_owner_id']
+        prompt_id = prompt_data['shared_id']
+        close_private_versions(prompt_owner_id, prompt_id)
+            
 
     @web.event('prompt_public_version_status_change')
     def handle_on_moderation(self, context, event, payload: dict) -> None:
         log.info(f'Event {payload}')
-        public_project_id = payload['public_project_id']
-        public_version_id = payload['public_version_id']
+        private_project_id = payload['private_project_id']
+        private_version_id = payload['private_version_id']
         status = payload['status']
 
-        with db.with_project_schema_session(public_project_id) as session:
-            public_version: PromptVersion = session.query(PromptVersion).options(
-                joinedload(PromptVersion.prompt)
-            ).filter(
-                PromptVersion.id == public_version_id,
-            ).first()
-
-            if status == PromptVersionStatus.on_moderation:
-                new_status = None
-                for i in public_version.tags:
-                    if i.name == PromptVersionStatus.rejected:
-                        new_status = PromptVersionStatus.rejected
-                        break
-                    if i.name == PromptVersionStatus.published:
-                        new_status = PromptVersionStatus.published
-                        break
-                if not new_status:
-                    return
-                payload['status'] = new_status
-                sleep(60)
-                try:
-                    public_version.status = new_status
-                    session.commit()
-                except:
-                    return log.info("The version is already stale")
-                return context.event_manager.fire_event('prompt_public_version_status_change', payload)
-
-            set_status(
-                project_id=public_version.prompt.shared_owner_id,
-                # prompt_version_id=public_version.prompt.shared_id,
-                prompt_version_name_or_id=public_version.name,
-                status=status
-            )
+        set_status(
+            project_id=private_project_id,
+            prompt_version_name_or_id=private_version_id,
+            status=status
+        )
