@@ -1,8 +1,11 @@
 from queue import Empty
 from functools import wraps
 from typing import List, Set, Callable
+from sqlalchemy import func
 
-from tools import VaultClient, auth, rpc_tools
+from tools import db, VaultClient, auth, rpc_tools
+from ..models.all import Prompt, PromptVersion
+from ..models.pd.authors import AuthorDetailModel, TrendingAuthorModel
 from ..models.enums.all import PromptVersionStatus
 
 
@@ -33,20 +36,6 @@ def add_public_project_id(f: Callable) -> Callable:
     return wrapper
 
 
-# def get_author_data(author_id: int) -> dict:
-#     try:
-#         author_data = auth.get_user(user_id=author_id)
-#     except RuntimeError:
-#         return {}
-#     try:
-#         user_data = rpc_tools.RpcMixin().rpc.timeout(2).social_get_user(author_data['id'])
-#         avatar = user_data['avatar']
-#     except (Empty, KeyError):
-#         avatar = None
-#     author_data['avatar'] = avatar
-#     return author_data
-
-
 def get_authors_data(author_ids: List[int]) -> List[dict]:
     try:
         users_data: list = auth.list_users(user_ids=author_ids)
@@ -64,3 +53,78 @@ def get_authors_data(author_ids: List[int]) -> List[dict]:
                 break
 
     return users_data
+
+
+def get_author_data(author_id: int) -> dict:
+    try:
+        author_data = auth.get_user(user_id=author_id)
+    except RuntimeError:
+        return {}
+    try:
+        user_data = rpc_tools.RpcMixin().rpc.timeout(2).social_get_user(author_data['id'])
+    except (Empty, KeyError):
+        user_data = {}
+    author = author_data | user_data
+    return AuthorDetailModel(**author)
+
+
+def get_trending_authors(project_id: int, limit: int = 5) -> List[dict]:
+    try:
+        Like = rpc_tools.RpcMixin().rpc.timeout(2).social_get_like_model()
+    except Empty:
+        return []
+
+    with db.with_project_schema_session(project_id) as session:
+
+        # Likes subquery
+        likes_subquery = Like.query.filter(
+            Like.project_id == project_id,
+            Like.entity == 'prompt'
+            ).subquery()
+
+        # Subquery
+        prompt_likes_subq = (
+            session.query(Prompt.id, func.count(likes_subquery.c.user_id).label('likes'))
+            .outerjoin(likes_subquery, likes_subquery.c.entity_id == Prompt.id)
+            .group_by(Prompt.id)
+            .subquery()
+        )
+
+        # Main query
+        sq_result = (
+            session.query(
+                PromptVersion.prompt_id,
+                PromptVersion.author_id,
+                prompt_likes_subq.c.likes
+            )
+            .outerjoin(
+                prompt_likes_subq, prompt_likes_subq.c.id == PromptVersion.prompt_id
+            )
+            .group_by(
+                PromptVersion.prompt_id,
+                PromptVersion.author_id,
+                prompt_likes_subq.c.likes
+            )
+            .subquery()
+        )
+
+        result = (
+            session.query(sq_result.c.author_id, func.sum(sq_result.c.likes))
+            .group_by(sq_result.c.author_id)
+            .order_by(func.sum(sq_result.c.likes).desc())
+            .limit(limit)
+            .all()
+        )
+
+        authors = get_authors_data([row[0] for row in result])
+
+        trending_authors = []
+        for row in result:
+            for author in authors:
+                if author['id'] == row[0]:
+                    author_data = TrendingAuthorModel(**author)
+                    author_data.likes = int(row[1])
+                    trending_authors.append(author_data)
+                    break
+
+    return trending_authors
