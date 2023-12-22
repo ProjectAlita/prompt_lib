@@ -238,6 +238,19 @@ def close_private_version(shared_owner_id, shared_id, session):
     version.status = PromptVersionStatus.draft
 
 
+def close_private_versions(shared_owner_id, shared_id):
+    with db.with_project_schema_session(shared_owner_id) as session:
+        prompt = session.query(Prompt).get(shared_id)
+        
+        if not prompt:
+            return
+        
+        session.query(PromptVersion).filter_by(prompt_id=prompt.id).update({
+            PromptVersion.status: PromptVersionStatus.draft
+        })
+
+        session.commit()
+
 def delete_public_version(shared_owner_id, shared_id, session):
     version = session.query(PromptVersion).filter_by(
         shared_id=shared_id,
@@ -313,10 +326,12 @@ def fire_prompt_deleted_event(project_id, prompt: dict):
         'prompt_data': prompt,
         'public_id': public_id,
     }
-    # public prompts deletion is not allowed
-    if public:
-        return
-    rpc_tools.EventManagerMixin().event_manager.fire_event('private_prompt_deleted', payload)
+
+    prefix = "private" if not public else "public"
+
+    rpc_tools.EventManagerMixin().event_manager.fire_event(
+        f'{prefix}_prompt_deleted', payload
+    )
 
 
 def is_public_project(project_id: int = None):

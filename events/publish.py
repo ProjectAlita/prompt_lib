@@ -8,12 +8,12 @@ from ..models.enums.all import PromptVersionStatus
 
 from ..utils.publish_utils import set_status
 
-from time import sleep
 from ..utils.publish_utils import (
     close_private_version, 
     fire_prompt_deleted_event,
     delete_public_prompt,
     delete_public_version,
+    close_private_versions
 )
 
 
@@ -50,6 +50,16 @@ class Event:
             delete_public_prompt(prompt_owner_id, prompt_id, session)
             session.commit()
             return fire_prompt_deleted_event(public_id, prompt_data)
+
+
+    @web.event("public_prompt_deleted")
+    def handler(self, context, event, payload: dict):
+        prompt_data = payload['prompt_data']
+        #
+        prompt_owner_id = prompt_data['shared_owner_id']
+        prompt_id = prompt_data['shared_id']
+        close_private_versions(prompt_owner_id, prompt_id)
+            
 
     @web.event('prompt_public_version_status_change')
     def handle_on_moderation(self, context, event, payload: dict) -> None:
