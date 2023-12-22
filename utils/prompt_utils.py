@@ -16,7 +16,6 @@ from ..models.pd.update import PromptVersionUpdateModel
 from ..models.pd.detail import PromptDetailModel, PromptVersionDetailModel, PublishedPromptDetailModel
 from ..models.pd.list import PromptTagListModel
 from ..models.enums.all import PromptVersionStatus
-from .utils import get_authors_data
 
 
 def create_variables_bulk(project_id: int, variables: List[dict], **kwargs) -> List[dict]:
@@ -157,7 +156,8 @@ def list_prompts(project_id: int,
                  limit: int = 10, offset: int = 0,
                  sort_by: str = 'created_at',
                  sort_order: str = 'desc',
-                 filters: Optional[list] = None):
+                 filters: Optional[list] = None,
+                 with_likes: bool = True) -> tuple:
     if filters is None:
         filters = []
 
@@ -182,7 +182,7 @@ def list_prompts(project_id: int,
         except Empty:
             Like = None
 
-        if Like:
+        if Like and with_likes:
             likes_subquery = Like.query.filter(
                 Like.project_id == project_id,
                 Like.entity == 'prompt'
@@ -294,62 +294,3 @@ def get_published_prompt_details(project_id: int, prompt_id: int, version_name: 
         result.check_is_liked(project_id)
 
     return {'ok': True, 'data': result.json()}
-
-
-def get_trending_authors(project_id: int, limit: int = 10) -> List[dict]:
-    try:
-        Like = rpc_tools.RpcMixin().rpc.timeout(2).social_get_like_model()
-    except Empty:
-        return []
-
-    with db.with_project_schema_session(project_id) as session:
-
-        # Likes subquery
-        likes_subquery = Like.query.filter(
-            Like.project_id == project_id,
-            Like.entity == 'prompt'
-            ).subquery()
-
-        # Subquery
-        prompt_likes_subq = (
-            session.query(Prompt.id,func.count(likes_subquery.c.user_id).label('likes'))
-            .outerjoin(likes_subquery, likes_subquery.c.entity_id == Prompt.id)
-            .group_by(Prompt.id)
-            .subquery()
-        )
-
-        # Main query
-        sq_result = (
-            session.query(
-                PromptVersion.prompt_id,
-                PromptVersion.author_id,
-                prompt_likes_subq.c.likes
-            )
-            .outerjoin(
-                prompt_likes_subq, prompt_likes_subq.c.id == PromptVersion.prompt_id
-            )
-            .group_by(
-                PromptVersion.prompt_id,
-                PromptVersion.author_id,
-                prompt_likes_subq.c.likes
-            )
-            .subquery()
-        )
-
-        result = (
-            session.query(sq_result.c.author_id, func.sum(sq_result.c.likes))
-            .group_by(sq_result.c.author_id)
-            .order_by(func.sum(sq_result.c.likes).desc())
-            .limit(limit)
-            .all()
-        )
-
-        authors = get_authors_data([row[0] for row in result])
-
-        for author in authors:
-            for row in result:
-                if author['id'] == row[0]:
-                    author['likes'] = int(row[1])
-                    break
-
-    return authors

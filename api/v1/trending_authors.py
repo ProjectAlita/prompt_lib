@@ -1,10 +1,12 @@
+import json
 from typing import List
 from flask import jsonify
 from pylon.core.tools import log
 
 from tools import api_tools, auth, config as c
 
-from ...utils.prompt_utils import get_trending_authors
+from ...utils.utils import get_trending_authors
+from ...models.pd.authors import TrendingAuthorModel
 from ...utils.constants import PROMPT_LIB_MODE
 
 
@@ -19,8 +21,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
         }
     )
     def get(self, project_id: int):
-        authors: List[dict] = get_trending_authors(project_id)
-        return jsonify(authors)
+        authors: List[TrendingAuthorModel] = get_trending_authors(project_id)
+        return [json.loads(author.json()) for author in authors], 200
 
 class API(api_tools.APIBase):
     url_params = api_tools.with_modes([
