@@ -16,7 +16,10 @@ class ProjectAPI(api_tools.APIModeHandler):
     def get(self, project_id: int, **kwargs):
         data: ModelsConfig = self.module.get_config(project_id=project_id, user_id=g.auth.id)
 
-        table_data = [{'key': k, 'value': v, 'weight': 4} for k, v in data.dict(exclude={'integrations', 'token'}).items()]
+        table_data = [
+            {'key': k, 'value': v, 'weight': 4}
+            for k, v in data.dict(exclude={'integrations', 'token'}).items()
+        ]
 
         token_data = {'key': 'token', 'value': {'token': None, 'expires': None}, 'weight': 6}
         if data.token:
