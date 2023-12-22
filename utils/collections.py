@@ -1,6 +1,9 @@
 import json
 from collections import defaultdict
 from typing import List
+
+from werkzeug.datastructures import MultiDict
+
 from sqlalchemy.orm import joinedload
 from tools import auth, db, VaultClient, rpc_tools
 import copy
@@ -8,6 +11,8 @@ from sqlalchemy import or_, and_
 from sqlalchemy.sql import exists
 
 from pylon.core.tools import log
+
+from .utils import get_authors_data
 from ..models.enums.all import CollectionPatchOperations
 from ..models.all import Collection, Prompt, PromptVersion
 from ..models.pd.base import PromptTagBaseModel
@@ -43,19 +48,43 @@ def check_prompts_addability(owner_id: int, user_id: int):
     ) or membership_check(owner_id, user_id)
 
 
-def list_collections(project_id: int, args=None):
+def list_collections(project_id: int, args:  MultiDict[str, str] | dict | None = None):
     if args is None:
-        args = {}
-    # Pagination parameters
-    limit = args.get("limit", default=10, type=int)
-    offset = args.get("offset", default=0, type=int)
+        args = dict()
 
-    # Sorting parameters
-    sort_by = args.get("sort_by", default="id")
-    sort_order = args.get("sort_order", default="desc")
+    if isinstance(args, dict):
+        # Pagination parameters
+        limit = args.get("limit", 10)
+        offset = args.get("offset", 0)
+
+        # Sorting parameters
+        sort_by = args.get("sort_by", "id")
+        sort_order = args.get("sort_order", "desc")
+
+        # Search query filters
+        search = args.get('query')
+    else:
+        # Pagination parameters
+        limit = args.get("limit", default=10, type=int)
+        offset = args.get("offset", default=0, type=int)
+
+        # Sorting parameters
+        sort_by = args.get("sort_by", default="id")
+        sort_order = args.get("sort_order", default="desc")
+
+        # Search query filters
+        search = args.get("query")
 
     with db.with_project_schema_session(project_id) as session:
-        query: List[Collection] = session.query(Collection)
+        query = session.query(Collection)
+
+        if search:
+            query = query.filter(
+                or_(
+                    Collection.name.ilike(f"%{search}%"),
+                    Collection.description.ilike(f"%{search}%")
+                )
+            )
 
         # Apply sorting
         if sort_order.lower() == "asc":
@@ -67,7 +96,7 @@ def list_collections(project_id: int, args=None):
 
         # Apply limit and offset for pagination
         query = query.limit(limit).offset(offset)
-        prompts = query.all()
+        prompts: List[Collection] = query.all()
     return total, prompts
 
 
@@ -156,7 +185,10 @@ def get_detail_collection(collection: Collection):
     data.pop('prompts')
 
     collection = CollectionDetailModel(**data)
-    collection.author = auth.get_user(user_id=collection.author_id)
+    users = get_authors_data([collection.author_id])
+    user_map = {i['id']: i for i in users}
+    # collection.author = auth.get_user(user_id=collection.author_id)
+    collection.author = user_map.get(collection.author_id)
     result = json.loads(collection.json(exclude={"author_id"}))
 
     prompts = []

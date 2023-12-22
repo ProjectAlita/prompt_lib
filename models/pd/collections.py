@@ -69,6 +69,7 @@ class CollectionListModel(BaseModel):
     author: Optional[AuthorBaseModel]
     prompts: Optional[List] = []
     tags: List[PromptTagDetailModel] = []
+    created_at: datetime
 
     class Config:
         orm_mode = True

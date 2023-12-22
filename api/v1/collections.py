@@ -15,6 +15,8 @@ from ...utils.collections import (
 
 import json
 
+from ...utils.utils import get_authors_data
+
 
 class PromptLibAPI(api_tools.APIModeHandler):
     # def _get_project_id(self, project_id: int | None) -> int:
@@ -31,13 +33,15 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def get(self, project_id: int | None = None, **kwargs):
         # project_id = self._get_project_id(project_id)
         # list prompts
-        need_tags = not 'no_tags' in request.args
+        need_tags = 'no_tags' not in request.args
         total, collections = list_collections(project_id, request.args)
         # parsing
         parsed: List[CollectionListModel] = []
+        users = get_authors_data([i.author_id for i in collections])
+        user_map = {i['id']: i for i in users}
         for col in collections:
             col_model = CollectionListModel.from_orm(col)
-            col_model.author = auth.get_user(user_id=col_model.author_id)
+            col_model.author = user_map.get(col_model.author_id)
             if need_tags:
                 col_model.tags = get_collection_tags(col.prompts)
             parsed.append(col_model)
