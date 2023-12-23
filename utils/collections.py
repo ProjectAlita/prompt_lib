@@ -258,21 +258,23 @@ def fire_collection_created_event(collection_data: dict):
         'prompt_lib_collection_added', collection_data
     )
 
-def add_prompt_to_collection(collection, prompt_data: PromptIds):
+def add_prompt_to_collection(collection, prompt_data: PromptIds, return_data=True):
     prompts_list: List = copy.deepcopy(collection.prompts)
     prompts_list.append(json.loads(prompt_data.json()))
     collection.prompts = prompts_list
-    return get_detail_collection(collection)
+    if return_data:
+        return get_detail_collection(collection)
 
 
-def remove_prompt_from_collection(collection, prompt_data: PromptIds):
+def remove_prompt_from_collection(collection, prompt_data: PromptIds, return_data=True):
     prompts_list = [
         copy.deepcopy(prompt) for prompt in collection.prompts
         if not(int(prompt['owner_id']) == prompt_data.owner_id and \
             int(prompt['id']) == prompt_data.id)
     ]
     collection.prompts = prompts_list
-    return get_detail_collection(collection)
+    if return_data:
+        return get_detail_collection(collection)
 
 
 def fire_patch_collection_event(collection_data, operartion, prompt_data):
