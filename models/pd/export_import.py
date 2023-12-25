@@ -2,6 +2,7 @@ from typing import Optional, List
 
 from pydantic import AnyUrl, BaseModel
 from pylon.core.tools import log
+from .collections import CollectionModel
 
 
 class DialModelImportModel(BaseModel):
@@ -32,3 +33,10 @@ class DialPromptImportModel(BaseModel):
 class DialImportModel(BaseModel):
     prompts: List[DialPromptImportModel]
     folders: List[DialFolderImportModel]
+
+
+class CollectionImportModel(CollectionModel):
+    prompts: List[dict]
+
+    class Config:
+        orm_mode = True

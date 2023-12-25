@@ -4,7 +4,12 @@ from tools import db
 from ..models.all import Collection, Prompt
 from ..models.enums.all import CollectionPatchOperations
 from copy import deepcopy
-from ..utils.collections import fire_patch_collection_event, add_prompt_to_collection, remove_prompt_from_collection
+from ..utils.collections import (
+    fire_patch_collection_event, 
+    add_prompt_to_collection, 
+    remove_prompt_from_collection,
+    group_by_project_id,
+)
 from ..utils.publish_utils import get_public_project_id
 from sqlalchemy import or_, and_
 
@@ -119,16 +124,6 @@ class Event:
                 fire_patch_collection_event(
                     collection.to_json(), CollectionPatchOperations.add, prompt_data
                 )
-
-
-
-def group_by_project_id(data, data_type='dict'):
-    prompts = defaultdict(list)
-    group_field = "owner_id" if not data_type == "tuple" else 0
-    data_field = "id" if not data_type == "tuple" else 1
-    for entity in data:
-        prompts[entity[group_field]].append(entity[data_field])
-    return prompts
 
 
 def delete_collection_from_prompts(prompt_ids: list, collection_data: dict, session):

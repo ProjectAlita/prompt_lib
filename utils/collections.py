@@ -82,7 +82,7 @@ def list_collections(project_id: int, args:  MultiDict[str, str] | dict | None =
 
     if status := args.get('status'):
         filters.append(Collection.status == status)
-
+    
     with db.with_project_schema_session(project_id) as session:
         query = session.query(Collection)
 
@@ -234,7 +234,7 @@ def prune_stale_prompts(collection, collection_prompts: dict, actual_prompts: di
     )
 
 
-def create_collection(project_id: int, data):
+def create_collection(project_id: int, data, fire_event=True):
     collection: CollectionModel = CollectionModel.parse_obj(data)
     user_id = data["author_id"]
 
@@ -249,7 +249,8 @@ def create_collection(project_id: int, data):
         collection = Collection(**collection.dict())
         session.add(collection)
         session.commit()
-        fire_collection_created_event(collection.to_json())
+        if fire_event:
+            fire_collection_created_event(collection.to_json())
         return collection
 
 
@@ -458,3 +459,12 @@ def unpublish(current_user_id, collection_id):
         session.commit()
         fire_collection_deleted_event(collection_data)
         return {"ok": True, "msg": "Successfully unpublished"}
+
+
+def group_by_project_id(data, data_type='dict'):
+    prompts = defaultdict(list)
+    group_field = "owner_id" if not data_type == "tuple" else 0
+    data_field = "id" if not data_type == "tuple" else 1
+    for entity in data:
+        prompts[entity[group_field]].append(entity[data_field])
+    return prompts
