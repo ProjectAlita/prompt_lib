@@ -82,7 +82,7 @@ def list_collections(project_id: int, args:  MultiDict[str, str] | dict | None =
 
     if status := args.get('status'):
         filters.append(Collection.status == status)
-
+    
     with db.with_project_schema_session(project_id) as session:
         query = session.query(Collection)
 
@@ -234,7 +234,7 @@ def prune_stale_prompts(collection, collection_prompts: dict, actual_prompts: di
     )
 
 
-def create_collection(project_id: int, data):
+def create_collection(project_id: int, data, fire_event=True):
     collection: CollectionModel = CollectionModel.parse_obj(data)
     user_id = data["author_id"]
 
@@ -249,7 +249,8 @@ def create_collection(project_id: int, data):
         collection = Collection(**collection.dict())
         session.add(collection)
         session.commit()
-        fire_collection_created_event(collection.to_json())
+        if fire_event:
+            fire_collection_created_event(collection.to_json())
         return collection
 
 
@@ -258,21 +259,23 @@ def fire_collection_created_event(collection_data: dict):
         'prompt_lib_collection_added', collection_data
     )
 
-def add_prompt_to_collection(collection, prompt_data: PromptIds):
+def add_prompt_to_collection(collection, prompt_data: PromptIds, return_data=True):
     prompts_list: List = copy.deepcopy(collection.prompts)
     prompts_list.append(json.loads(prompt_data.json()))
     collection.prompts = prompts_list
-    return get_detail_collection(collection)
+    if return_data:
+        return get_detail_collection(collection)
 
 
-def remove_prompt_from_collection(collection, prompt_data: PromptIds):
+def remove_prompt_from_collection(collection, prompt_data: PromptIds, return_data=True):
     prompts_list = [
         copy.deepcopy(prompt) for prompt in collection.prompts
         if not(int(prompt['owner_id']) == prompt_data.owner_id and \
             int(prompt['id']) == prompt_data.id)
     ]
     collection.prompts = prompts_list
-    return get_detail_collection(collection)
+    if return_data:
+        return get_detail_collection(collection)
 
 
 def fire_patch_collection_event(collection_data, operartion, prompt_data):
@@ -456,3 +459,12 @@ def unpublish(current_user_id, collection_id):
         session.commit()
         fire_collection_deleted_event(collection_data)
         return {"ok": True, "msg": "Successfully unpublished"}
+
+
+def group_by_project_id(data, data_type='dict'):
+    prompts = defaultdict(list)
+    group_field = "owner_id" if not data_type == "tuple" else 0
+    data_field = "id" if not data_type == "tuple" else 1
+    for entity in data:
+        prompts[entity[group_field]].append(entity[data_field])
+    return prompts
