@@ -153,7 +153,7 @@ def prompts_update_version(project_id: int, version_data: PromptVersionUpdateMod
 
 
 def list_prompts(project_id: int,
-                 limit: int = 10, offset: int = 0,
+                 limit: int | None = 10, offset: int | None = 0,
                  sort_by: str = 'created_at',
                  sort_order: str = 'desc',
                  filters: Optional[list] = None,
@@ -209,7 +209,10 @@ def list_prompts(project_id: int,
 
         total = query.count()
         # Apply limit and offset for pagination
-        query = query.limit(limit).offset(offset)
+        if limit:
+            query = query.limit(limit)
+        if offset:
+            query = query.offset(offset)
         prompts: List[tuple[Prompt, int]] = query.all()
 
         prompts_with_likes = []
