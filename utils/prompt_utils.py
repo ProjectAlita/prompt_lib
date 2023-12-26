@@ -1,6 +1,7 @@
 from json import loads
 from typing import List, Optional, Union
-from sqlalchemy import func, cast, String, desc
+from werkzeug.datastructures import MultiDict
+from sqlalchemy import func, cast, String, desc, or_
 from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import IntegrityError
 
@@ -48,8 +49,55 @@ def get_prompt_tags(project_id: int, prompt_id: int) -> List[dict]:
         return [PromptTagListModel.from_orm(tag).dict() for tag in query.all()]
 
 
-def get_all_ranked_tags(project_id: int, top_n: int = 20) -> List[dict]:
+def get_all_ranked_tags(project_id: int, args: MultiDict) -> List[dict]:
+
+    # Args to limit tag query:
+    top_n = args.get('top_n', default=20, type=int)
+
+    # Args to sort prompt subquery:
+    limit = args.get("limit", default=10, type=int)
+    offset = args.get("offset", default=0, type=int)
+    sort_by = args.get("sort_by", default="created_at")
+    sort_order = args.get("sort_order", default="desc")
+
+    # Filters to sort prompt subquery:
+    filters = []
+    if author_id := args.get('author_id'):
+        filters.append(Prompt.versions.any(PromptVersion.author_id == author_id))
+    if statuses := args.get('statuses'):
+        statuses = statuses.split(',')
+        filters.append(Prompt.versions.any(PromptVersion.status.in_(statuses)))
+    if search := args.get('query'):
+        filters.append(
+            or_(
+                Prompt.name.ilike(f"%{search}%"),
+                Prompt.description.ilike(f"%{search}%")
+            )
+        )
+
     with db.with_project_schema_session(project_id) as session:
+
+        # Prompt subquery
+        prompt_query = (
+            session.query(Prompt)
+            .options(joinedload(Prompt.versions))
+        )
+        prompt_query = add_likes_to_query(prompt_query, project_id, 'prompt', Prompt)
+        if filters:
+            prompt_query = prompt_query.filter(*filters)
+        if sort_order.lower() == "asc":
+            prompt_query = prompt_query.order_by(getattr(Prompt, sort_by, sort_by))
+        else:
+            prompt_query = prompt_query.order_by(desc(getattr(Prompt, sort_by, sort_by)))
+        if limit:
+            prompt_query = prompt_query.limit(limit)
+        if offset:
+            prompt_query = prompt_query.offset(offset)
+
+        prompt_query = prompt_query.with_entities(Prompt.id)
+        prompt_subquery = prompt_query.subquery()
+
+        # Main query
         query = (
             session.query(
                 PromptTag.id,
@@ -57,6 +105,7 @@ def get_all_ranked_tags(project_id: int, top_n: int = 20) -> List[dict]:
                 cast(PromptTag.data, String),
                 func.count(func.distinct(PromptVersion.prompt_id))
             )
+            .filter(PromptVersion.prompt_id.in_(prompt_subquery))
             .join(PromptVersionTagAssociation, PromptVersionTagAssociation.c.tag_id == PromptTag.id)
             .join(PromptVersion, PromptVersion.id == PromptVersionTagAssociation.c.version_id)
             .group_by(PromptTag.id, PromptTag.name, cast(PromptTag.data, String))
