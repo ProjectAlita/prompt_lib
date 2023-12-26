@@ -5,10 +5,10 @@ from pylon.core.tools import log
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
-    def delete(self, collection_id: int, **kwargs):
+    def delete(self, project_id: int, collection_id: int, **kwargs):
         try:
             current_user = auth.current_user().get("id")
-            result = unpublish(current_user, collection_id)
+            result = unpublish(current_user, project_id, collection_id)
         except Exception as e:
             log.error(e)
             return {"ok": False, "error": str(e)}, 400
@@ -21,7 +21,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
 class API(api_tools.APIBase):
     url_params = api_tools.with_modes([
-        '<int:collection_id>',
+        '<int:project_id>/<int:collection_id>',
     ])
 
     mode_handlers = {

@@ -19,6 +19,16 @@ import json
 from ...utils.utils import get_authors_data
 
 
+def populate_inlcude_prompt_flag(collection, prompt_id, prompt_owner_id):
+    for prompt in collection.prompts:
+        if int(prompt['owner_id']) == int(prompt_owner_id) and \
+            int(prompt['id']) == int(prompt_id):
+            collection.includes_prompt = True
+            break
+    else:
+        collection.includes_prompt = False
+
+
 class PromptLibAPI(api_tools.APIModeHandler):
     # def _get_project_id(self, project_id: int | None) -> int:
     #     if not project_id:
@@ -34,6 +44,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def get(self, project_id: int | None = None, **kwargs):
         # project_id = self._get_project_id(project_id)
         # list prompts
+        prompt_id = request.args.get('prompt_id')
+        prompt_owner_id = request.args.get('prompt_owner_id')
         need_tags = 'no_tags' not in request.args
         total, collections = list_collections(project_id, request.args)
         # parsing
@@ -45,6 +57,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
             col_model.author = user_map.get(col_model.author_id)
             if need_tags:
                 col_model.tags = get_collection_tags(col.prompts)
+            
+            if prompt_id and prompt_owner_id:
+                populate_inlcude_prompt_flag(col_model, prompt_id, prompt_owner_id)
             parsed.append(col_model)
 
         return {
