@@ -1,18 +1,17 @@
 import json
+import copy
 from collections import defaultdict
-from typing import List
-
+from typing import List, Union
 from werkzeug.datastructures import MultiDict
 
+from sqlalchemy import or_, and_, desc
 from sqlalchemy.orm import joinedload
-from tools import auth, db, VaultClient, rpc_tools
-import copy
-from sqlalchemy import or_, and_
 from sqlalchemy.sql import exists
 
+from tools import auth, db, VaultClient, rpc_tools
 from pylon.core.tools import log
 
-from .utils import get_authors_data
+from .utils import add_likes_to_query, get_authors_data
 from ..models.enums.all import CollectionPatchOperations, CollectionStatus
 from ..models.all import Collection, Prompt, PromptVersion
 from ..models.pd.base import PromptTagBaseModel
@@ -48,7 +47,11 @@ def check_prompts_addability(owner_id: int, user_id: int):
     ) or membership_check(owner_id, user_id)
 
 
-def list_collections(project_id: int, args:  MultiDict[str, str] | dict | None = None):
+def list_collections(
+        project_id: int,
+        args:  MultiDict[str, str] | dict | None = None,
+        with_likes: bool = True
+        ):
     if args is None:
         args = dict()
 
@@ -86,6 +89,9 @@ def list_collections(project_id: int, args:  MultiDict[str, str] | dict | None =
     with db.with_project_schema_session(project_id) as session:
         query = session.query(Collection)
 
+        if with_likes:
+            query = add_likes_to_query(query, project_id, 'collection', Collection)
+
         if search:
             query = query.filter(
                 or_(
@@ -99,16 +105,24 @@ def list_collections(project_id: int, args:  MultiDict[str, str] | dict | None =
 
         # Apply sorting
         if sort_order.lower() == "asc":
-            query = query.order_by(getattr(Collection, sort_by))
+            query = query.order_by(getattr(Collection, sort_by, sort_by))
         else:
-            query = query.order_by(getattr(Collection, sort_by).desc())
+            query = query.order_by(desc(getattr(Collection, sort_by, sort_by)))
 
         total = query.count()
 
         # Apply limit and offset for pagination
         query = query.limit(limit).offset(offset)
-        prompts: List[Collection] = query.all()
-    return total, prompts
+        collections: Union[List[tuple[Collection, int]], List[Collection]] = query.all()
+
+        if with_likes:
+            collections_with_likes = []
+            for collection, likes in collections:
+                collection.likes = likes
+                collections_with_likes.append(collection)
+            collections = collections_with_likes
+
+    return total, collections
 
 
 def delete_collection(project_id: int, collection_id: int):
@@ -145,7 +159,7 @@ def update_collection(project_id: int, collection_id: int, data: dict):
                     setattr(collection, field, value)
             session.commit()
 
-            fire_collection_updated_event(old_state, data)            
+            fire_collection_updated_event(old_state, data)
             return get_detail_collection(collection)
         return None
 
@@ -153,7 +167,7 @@ def update_collection(project_id: int, collection_id: int, data: dict):
 def fire_collection_updated_event(old_state: dict, collection_payload: dict):
     if 'prompts' not in collection_payload:
         return
-    
+
     # old state map
     old_state_tuple_set = set()
     for prompt in old_state['prompts']:
@@ -163,7 +177,7 @@ def fire_collection_updated_event(old_state: dict, collection_payload: dict):
     new_state_tuple_set = set()
     for prompt in collection_payload['prompts']:
         new_state_tuple_set.add((prompt['owner_id'], prompt['id']))
-    
+
     removed_prompts = old_state_tuple_set - new_state_tuple_set
     added_prompts = new_state_tuple_set - old_state_tuple_set
 
@@ -368,7 +382,7 @@ class CollectionPublishing:
         with db.with_project_schema_session(self._public_id) as session:
             prompt_ids = session.query(Prompt.id).filter(
                 or_(
-                    *[ 
+                    *[
                         and_(
                             Prompt.shared_id==data['id'],
                             Prompt.shared_owner_id==data['owner_id']
@@ -410,9 +424,9 @@ class CollectionPublishing:
             collection = session.query(Collection).get(self._collection_id)
             if not collection:
                 return {
-                    "ok": False, 
+                    "ok": False,
                     "error": "Collection is not found",
-                    "error_code": 404 
+                    "error_code": 404
                 }
 
             collection_data = collection.to_json()
@@ -420,7 +434,7 @@ class CollectionPublishing:
             collection_data['shared_owner_id'] = collection_data.pop('owner_id')
             collection_data['owner_id'] = self._public_id
             collection_data['prompts'] = self.get_public_prompts_of_collection(collection_data['prompts'])
-        
+
         new_collection = create_collection(self._public_id, collection_data)
         result = get_detail_collection(new_collection)
         self.set_statuses_published(new_collection)
@@ -436,21 +450,21 @@ def unpublish(current_user_id, collection_id):
         collection = session.query(Collection).get(collection_id)
         if not collection:
             return {
-                "ok": False, 
+                "ok": False,
                 "error": f"Public collection with id '{collection_id}'",
                 "error_code": 404,
             }
-        
+
         if int(collection.author_id) != int(current_user_id):
             return {
-                "ok": False, 
+                "ok": False,
                 "error": "Current user is not author of the collection",
                 "error_code": 403
             }
 
         if collection.status  == CollectionStatus.draft:
             return {"ok": False, "error": "Collection is not public yet"}
-        
+
         collection_data = collection.to_json()
         session.delete(collection)
         session.commit()

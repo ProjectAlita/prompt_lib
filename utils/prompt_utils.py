@@ -1,11 +1,8 @@
 from json import loads
-from queue import Empty
-from typing import List, Optional
+from typing import List, Optional, Union
 from sqlalchemy import func, cast, String, desc
-from sqlalchemy.orm import joinedload, with_expression, defer
+from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql import literal
-# from ...social.models.likes import Like
 
 from tools import db, auth, rpc_tools
 from pylon.core.tools import log
@@ -16,6 +13,7 @@ from ..models.pd.update import PromptVersionUpdateModel
 from ..models.pd.detail import PromptDetailModel, PromptVersionDetailModel, PublishedPromptDetailModel
 from ..models.pd.list import PromptTagListModel
 from ..models.enums.all import PromptVersionStatus
+from .utils import add_likes_to_query
 
 
 def create_variables_bulk(project_id: int, variables: List[dict], **kwargs) -> List[dict]:
@@ -176,27 +174,8 @@ def list_prompts(project_id: int,
             .options(joinedload(Prompt.versions).joinedload(PromptVersion.tags))
         )
 
-        # Add likes count to the query if social plugin is available
-        try:
-            Like = rpc_tools.RpcMixin().rpc.timeout(2).social_get_like_model()
-        except Empty:
-            Like = None
-
-        if Like and with_likes:
-            likes_subquery = Like.query.filter(
-                Like.project_id == project_id,
-                Like.entity == 'prompt'
-                ).subquery()
-
-            query = (
-                query
-                .options(defer(Prompt.collections))
-                .add_columns(func.count(likes_subquery.c.user_id).label('likes'))
-                .outerjoin(likes_subquery, likes_subquery.c.entity_id == Prompt.id)
-                .group_by(Prompt.id)
-            )
-        else:
-            query = query.add_columns(literal(0).label('likes'))
+        if with_likes:
+            query = add_likes_to_query(query, project_id, 'prompt', Prompt)
 
         if filters:
             query = query.filter(*filters)
@@ -210,14 +189,16 @@ def list_prompts(project_id: int,
         total = query.count()
         # Apply limit and offset for pagination
         query = query.limit(limit).offset(offset)
-        prompts: List[tuple[Prompt, int]] = query.all()
+        prompts: Union[List[tuple[Prompt, int]], List[Prompt]] = query.all()
 
-        prompts_with_likes = []
-        for prompt, likes in prompts:
-            prompt.likes = likes
-            prompts_with_likes.append(prompt)
+        if with_likes:
+            prompts_with_likes = []
+            for prompt, likes in prompts:
+                prompt.likes = likes
+                prompts_with_likes.append(prompt)
+            prompts = prompts_with_likes
 
-    return total, prompts_with_likes
+    return total, prompts
 
 
 # def is_personal_project(project_id: int) -> bool:
