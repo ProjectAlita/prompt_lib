@@ -1,11 +1,9 @@
 from json import loads
-from queue import Empty
-from typing import List, Optional
-from sqlalchemy import func, cast, String, desc
-from sqlalchemy.orm import joinedload, with_expression, defer
+from typing import List, Optional, Union
+from werkzeug.datastructures import MultiDict
+from sqlalchemy import func, cast, String, desc, or_
+from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql import literal
-# from ...social.models.likes import Like
 
 from tools import db, auth, rpc_tools
 from pylon.core.tools import log
@@ -16,6 +14,7 @@ from ..models.pd.update import PromptVersionUpdateModel
 from ..models.pd.detail import PromptDetailModel, PromptVersionDetailModel, PublishedPromptDetailModel
 from ..models.pd.list import PromptTagListModel
 from ..models.enums.all import PromptVersionStatus
+from .utils import add_likes_to_query
 
 
 def create_variables_bulk(project_id: int, variables: List[dict], **kwargs) -> List[dict]:
@@ -50,8 +49,55 @@ def get_prompt_tags(project_id: int, prompt_id: int) -> List[dict]:
         return [PromptTagListModel.from_orm(tag).dict() for tag in query.all()]
 
 
-def get_all_ranked_tags(project_id: int, top_n: int = 20) -> List[dict]:
+def get_all_ranked_tags(project_id: int, args: MultiDict) -> List[dict]:
+
+    # Args to limit tag query:
+    top_n = args.get('top_n', default=20, type=int)
+
+    # Args to sort prompt subquery:
+    limit = args.get("limit", default=10, type=int)
+    offset = args.get("offset", default=0, type=int)
+    sort_by = args.get("sort_by", default="created_at")
+    sort_order = args.get("sort_order", default="desc")
+
+    # Filters to sort prompt subquery:
+    filters = []
+    if author_id := args.get('author_id'):
+        filters.append(Prompt.versions.any(PromptVersion.author_id == author_id))
+    if statuses := args.get('statuses'):
+        statuses = statuses.split(',')
+        filters.append(Prompt.versions.any(PromptVersion.status.in_(statuses)))
+    if search := args.get('query'):
+        filters.append(
+            or_(
+                Prompt.name.ilike(f"%{search}%"),
+                Prompt.description.ilike(f"%{search}%")
+            )
+        )
+
     with db.with_project_schema_session(project_id) as session:
+
+        # Prompt subquery
+        prompt_query = (
+            session.query(Prompt)
+            .options(joinedload(Prompt.versions))
+        )
+        prompt_query = add_likes_to_query(prompt_query, project_id, 'prompt', Prompt)
+        if filters:
+            prompt_query = prompt_query.filter(*filters)
+        if sort_order.lower() == "asc":
+            prompt_query = prompt_query.order_by(getattr(Prompt, sort_by, sort_by))
+        else:
+            prompt_query = prompt_query.order_by(desc(getattr(Prompt, sort_by, sort_by)))
+        if limit:
+            prompt_query = prompt_query.limit(limit)
+        if offset:
+            prompt_query = prompt_query.offset(offset)
+
+        prompt_query = prompt_query.with_entities(Prompt.id)
+        prompt_subquery = prompt_query.subquery()
+
+        # Main query
         query = (
             session.query(
                 PromptTag.id,
@@ -59,6 +105,7 @@ def get_all_ranked_tags(project_id: int, top_n: int = 20) -> List[dict]:
                 cast(PromptTag.data, String),
                 func.count(func.distinct(PromptVersion.prompt_id))
             )
+            .filter(PromptVersion.prompt_id.in_(prompt_subquery))
             .join(PromptVersionTagAssociation, PromptVersionTagAssociation.c.tag_id == PromptTag.id)
             .join(PromptVersion, PromptVersion.id == PromptVersionTagAssociation.c.version_id)
             .group_by(PromptTag.id, PromptTag.name, cast(PromptTag.data, String))
@@ -176,27 +223,8 @@ def list_prompts(project_id: int,
             .options(joinedload(Prompt.versions).joinedload(PromptVersion.tags))
         )
 
-        # Add likes count to the query if social plugin is available
-        try:
-            Like = rpc_tools.RpcMixin().rpc.timeout(2).social_get_like_model()
-        except Empty:
-            Like = None
-
-        if Like and with_likes:
-            likes_subquery = Like.query.filter(
-                Like.project_id == project_id,
-                Like.entity == 'prompt'
-                ).subquery()
-
-            query = (
-                query
-                .options(defer(Prompt.collections))
-                .add_columns(func.count(likes_subquery.c.user_id).label('likes'))
-                .outerjoin(likes_subquery, likes_subquery.c.entity_id == Prompt.id)
-                .group_by(Prompt.id)
-            )
-        else:
-            query = query.add_columns(literal(0).label('likes'))
+        if with_likes:
+            query = add_likes_to_query(query, project_id, 'prompt', Prompt)
 
         if filters:
             query = query.filter(*filters)
@@ -208,19 +236,23 @@ def list_prompts(project_id: int,
             query = query.order_by(desc(getattr(Prompt, sort_by, sort_by)))
 
         total = query.count()
+
         # Apply limit and offset for pagination
         if limit:
             query = query.limit(limit)
         if offset:
             query = query.offset(offset)
-        prompts: List[tuple[Prompt, int]] = query.all()
 
-        prompts_with_likes = []
-        for prompt, likes in prompts:
-            prompt.likes = likes
-            prompts_with_likes.append(prompt)
+        prompts: Union[List[tuple[Prompt, int]], List[Prompt]] = query.all()
 
-    return total, prompts_with_likes
+        if with_likes:
+            prompts_with_likes = []
+            for prompt, likes in prompts:
+                prompt.likes = likes
+                prompts_with_likes.append(prompt)
+            prompts = prompts_with_likes
+
+    return total, prompts
 
 
 # def is_personal_project(project_id: int) -> bool:

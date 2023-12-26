@@ -1,10 +1,11 @@
 from queue import Empty
 from functools import wraps
-from typing import List, Set, Callable
+from typing import List, Literal, Set, Callable, Union
 from sqlalchemy import func
+from sqlalchemy.sql import literal
 
 from tools import db, VaultClient, auth, rpc_tools
-from ..models.all import Prompt, PromptVersion
+from ..models.all import Prompt, PromptVersion, Collection
 from ..models.pd.authors import AuthorDetailModel, TrendingAuthorModel
 from ..models.enums.all import PromptVersionStatus
 
@@ -128,3 +129,32 @@ def get_trending_authors(project_id: int, limit: int = 5) -> List[dict]:
                     break
 
     return trending_authors
+
+
+def add_likes_to_query(
+        query,
+        project_id: int,
+        entity_name: Literal['prompt', 'collection'],
+        entity: Union[Prompt, Collection]):
+    '''Add likes count to the query if social plugin is available'''
+    try:
+        Like = rpc_tools.RpcMixin().rpc.timeout(2).social_get_like_model()
+    except Empty:
+        Like = None
+
+    if Like:
+        likes_subquery = Like.query.filter(
+            Like.project_id == project_id,
+            Like.entity == entity_name
+            ).subquery()
+
+        query = (
+            query
+            .add_columns(func.count(likes_subquery.c.user_id).label('likes'))
+            .outerjoin(likes_subquery, likes_subquery.c.entity_id == entity.id)
+            .group_by(entity.id)
+        )
+    else:
+        query = query.add_columns(literal(0).label('likes'))
+
+    return query
