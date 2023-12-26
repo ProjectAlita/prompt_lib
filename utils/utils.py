@@ -56,7 +56,7 @@ def get_authors_data(author_ids: List[int]) -> List[dict]:
     return users_data
 
 
-def get_author_data(author_id: int) -> dict:
+def get_author_data(author_id: int) -> AuthorDetailModel:
     try:
         author_data = auth.get_user(user_id=author_id)
     except RuntimeError:

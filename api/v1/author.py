@@ -1,10 +1,8 @@
-from typing import List
-from flask import jsonify
 from pylon.core.tools import log
 
 from tools import api_tools, auth, config as c
 
-from ...utils.utils import get_author_data
+from ...utils.utils import get_author_data, add_public_project_id
 from ...utils.constants import PROMPT_LIB_MODE
 from ...models.all import Prompt, PromptVersion
 from ...models.pd.authors import AuthorDetailModel
@@ -13,6 +11,7 @@ from ...utils.prompt_utils import list_prompts
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
+    @add_public_project_id
     @auth.decorators.check_api(
         {
             "permissions": ["models.prompt_lib.author.detail"],
@@ -40,7 +39,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
 class API(api_tools.APIBase):
     url_params = api_tools.with_modes([
-        '<int:project_id>/<int:author_id>',
+        # '<int:project_id>/<int:author_id>',
+        '<int:author_id>',
     ])
 
     mode_handlers = {
