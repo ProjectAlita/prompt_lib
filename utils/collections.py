@@ -12,7 +12,7 @@ from tools import auth, db, VaultClient, rpc_tools
 from pylon.core.tools import log
 
 from .utils import add_likes_to_query, get_authors_data
-from ..models.enums.all import CollectionPatchOperations, CollectionStatus
+from ..models.enums.all import CollectionPatchOperations, CollectionStatus, PromptVersionStatus
 from ..models.all import Collection, Prompt, PromptVersion
 from ..models.pd.base import PromptTagBaseModel
 from ..models.pd.list import MultiplePromptListModel
@@ -85,7 +85,7 @@ def list_collections(
 
     if status := args.get('status'):
         filters.append(Collection.status == status)
-    
+
     with db.with_project_schema_session(project_id) as session:
         query = session.query(Collection)
 
@@ -202,14 +202,14 @@ def fire_collection_updated_event(old_state: dict, collection_payload: dict):
     )
 
 
-def get_collection(project_id: int, collection_id: int):
+def get_collection(project_id: int, collection_id: int, only_public: bool = False):
     with db.with_project_schema_session(project_id) as session:
         if collection := session.query(Collection).get(collection_id):
-            return get_detail_collection(collection)
+            return get_detail_collection(collection, only_public)
         return None
 
 
-def get_detail_collection(collection: Collection):
+def get_detail_collection(collection: Collection, only_public: bool = False):
     transformed_prompts = defaultdict(list)
     for prompt in collection.prompts:
         project = prompt["owner_id"]
@@ -225,12 +225,18 @@ def get_detail_collection(collection: Collection):
     collection.author = user_map.get(collection.author_id)
     result = json.loads(collection.json(exclude={"author_id"}))
 
+    filters = []
+    if only_public:
+        filters.append(
+            Prompt.versions.any(PromptVersion.status == PromptVersionStatus.published)
+        )
+
     prompts = []
     actual_prompt_ids = {}
     for project_id, ids in transformed_prompts.items():
         with db.with_project_schema_session(project_id) as session:
             project_prompts = (
-                session.query(Prompt).filter(Prompt.id.in_(ids)).all()
+                session.query(Prompt).filter(Prompt.id.in_(ids), *filters).all()
             )
             prompts.extend(
                 json.loads(MultiplePromptListModel(prompts=project_prompts).json())[
@@ -239,7 +245,10 @@ def get_detail_collection(collection: Collection):
             )
             actual_prompt_ids[project_id] = [prompt['id'] for prompt in prompts]
     result["prompts"] = prompts
-    prune_stale_prompts(collection, transformed_prompts, actual_prompt_ids)
+
+    if not only_public:
+        prune_stale_prompts(collection, transformed_prompts, actual_prompt_ids)
+
     return result
 
 
@@ -495,4 +504,4 @@ def group_by_project_id(data, data_type='dict'):
     for entity in data:
         prompts[entity[group_field]].append(entity[data_field])
     return prompts
-  
+
