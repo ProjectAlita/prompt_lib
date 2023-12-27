@@ -21,7 +21,7 @@ from tools import api_tools, db, auth, config as c
 # from ...models.pd.variable import VariableModel
 # from ...models.prompts import Prompt
 from ...models.all import Prompt
-from ...models.pd.export_import import DialImportModel
+from ...models.pd.export_import import DialImportModel, PromptExportModel
 
 from ...utils.create_utils import create_prompt
 from ...utils.collections import create_collection
@@ -151,8 +151,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
         created = []
         errors = []
         author_id = auth.current_user().get("id")
+        is_dial_struct = request.json.get('folders')
 
-        if 'from_dial' in request.args:
+        if 'from_dial' in request.args or is_dial_struct:
             try:
                 imported_data = DialImportModel.parse_obj(request.json)
             except Exception as e:
@@ -181,8 +182,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
                         PromptIds(id=id_, owner_id=project_id)
                         for id_ in folders[folder_data['id']]
                         ]
-                    result = create_collection(self.module.context, project_id, folder_data)
-                    created_collections.append(result)
+                    collection = create_collection(project_id, folder_data)
+                    created_collections.append(collection.to_json())
                 created.append({'collections': created_collections})
 
         else:
@@ -194,7 +195,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                     for version in raw.get("versions", []):
                         version["author_id"] = author_id
                     try:
-                        prompt_data = PromptBaseModel.parse_obj(raw)
+                        prompt_data = PromptExportModel.parse_obj(raw)
                     except ValidationError as e:
                         errors.append(e.errors())
                         continue
