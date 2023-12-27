@@ -4,8 +4,11 @@ from ...models.enums.all import PromptVersionStatus
 from pylon.core.tools import log
 from tools import api_tools, auth, config as c
 
+from ...utils.utils import add_public_project_id
+
 
 class PromptLibAPI(api_tools.APIModeHandler):
+    @add_public_project_id
     @auth.decorators.check_api({
         "permissions": ["models.prompt_lib.approve.post"],
         "recommended_roles": {
