@@ -151,7 +151,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         created = []
         errors = []
         author_id = auth.current_user().get("id")
-        is_dial_struct = request.json.get('folders')
+        is_dial_struct = 'folders' in request.json
 
         if 'from_dial' in request.args or is_dial_struct:
             try:
