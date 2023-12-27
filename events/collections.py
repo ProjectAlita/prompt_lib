@@ -2,7 +2,7 @@ from pylon.core.tools import log, web
 from collections import defaultdict
 from tools import db
 from ..models.all import Collection, Prompt
-from ..models.enums.all import CollectionPatchOperations
+from ..models.enums.all import CollectionPatchOperations, CollectionStatus
 from copy import deepcopy
 from ..utils.collections import (
     fire_patch_collection_event, 
@@ -124,6 +124,18 @@ class Event:
                 fire_patch_collection_event(
                     collection.to_json(), CollectionPatchOperations.add, prompt_data
                 )
+
+
+    @web.event('prompt_lib_collection_unpublished')
+    def handle_prompt_unpublished(self, context, event, payload) -> None:
+        private_id = payload.get('private_id')
+        private_owner_id = payload.get('private_owner_id')
+        with db.with_project_schema_session(private_owner_id) as session:
+            collection = session.query(Collection).get(private_id)
+            if not collection:
+                return
+            collection.status = CollectionStatus.draft
+            session.commit()
 
 
 def delete_collection_from_prompts(prompt_ids: list, collection_data: dict, session):

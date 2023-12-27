@@ -74,6 +74,7 @@ class CollectionListModel(BaseModel):
     tags: List[PromptTagDetailModel] = []
     created_at: datetime
     likes: int = 0
+    includes_prompt: Optional[bool] = None
 
     class Config:
         orm_mode = True

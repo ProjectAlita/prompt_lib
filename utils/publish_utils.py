@@ -347,10 +347,13 @@ def get_public_project_id():
     return int(project_id)
 
 
-def unpublish(current_user_id, version_id):
+def unpublish(current_user_id, project_id, version_id):
     public_id = get_public_project_id()
     with db.with_project_schema_session(public_id) as session:
-        version = session.query(PromptVersion).filter_by(id=version_id).first()
+        version = session.query(PromptVersion).filter_by(
+            shared_id=version_id,
+            shared_owner_id=project_id
+        ).first()
         if not version:
             return {
                 "ok": False, 
@@ -365,7 +368,7 @@ def unpublish(current_user_id, version_id):
                 "error_code": 403
             }
 
-        if not version.status in [PromptVersionStatus.draft, PromptVersionStatus.rejected]:
+        if version.status in [PromptVersionStatus.draft, PromptVersionStatus.rejected]:
             return {"ok": False, "error": "Version is not public yet"}
         
         version_data = version.to_json()

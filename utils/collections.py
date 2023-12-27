@@ -141,6 +141,15 @@ def fire_collection_deleted_event(collection_data: dict):
     )
 
 
+def fire_collection_prompt_unpublished(collection_data):
+    rpc_tools.EventManagerMixin().event_manager.fire_event(
+        "prompt_lib_collection_unpublished", {
+            "private_id": collection_data['shared_id'],
+            "private_owner_id": collection_data['shared_owner_id']
+        }
+    )
+
+
 def update_collection(project_id: int, collection_id: int, data: dict):
     with db.with_project_schema_session(project_id) as session:
         if collection := session.query(Collection).get(collection_id):
@@ -447,10 +456,14 @@ class CollectionPublishing:
         }
 
 
-def unpublish(current_user_id, collection_id):
+def unpublish(current_user_id, project_id, collection_id):
     public_id = get_public_project_id()
     with db.with_project_schema_session(public_id) as session:
-        collection = session.query(Collection).get(collection_id)
+        collection = session.query(Collection).filter_by(
+            shared_id=collection_id,
+            shared_owner_id=project_id
+        ).first()
+
         if not collection:
             return {
                 "ok": False,
@@ -472,6 +485,7 @@ def unpublish(current_user_id, collection_id):
         session.delete(collection)
         session.commit()
         fire_collection_deleted_event(collection_data)
+        fire_collection_prompt_unpublished(collection_data)
         return {"ok": True, "msg": "Successfully unpublished"}
 
 def group_by_project_id(data, data_type='dict'):
