@@ -1,21 +1,20 @@
-import json
 from typing import List
-from flask import g
 from sqlalchemy.orm import joinedload
 
 from tools import db
 from pylon.core.tools import log
 
 from ..models.all import Prompt, PromptVersion, Collection
-from ..models.pd.base import PromptBaseModel, PromptVersionBaseModel
+from ..models.pd.base import PromptVersionBaseModel
 from ..models.pd.export_import import (
-    DialImportModel, 
-    DialModelImportModel, 
+    DialImportModel,
+    DialModelImportModel,
     DialPromptImportModel,
     CollectionImportModel,
-) 
+    PromptExportModel,
+)
 from ..utils.create_utils import create_version
-from ..utils.collections import group_by_project_id, create_collection
+from ..utils.collections import group_by_project_id
 
 
 def prompts_export_to_dial(project_id: int, prompt_id: int = None, session=None) -> dict:
@@ -60,11 +59,11 @@ def collection_export(project_id: int, collection_id: int, to_dail=False):
                         result = prompts_export(project_id, prompt_id, session)
                         del result['collections']
                     result_prompts.extend(result['prompts'])
-        
+
         collection.prompts = result_prompts
         result = CollectionImportModel.from_orm(collection)
         return result.dict()
-    
+
 
 def prompts_export(project_id: int, prompt_id: int = None, session=None) -> dict:
     if session is None:
@@ -87,7 +86,7 @@ def prompts_export(project_id: int, prompt_id: int = None, session=None) -> dict
 
     prompts_to_export = []
     for prompt in prompts:
-        prompt_data = PromptBaseModel.from_orm(prompt)
+        prompt_data = PromptExportModel.from_orm(prompt)
         prompts_to_export.append(prompt_data.dict())
 
     session.close()

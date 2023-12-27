@@ -2,7 +2,26 @@ from typing import Optional, List
 
 from pydantic import AnyUrl, BaseModel
 from pylon.core.tools import log
+
+from ...models.pd.base import PromptBaseModel, PromptVersionBaseModel
 from .collections import CollectionModel
+
+
+class PromptVersionExportModel(PromptVersionBaseModel):
+    class Config:
+        fields = {
+            'shared_id': {'exclude': True},
+            'shared_owner_id': {'exclude': True},
+        }
+
+
+class PromptExportModel(PromptBaseModel):
+    versions: Optional[List[PromptVersionExportModel]]
+    class Config:
+        fields = {
+            'shared_id': {'exclude': True},
+            'shared_owner_id': {'exclude': True},
+        }
 
 
 class DialModelImportModel(BaseModel):
