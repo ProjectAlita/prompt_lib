@@ -75,6 +75,7 @@ class CollectionListModel(BaseModel):
     created_at: datetime
     likes: int = 0
     includes_prompt: Optional[bool] = None
+    prompt_count: int = 0
 
     class Config:
         orm_mode = True
