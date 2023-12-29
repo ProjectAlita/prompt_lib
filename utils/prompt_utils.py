@@ -82,7 +82,7 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> List[dict]:
             session.query(Prompt)
             .options(joinedload(Prompt.versions))
         )
-        prompt_query = add_likes_to_query(prompt_query, project_id, 'prompt', Prompt)
+        prompt_query = add_likes_to_query(prompt_query, project_id, 'prompt')
         if filters:
             prompt_query = prompt_query.filter(*filters)
         if sort_order.lower() == "asc":
@@ -224,7 +224,7 @@ def list_prompts(project_id: int,
         )
 
         if with_likes:
-            query = add_likes_to_query(query, project_id, 'prompt', Prompt)
+            query = add_likes_to_query(query, project_id, 'prompt')
 
         if filters:
             query = query.filter(*filters)
@@ -243,12 +243,15 @@ def list_prompts(project_id: int,
         if offset:
             query = query.offset(offset)
 
-        prompts: Union[List[tuple[Prompt, int]], List[Prompt]] = query.all()
+        prompts: Union[List[tuple[Prompt, int, bool]], List[Prompt]] = query.all()
+
+        log.info(f'prompts: {prompts}')
 
         if with_likes:
             prompts_with_likes = []
-            for prompt, likes in prompts:
+            for prompt, likes, is_liked in prompts:
                 prompt.likes = likes
+                prompt.is_liked = is_liked
                 prompts_with_likes.append(prompt)
             prompts = prompts_with_likes
 
@@ -321,7 +324,7 @@ def get_published_prompt_details(project_id: int, prompt_id: int, version_name: 
         if not prompt_version:
             return {
                 'ok': False,
-                'msg': f'No prompt found with id \'{prompt_id}\' or no version \'{version_name}\''
+                'msg': f'No prompt found with id \'{prompt_id}\' or no public version'
                 }
         result = PublishedPromptDetailModel.from_orm(prompt_version.prompt)
         result.version_details = PromptVersionDetailModel.from_orm(prompt_version)

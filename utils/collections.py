@@ -21,6 +21,7 @@ from ..models.pd.collections import (
     CollectionModel,
     PromptIds,
     CollectionPatchModel,
+    PublishedCollectionDetailModel,
 )
 from .publish_utils import get_public_project_id
 
@@ -45,6 +46,39 @@ def check_prompts_addability(owner_id: int, user_id: int):
     return (
         ai_project_id and int(ai_project_id) == int(owner_id)
     ) or membership_check(owner_id, user_id)
+
+
+def get_prompts_for_collection(collection: Collection, only_public: bool = False) -> list:
+    prompts = []
+    actual_prompt_ids = {}
+
+    filters = []
+    if only_public:
+        filters.append(
+            Prompt.versions.any(PromptVersion.status == PromptVersionStatus.published)
+        )
+
+    transformed_prompts = defaultdict(list)
+    for prompt in collection.prompts:
+        project = prompt["owner_id"]
+        transformed_prompts[project].append(prompt["id"])
+
+    for project_id, ids in transformed_prompts.items():
+        with db.with_project_schema_session(project_id) as session:
+            project_prompts = (
+                session.query(Prompt).filter(Prompt.id.in_(ids), *filters).all()
+            )
+            prompts.extend(
+                json.loads(MultiplePromptListModel(prompts=project_prompts).json())[
+                    "prompts"
+                ]
+            )
+            actual_prompt_ids[project_id] = [prompt['id'] for prompt in prompts]
+
+    if not only_public:
+        prune_stale_prompts(collection, transformed_prompts, actual_prompt_ids)
+
+    return prompts
 
 
 def list_collections(
@@ -90,7 +124,7 @@ def list_collections(
         query = session.query(Collection)
 
         if with_likes:
-            query = add_likes_to_query(query, project_id, 'collection', Collection)
+            query = add_likes_to_query(query, project_id, 'collection')
 
         if search:
             query = query.filter(
@@ -113,12 +147,13 @@ def list_collections(
 
         # Apply limit and offset for pagination
         query = query.limit(limit).offset(offset)
-        collections: Union[List[tuple[Collection, int]], List[Collection]] = query.all()
+        collections: Union[List[tuple[Collection, int, int]], List[Collection]] = query.all()
 
         if with_likes:
             collections_with_likes = []
-            for collection, likes in collections:
+            for collection, likes, is_liked in collections:
                 collection.likes = likes
+                collection.is_liked = is_liked
                 collections_with_likes.append(collection)
             collections = collections_with_likes
 
@@ -205,49 +240,33 @@ def fire_collection_updated_event(old_state: dict, collection_payload: dict):
 def get_collection(project_id: int, collection_id: int, only_public: bool = False):
     with db.with_project_schema_session(project_id) as session:
         if collection := session.query(Collection).get(collection_id):
-            return get_detail_collection(collection, only_public)
+            return get_detail_collection(project_id, collection, only_public)
         return None
 
 
-def get_detail_collection(collection: Collection, only_public: bool = False):
-    transformed_prompts = defaultdict(list)
-    for prompt in collection.prompts:
-        project = prompt["owner_id"]
-        transformed_prompts[project].append(prompt["id"])
+def get_detail_collection(project_id: int, collection: Collection, only_public: bool = False):
 
     data = collection.to_json()
     data.pop('prompts')
 
-    collection = CollectionDetailModel(**data)
+    collection_model = PublishedCollectionDetailModel if only_public \
+        else CollectionDetailModel
+
+    collection_data = collection_model(**data)
     users = get_authors_data([collection.author_id])
     user_map = {i['id']: i for i in users}
     # collection.author = auth.get_user(user_id=collection.author_id)
-    collection.author = user_map.get(collection.author_id)
-    result = json.loads(collection.json(exclude={"author_id"}))
+    collection_data.author = user_map.get(collection_data.author_id)
 
-    filters = []
     if only_public:
-        filters.append(
-            Prompt.versions.any(PromptVersion.status == PromptVersionStatus.published)
-        )
+        collection_data.get_likes(project_id)
+        collection_data.check_is_liked(project_id)
 
-    prompts = []
-    actual_prompt_ids = {}
-    for project_id, ids in transformed_prompts.items():
-        with db.with_project_schema_session(project_id) as session:
-            project_prompts = (
-                session.query(Prompt).filter(Prompt.id.in_(ids), *filters).all()
-            )
-            prompts.extend(
-                json.loads(MultiplePromptListModel(prompts=project_prompts).json())[
-                    "prompts"
-                ]
-            )
-            actual_prompt_ids[project_id] = [prompt['id'] for prompt in prompts]
+    result = json.loads(collection_data.json(exclude={"author_id"}))
+
+    prompts = get_prompts_for_collection(collection, only_public=only_public)
+
     result["prompts"] = prompts
-
-    if not only_public:
-        prune_stale_prompts(collection, transformed_prompts, actual_prompt_ids)
 
     return result
 

@@ -104,7 +104,7 @@ class PublishedPromptDetailModel(PromptDetailModel):
         except Empty:
             self.likes = 0
 
-    def check_is_liked(self, project_id: int) -> bool:
+    def check_is_liked(self, project_id: int) -> None:
         try:
             self.is_liked = rpc_tools.RpcMixin().rpc.timeout(2).social_is_liked(
                 project_id=project_id, entity='prompt', entity_id=self.id
