@@ -42,7 +42,6 @@ class PromptListModel(BaseModel):
     authors: List[AuthorBaseModel] = []
     tags: Optional[PromptTagBaseModel]
     status: Optional[PromptVersionStatus]
-    likes: Optional[int]
 
     class Config:
         orm_mode = True
@@ -72,6 +71,11 @@ class PromptListModel(BaseModel):
         ]
 
 
+class PublishedPromptListModel(PromptListModel):
+    likes: Optional[int]
+    is_liked: Optional[bool]
+
+
 class MultiplePromptListModel(BaseModel):
     prompts: List[PromptListModel]
 
@@ -88,3 +92,7 @@ class MultiplePromptListModel(BaseModel):
             prompt.set_authors(user_map)
 
         return values
+
+
+class MultiplePublishedPromptListModel(MultiplePromptListModel):
+    prompts: List[PublishedPromptListModel]

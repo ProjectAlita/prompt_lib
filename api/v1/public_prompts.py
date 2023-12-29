@@ -6,7 +6,7 @@ from sqlalchemy import or_
 from pylon.core.tools import web, log
 from tools import api_tools, config as c, db, auth
 from ...models.all import Prompt, PromptVersion, PromptTag
-from ...models.pd.list import MultiplePromptListModel
+from ...models.pd.list import MultiplePublishedPromptListModel
 from ...models.enums.all import PromptVersionStatus
 
 from ...utils.constants import PROMPT_LIB_MODE
@@ -66,7 +66,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             filters=filters
         )
         # parsing
-        parsed = MultiplePromptListModel(prompts=prompts)
+        parsed = MultiplePublishedPromptListModel(prompts=prompts)
 
         return {
             "rows": [json.loads(i.json(exclude={"status"})) for i in parsed.prompts],

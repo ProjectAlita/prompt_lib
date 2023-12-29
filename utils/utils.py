@@ -136,8 +136,16 @@ def add_likes_to_query(
         project_id: int,
         entity_name: Literal['prompt', 'collection']
         ):
-    '''Add likes count to the query if social plugin is available'''
+    '''
+    Join likes to the query if social plugin is available.
+    Add 2 columns:
+    - 'likes' - number of likes for entity
+    - 'is_liked' - is current user liked the entity
+    '''
+
     entity = Prompt if entity_name == 'prompt' else Collection
+    user_id = auth.current_user().get("id")
+
     try:
         Like = rpc_tools.RpcMixin().rpc.timeout(2).social_get_like_model()
     except Empty:
@@ -152,10 +160,17 @@ def add_likes_to_query(
         query = (
             query
             .add_columns(func.count(likes_subquery.c.user_id).label('likes'))
+            .add_columns(func.coalesce(
+                func.bool_or(likes_subquery.c.user_id == user_id), False
+                ).label('is_liked'))
             .outerjoin(likes_subquery, likes_subquery.c.entity_id == entity.id)
             .group_by(entity.id)
         )
     else:
-        query = query.add_columns(literal(0).label('likes'))
+        query = (
+            query
+            .add_columns(literal(0).label('likes'))
+            .add_columns(func.bool_or(False).label('is_liked'))
+        )
 
     return query

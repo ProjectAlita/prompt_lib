@@ -47,7 +47,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         prompt_id = request.args.get('prompt_id')
         prompt_owner_id = request.args.get('prompt_owner_id')
         need_tags = 'no_tags' not in request.args
-        total, collections = list_collections(project_id, request.args)
+        total, collections = list_collections(project_id, request.args, with_likes=False)
         # parsing
         parsed: List[CollectionListModel] = []
         users = get_authors_data([i.author_id for i in collections])
@@ -57,7 +57,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             col_model.author = user_map.get(col_model.author_id)
             if need_tags:
                 col_model.tags = get_collection_tags(col.prompts)
-            
+
             if prompt_id and prompt_owner_id:
                 populate_inlcude_prompt_flag(col_model, prompt_id, prompt_owner_id)
             parsed.append(col_model)

@@ -108,7 +108,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
             offset=offset,
             sort_by=sort_by,
             sort_order=sort_order,
-            filters=filters
+            filters=filters,
+            with_likes=False
         )
         # parsing
         parsed = MultiplePromptListModel(prompts=prompts)

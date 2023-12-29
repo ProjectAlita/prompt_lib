@@ -1,8 +1,11 @@
 from datetime import datetime
+from queue import Empty
 from typing import Optional, List
+from pydantic import BaseModel, root_validator
 
 # from pylon.core.tools import log
-from pydantic import BaseModel, root_validator
+from tools import rpc_tools
+
 from .base import AuthorBaseModel
 from .list import PromptListModel
 from .detail import PromptTagDetailModel
@@ -73,7 +76,6 @@ class CollectionListModel(BaseModel):
     prompts: Optional[List] = []
     tags: List[PromptTagDetailModel] = []
     created_at: datetime
-    likes: int = 0
     includes_prompt: Optional[bool] = None
     prompt_count: int = 0
 
@@ -89,3 +91,31 @@ class CollectionListModel(BaseModel):
         values["prompt_count"] = count
         return values
 
+
+class PublishedCollectionListModel(CollectionListModel):
+    likes: Optional[int]
+    is_liked: Optional[bool]
+
+
+class PublishedCollectionDetailModel(CollectionDetailModel):
+    likes: Optional[int]
+    is_liked: Optional[bool]
+
+
+    def get_likes(self, project_id: int) -> None:
+        try:
+            likes_data = rpc_tools.RpcMixin().rpc.timeout(2).social_get_likes(
+                project_id=project_id, entity='collection', entity_id=self.id
+            )
+            # self.likes = [LikeModel(**like) for like in likes_data['rows']]
+            self.likes = likes_data['total']
+        except Empty:
+            self.likes = 0
+
+    def check_is_liked(self, project_id: int) -> None:
+        try:
+            self.is_liked = rpc_tools.RpcMixin().rpc.timeout(2).social_is_liked(
+                project_id=project_id, entity='collection', entity_id=self.id
+            )
+        except Empty:
+            self.is_liked = False

@@ -21,6 +21,7 @@ from ..models.pd.collections import (
     CollectionModel,
     PromptIds,
     CollectionPatchModel,
+    PublishedCollectionDetailModel,
 )
 from .publish_utils import get_public_project_id
 
@@ -146,12 +147,13 @@ def list_collections(
 
         # Apply limit and offset for pagination
         query = query.limit(limit).offset(offset)
-        collections: Union[List[tuple[Collection, int]], List[Collection]] = query.all()
+        collections: Union[List[tuple[Collection, int, int]], List[Collection]] = query.all()
 
         if with_likes:
             collections_with_likes = []
-            for collection, likes in collections:
+            for collection, likes, is_liked in collections:
                 collection.likes = likes
+                collection.is_liked = is_liked
                 collections_with_likes.append(collection)
             collections = collections_with_likes
 
@@ -238,20 +240,28 @@ def fire_collection_updated_event(old_state: dict, collection_payload: dict):
 def get_collection(project_id: int, collection_id: int, only_public: bool = False):
     with db.with_project_schema_session(project_id) as session:
         if collection := session.query(Collection).get(collection_id):
-            return get_detail_collection(collection, only_public)
+            return get_detail_collection(project_id, collection, only_public)
         return None
 
 
-def get_detail_collection(collection: Collection, only_public: bool = False):
+def get_detail_collection(project_id: int, collection: Collection, only_public: bool = False):
 
     data = collection.to_json()
     data.pop('prompts')
 
-    collection_data = CollectionDetailModel(**data)
+    collection_model = PublishedCollectionDetailModel if only_public \
+        else CollectionDetailModel
+
+    collection_data = collection_model(**data)
     users = get_authors_data([collection.author_id])
     user_map = {i['id']: i for i in users}
     # collection.author = auth.get_user(user_id=collection.author_id)
     collection_data.author = user_map.get(collection_data.author_id)
+
+    if only_public:
+        collection_data.get_likes(project_id)
+        collection_data.check_is_liked(project_id)
+
     result = json.loads(collection_data.json(exclude={"author_id"}))
 
     prompts = get_prompts_for_collection(collection, only_public=only_public)
