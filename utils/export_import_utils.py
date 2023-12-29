@@ -51,12 +51,12 @@ def collection_export(project_id: int, collection_id: int, to_dail=False):
         grouped_prompts = group_by_project_id(collection.prompts)
         result_prompts = []
         for project_id, prompts in grouped_prompts.items():
-            with db.with_project_schema_session(project_id) as session:
+            with db.with_project_schema_session(project_id) as session2:
                 for prompt_id in prompts:
                     if to_dail:
-                        result = prompts_export_to_dial(project_id, prompt_id, session)
+                        result = prompts_export_to_dial(project_id, prompt_id, session2)
                     else:
-                        result = prompts_export(project_id, prompt_id, session)
+                        result = prompts_export(project_id, prompt_id, session2)
                         del result['collections']
                     result_prompts.extend(result['prompts'])
 
