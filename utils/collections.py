@@ -123,7 +123,7 @@ def list_collections(
         query = session.query(Collection)
 
         if with_likes:
-            query = add_likes_to_query(query, project_id, 'collection', Collection)
+            query = add_likes_to_query(query, project_id, 'collection')
 
         if search:
             query = query.filter(

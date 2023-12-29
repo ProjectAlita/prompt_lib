@@ -82,7 +82,7 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> List[dict]:
             session.query(Prompt)
             .options(joinedload(Prompt.versions))
         )
-        prompt_query = add_likes_to_query(prompt_query, project_id, 'prompt', Prompt)
+        prompt_query = add_likes_to_query(prompt_query, project_id, 'prompt')
         if filters:
             prompt_query = prompt_query.filter(*filters)
         if sort_order.lower() == "asc":
@@ -224,7 +224,7 @@ def list_prompts(project_id: int,
         )
 
         if with_likes:
-            query = add_likes_to_query(query, project_id, 'prompt', Prompt)
+            query = add_likes_to_query(query, project_id, 'prompt')
 
         if filters:
             query = query.filter(*filters)

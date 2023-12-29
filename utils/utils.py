@@ -134,9 +134,10 @@ def get_trending_authors(project_id: int, limit: int = 5) -> List[dict]:
 def add_likes_to_query(
         query,
         project_id: int,
-        entity_name: Literal['prompt', 'collection'],
-        entity: Union[Prompt, Collection]):
+        entity_name: Literal['prompt', 'collection']
+        ):
     '''Add likes count to the query if social plugin is available'''
+    entity = Prompt if entity_name == 'prompt' else Collection
     try:
         Like = rpc_tools.RpcMixin().rpc.timeout(2).social_get_like_model()
     except Empty:
