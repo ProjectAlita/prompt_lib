@@ -13,7 +13,7 @@ from pylon.core.tools import log
 
 from .utils import add_likes_to_query, get_authors_data
 from ..models.enums.all import CollectionPatchOperations, CollectionStatus, PromptVersionStatus
-from ..models.all import Collection, Prompt, PromptVersion
+from ..models.all import Collection, Prompt, PromptVersion, PromptTag
 from ..models.pd.base import PromptTagBaseModel
 from ..models.pd.list import MultiplePromptListModel
 from ..models.pd.collections import (
@@ -121,8 +121,27 @@ def list_collections(
         filters.append(Collection.status == status)
 
     with db.with_project_schema_session(project_id) as session:
-        query = session.query(Collection)
+        if tags := args.get('tags'):
+            # tag filtering
+            if isinstance(tags, str):
+                tags = tags.split(',')
+            prompt_ids = session.query(Prompt.id).filter(
+                Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags)))
+            ).all()
+            
+            if not prompt_ids:
+                return 0, []
 
+            prompt_filters = [] 
+            for id_ in prompt_ids:
+                prompt_value = {
+                    "owner_id": project_id,
+                    "id": id_[0]
+                }
+                prompt_filters.append(Collection.prompts.contains([prompt_value]))
+            filters.append(or_(*prompt_filters))
+
+        query = session.query(Collection)
         if with_likes:
             query = add_likes_to_query(query, project_id, 'collection')
 
@@ -240,13 +259,13 @@ def fire_collection_updated_event(old_state: dict, collection_payload: dict):
 def get_collection(project_id: int, collection_id: int, only_public: bool = False):
     with db.with_project_schema_session(project_id) as session:
         if collection := session.query(Collection).get(collection_id):
-            return get_detail_collection(project_id, collection, only_public)
+            return get_detail_collection(collection, only_public)
         return None
 
 
-def get_detail_collection(project_id: int, collection: Collection, only_public: bool = False):
-
+def get_detail_collection(collection: Collection, only_public: bool = False):
     data = collection.to_json()
+    project_id = data['owner_id']
     data.pop('prompts')
 
     collection_model = PublishedCollectionDetailModel if only_public \

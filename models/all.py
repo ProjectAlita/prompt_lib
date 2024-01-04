@@ -1,12 +1,12 @@
 from datetime import datetime
 from typing import List
 
-from tools import db_tools, db, rpc_tools, config as c
-from pylon.core.tools import log
+from tools import db_tools, db, config as c
 
 from .enums.all import PromptVersionStatus, PromptVersionType, MessageRoles, CollectionStatus
 from sqlalchemy import Integer, String, DateTime, func, ForeignKey, JSON, Table, Column, UniqueConstraint, MetaData
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 class Prompt(db_tools.AbstractBaseMixin, db.Base):
@@ -26,7 +26,7 @@ class Prompt(db_tools.AbstractBaseMixin, db.Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     shared_owner_id: Mapped[int] = mapped_column(Integer, nullable=True)
     shared_id: Mapped[int] = mapped_column(Integer, nullable=True)
-    collections: Mapped[list] = mapped_column(JSON, nullable=True, default=list)
+    collections: Mapped[list] = mapped_column(JSONB, nullable=True, default=list)
 
     def get_latest_version(self):
         return next(version for version in self.versions if version.name == 'latest')
@@ -126,7 +126,7 @@ class Collection(db_tools.AbstractBaseMixin, db.Base):
     description: Mapped[str] = mapped_column(String, nullable=True)
     owner_id: Mapped[int] = mapped_column(Integer, nullable=False)
     author_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    prompts: Mapped[dict] = mapped_column(JSON, nullable=True)
+    prompts: Mapped[dict] = mapped_column(JSONB, nullable=True)
     status: Mapped[CollectionStatus] = mapped_column(String, nullable=False, default=CollectionStatus.draft)
     # ALTER TABLE carrier."P_1".prompt_collections ADD COLUMN created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP;
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
