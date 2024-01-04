@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from tools import db, auth, rpc_tools
 from pylon.core.tools import log
 
-from ..models.all import Prompt, PromptVersion, PromptVariable, PromptMessage, PromptTag, PromptVersionTagAssociation
+from ..models.all import Collection, Prompt, PromptVersion, PromptVariable, PromptMessage, PromptTag, PromptVersionTagAssociation
 from ..models.pd.legacy.variable import VariableModel
 from ..models.pd.update import PromptVersionUpdateModel
 from ..models.pd.detail import PromptDetailModel, PromptVersionDetailModel, PublishedPromptDetailModel
@@ -51,13 +51,10 @@ def get_prompt_tags(project_id: int, prompt_id: int) -> List[dict]:
 
 def get_all_ranked_tags(project_id: int, args: MultiDict) -> List[dict]:
 
-    # Args to limit tag query:
-    top_n = args.get('top_n', default=20, type=int)
-
     # Args to sort prompt subquery:
     limit = args.get("limit", default=10, type=int)
     offset = args.get("offset", default=0, type=int)
-    sort_by = args.get("sort_by", default="created_at")
+    sort_by = args.get("sort_by", default="id")
     sort_order = args.get("sort_order", default="desc")
 
     # Filters to sort prompt subquery:
@@ -76,6 +73,22 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> List[dict]:
         )
 
     with db.with_project_schema_session(project_id) as session:
+        if collection_phrase := args.get('collection_phrase'):
+            collection_prompts = session.query(Collection.prompts).filter(
+                or_(
+                    Collection.name.ilike(f"%{collection_phrase}%"),
+                    Collection.description.ilike(f"%{collection_phrase}%")
+                )
+            ).all()
+
+            prompt_ids = []
+            for collection_prompt in collection_prompts:
+                prompts = collection_prompt[0]
+                for prompt in prompts:
+                    if prompt['owner_id'] == project_id:
+                        prompt_ids.append(prompt['id'])
+            
+            filters.append(Prompt.id.in_(prompt_ids))
 
         # Prompt subquery
         prompt_query = (
@@ -85,14 +98,6 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> List[dict]:
         prompt_query = add_likes_to_query(prompt_query, project_id, 'prompt')
         if filters:
             prompt_query = prompt_query.filter(*filters)
-        if sort_order.lower() == "asc":
-            prompt_query = prompt_query.order_by(getattr(Prompt, sort_by, sort_by))
-        else:
-            prompt_query = prompt_query.order_by(desc(getattr(Prompt, sort_by, sort_by)))
-        if limit:
-            prompt_query = prompt_query.limit(limit)
-        if offset:
-            prompt_query = prompt_query.offset(offset)
 
         prompt_query = prompt_query.with_entities(Prompt.id)
         prompt_subquery = prompt_query.subquery()
@@ -110,10 +115,23 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> List[dict]:
             .join(PromptVersion, PromptVersion.id == PromptVersionTagAssociation.c.version_id)
             .group_by(PromptTag.id, PromptTag.name, cast(PromptTag.data, String))
             .order_by(func.count(func.distinct(PromptVersion.prompt_id)).desc())
-            .limit(top_n)
         )
+        total = query.count()
+
+        if sort_order.lower() == "asc":
+            query = query.order_by(getattr(PromptTag, sort_by, sort_by))
+        else:
+            query = query.order_by(desc(getattr(PromptTag, sort_by, sort_by)))
+        if limit:
+            query = query.limit(limit)
+        if offset:
+            query = query.offset(offset)
+
         as_dict = lambda x: {'id': x[0], 'name': x[1], 'data': loads(x[2]), 'prompt_count': x[3]}
-        return [as_dict(tag) for tag in query.all()]
+        return {
+            "total": total,
+            "rows": [as_dict(tag) for tag in query.all()]
+        }
 
 
 def _update_related_table(session, version, version_data, db_model):
