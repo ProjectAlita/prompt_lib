@@ -15,7 +15,7 @@ from .utils import add_likes_to_query, get_authors_data
 from ..models.enums.all import CollectionPatchOperations, CollectionStatus, PromptVersionStatus
 from ..models.all import Collection, Prompt, PromptVersion, PromptTag
 from ..models.pd.base import PromptTagBaseModel
-from ..models.pd.list import MultiplePromptListModel
+from ..models.pd.list import MultiplePromptListModel, PublishedPromptListModel
 from ..models.pd.collections import (
     CollectionDetailModel,
     CollectionModel,
@@ -65,14 +65,24 @@ def get_prompts_for_collection(collection: Collection, only_public: bool = False
 
     for project_id, ids in transformed_prompts.items():
         with db.with_project_schema_session(project_id) as session:
-            project_prompts = (
-                session.query(Prompt).filter(Prompt.id.in_(ids), *filters).all()
-            )
-            prompts.extend(
-                json.loads(MultiplePromptListModel(prompts=project_prompts).json())[
-                    "prompts"
-                ]
-            )
+            prompt_query = session.query(Prompt).filter(Prompt.id.in_(ids), *filters)
+            if only_public:
+                prompt_query = add_likes_to_query(prompt_query, project_id, 'prompt')
+            project_prompts = prompt_query.all()
+
+            if only_public:
+                for prompt_data in project_prompts:
+                    prompt = PublishedPromptListModel.from_orm(prompt_data[0])
+                    prompt.likes = prompt_data[1]
+                    prompt.is_liked = prompt_data[2]
+                    prompts.append(json.loads(prompt.json()))
+            else:
+                prompts.extend(
+                    json.loads(MultiplePromptListModel(prompts=project_prompts).json())[
+                        "prompts"
+                    ]
+                )
+
             actual_prompt_ids[project_id] = [prompt['id'] for prompt in prompts]
 
     if not only_public:
@@ -282,11 +292,8 @@ def get_detail_collection(collection: Collection, only_public: bool = False):
         collection_data.check_is_liked(project_id)
 
     result = json.loads(collection_data.json(exclude={"author_id"}))
-
     prompts = get_prompts_for_collection(collection, only_public=only_public)
-
     result["prompts"] = prompts
-
     return result
 
 
