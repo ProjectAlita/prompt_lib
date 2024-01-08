@@ -127,8 +127,10 @@ def list_collections(
     if author_id := args.get('author_id'):
         filters.append(Collection.author_id==author_id)
 
-    if status := args.get('status'):
-        filters.append(Collection.status == status)
+    if statuses := args.get('statuses'):
+        if isinstance(statuses, str):
+            statuses = statuses.split(',')
+        filters.append(Collection.status.in_(statuses))
 
     with db.with_project_schema_session(project_id) as session:
         if tags := args.get('tags'):

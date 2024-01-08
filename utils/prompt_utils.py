@@ -118,10 +118,10 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> List[dict]:
         )
         total = query.count()
 
-        if sort_order.lower() == "asc":
-            query = query.order_by(getattr(PromptTag, sort_by, sort_by))
-        else:
-            query = query.order_by(desc(getattr(PromptTag, sort_by, sort_by)))
+        # if sort_order.lower() == "asc":
+        #     query = query.order_by(getattr(PromptTag, sort_by, sort_by))
+        # else:
+        #     query = query.order_by(desc(getattr(PromptTag, sort_by, sort_by)))
         if limit:
             query = query.limit(limit)
         if offset:
