@@ -424,6 +424,9 @@ def get_collection_tags(prompts: List[dict]) -> list:
                 )
                 prompt = query.get(prompt_id)
 
+                if not prompt:
+                    continue
+                
                 for version in prompt.versions:
                     for tag in version.tags:
                         tags[tag.name] = PromptTagBaseModel.from_orm(tag)
