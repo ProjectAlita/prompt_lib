@@ -75,6 +75,9 @@ class PublishedPromptListModel(PromptListModel):
     likes: Optional[int]
     is_liked: Optional[bool]
 
+    class Config:
+        from_orm = True
+
 
 class MultiplePromptListModel(BaseModel):
     prompts: List[PromptListModel]
