@@ -5,7 +5,7 @@ from flask import request, g
 from tools import api_tools, config as c, db, auth
 from pylon.core.tools import log
 from pydantic import ValidationError
-from ...models.pd.collections import CollectionListModel
+from ...models.pd.collections import PublishedCollectionListModel
 from ...utils.collections import (
     get_collection_tags,
     list_collections,
@@ -47,13 +47,13 @@ class PromptLibAPI(api_tools.APIModeHandler):
         prompt_id = request.args.get('prompt_id')
         prompt_owner_id = request.args.get('prompt_owner_id')
         need_tags = 'no_tags' not in request.args
-        total, collections = list_collections(project_id, request.args, with_likes=False)
+        total, collections = list_collections(project_id, request.args, with_likes=True)
         # parsing
-        parsed: List[CollectionListModel] = []
+        parsed: List[PublishedCollectionListModel] = []
         users = get_authors_data([i.author_id for i in collections])
         user_map = {i['id']: i for i in users}
         for col in collections:
-            col_model = CollectionListModel.from_orm(col)
+            col_model = PublishedCollectionListModel.from_orm(col)
             col_model.author = user_map.get(col_model.author_id)
             if need_tags:
                 col_model.tags = get_collection_tags(col.prompts)
