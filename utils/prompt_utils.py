@@ -263,7 +263,7 @@ def list_prompts(project_id: int,
 
         prompts: Union[List[tuple[Prompt, int, bool]], List[Prompt]] = query.all()
 
-        log.info(f'prompts: {prompts}')
+        # log.info(f'prompts: {prompts}')
 
         if with_likes:
             prompts_with_likes = []
