@@ -1,7 +1,7 @@
 import json
 import copy
 from collections import defaultdict
-from typing import List, Union
+from typing import List, Union, Optional
 from werkzeug.datastructures import MultiDict
 
 from sqlalchemy import or_, and_, desc
@@ -48,7 +48,9 @@ def check_prompts_addability(owner_id: int, user_id: int):
     ) or membership_check(owner_id, user_id)
 
 
-def get_prompts_for_collection(collection: Collection, only_public: bool = False) -> list:
+def get_prompts_for_collection(collection: Collection, only_public: bool = False, user_map: Optional[dict] = None) -> list:
+    if not user_map:
+        user_map = dict()
     prompts = []
     actual_prompt_ids = {}
 
@@ -75,6 +77,7 @@ def get_prompts_for_collection(collection: Collection, only_public: bool = False
                     prompt = PublishedPromptListModel.from_orm(prompt_data[0])
                     prompt.likes = prompt_data[1]
                     prompt.is_liked = prompt_data[2]
+                    prompt.set_authors(user_map)
                     prompts.append(json.loads(prompt.json()))
             else:
                 prompts.extend(
@@ -284,9 +287,14 @@ def get_detail_collection(collection: Collection, only_public: bool = False):
         else CollectionDetailModel
 
     collection_data = collection_model(**data)
-    users = get_authors_data([collection.author_id])
+    user_ids = {collection.author_id}
+    for i in collection_data.prompts:
+        user_ids.update(i.author_ids)
+    # log.info(f'{user_ids=}')
+    users: list = get_authors_data(author_ids=list(user_ids))
+    # log.info(f'{users=}')
     user_map = {i['id']: i for i in users}
-    # collection.author = auth.get_user(user_id=collection.author_id)
+    # log.info(f'{user_map=}')
     collection_data.author = user_map.get(collection_data.author_id)
 
     if only_public:
@@ -294,7 +302,7 @@ def get_detail_collection(collection: Collection, only_public: bool = False):
         collection_data.check_is_liked(project_id)
 
     result = json.loads(collection_data.json(exclude={"author_id"}))
-    prompts = get_prompts_for_collection(collection, only_public=only_public)
+    prompts = get_prompts_for_collection(collection, only_public=only_public, user_map=user_map)
     result["prompts"] = prompts
     return result
 
