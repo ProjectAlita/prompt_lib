@@ -21,6 +21,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             },
         }
     )
+    @api_tools.endpoint_metrics
     def get(self, project_id: int):
         args = request.args
         search_query = "%{}%".format(args.get('query', ''))

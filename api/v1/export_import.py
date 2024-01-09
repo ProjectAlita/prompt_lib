@@ -128,6 +128,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def get(self, project_id: int, prompt_id: int = None, **kwargs):
         if 'to_dial' in request.args:
             result = prompts_export_to_dial(project_id, prompt_id)
@@ -147,6 +148,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def post(self, project_id: int, **kwargs):
         created = []
         errors = []

@@ -18,6 +18,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def get(self, collection_id: int, *, project_id, **kwargs):
         result = get_collection(project_id, collection_id, only_public=True)
         if not result:

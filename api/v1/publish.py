@@ -11,6 +11,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def post(self, project_id: int, version_id: int, **kwargs):
         try:
             result = Publishing(project_id, version_id).publish()

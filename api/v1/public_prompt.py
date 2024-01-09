@@ -19,6 +19,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def get(self, prompt_id: int, version_name: str = None, *, project_id, **kwargs):
         ai_project_id = project_id
         result = get_published_prompt_details(ai_project_id, prompt_id, version_name)

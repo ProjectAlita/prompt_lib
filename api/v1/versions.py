@@ -15,6 +15,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def get(self, project_id, prompt_id: str, **kwargs):
         with db.with_project_schema_session(project_id) as session:
             prompt = session.query(Prompt).get(prompt_id)
@@ -26,6 +27,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def post(self, project_id, **kwargs):
         prompt_data = self.module.get_by_id(project_id, request.json['prompt_id'])
         prompt_data.pop('test_input')

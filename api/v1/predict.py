@@ -180,6 +180,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def post(self, project_id: int, prompt_version_id: Optional[int] = None, **kwargs):
         try:
             payload = PromptVersionPredictModel.parse_obj(request.json)

@@ -52,10 +52,6 @@ class ProjectAPI(api_tools.APIModeHandler):
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
-    # def _get_project_id(self, project_id: int | None) -> int:
-    #     if not project_id:
-    #         project_id = 0  # todo: get user personal project id here
-    #     return project_id
 
     @auth.decorators.check_api(
         {
@@ -66,8 +62,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
             },
         }
     )
+    @api_tools.endpoint_metrics
     def get(self, project_id: int | None = None, **kwargs):
-        # project_id = self._get_project_id(project_id)
 
         filters = []
         if tags := request.args.get('tags'):
@@ -128,9 +124,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
             },
         }
     )
+    @api_tools.endpoint_metrics
     def post(self, project_id: int | None = None, **kwargs):
-        # project_id = self._get_project_id(project_id)
-
         raw = dict(request.json)
         raw["owner_id"] = project_id
         author_id = auth.current_user().get("id")

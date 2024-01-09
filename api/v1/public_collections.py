@@ -35,6 +35,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def get(self, *, project_id, **kwargs):
         # list prompts
         prompt_id = request.args.get('prompt_id')

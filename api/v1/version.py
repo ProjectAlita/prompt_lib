@@ -24,6 +24,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def get(self, project_id: int, prompt_id: int, version_id: int, **kwargs):
         with db.with_project_schema_session(project_id) as session:
             prompt_version = session.query(PromptVersion).filter(
@@ -41,6 +42,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def post(self, project_id: int, prompt_id: int, **kwargs):
         data = dict(request.json)
         data['author_id'] = auth.current_user().get("id")
@@ -67,6 +69,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def put(self, project_id: int, prompt_id: int, version_id: int = None, **kwargs):
         version_data = dict(request.json)
         version_data['author_id'] = auth.current_user().get("id")
@@ -87,6 +90,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def delete(self, project_id: int, prompt_id: int, version_id: int = None):
         with db.with_project_schema_session(project_id) as session:
             if version := session.query(PromptVersion).get(version_id):

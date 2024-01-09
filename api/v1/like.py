@@ -15,6 +15,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
     #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
     #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
     #     }})
+    @api_tools.endpoint_metrics
     def post(self, project_id, entity, entity_id):
         try:
             result = self.module.context.rpc_manager.call.social_like(
@@ -29,6 +30,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
     #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
     #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
     #     }})
+    @api_tools.endpoint_metrics
     def delete(self, project_id, entity, entity_id):
         result = self.module.context.rpc_manager.call.social_dislike(
             project_id=project_id, entity=entity, entity_id=entity_id)

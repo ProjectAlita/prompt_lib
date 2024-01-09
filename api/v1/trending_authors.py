@@ -20,6 +20,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             },
         }
     )
+    @api_tools.endpoint_metrics
     def get(self, project_id: int):
         authors: List[TrendingAuthorModel] = get_trending_authors(project_id)
         return [json.loads(author.json()) for author in authors], 200

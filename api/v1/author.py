@@ -21,6 +21,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             },
         }
     )
+    @api_tools.endpoint_metrics
     def get(self, project_id: int, author_id: int):
         author: AuthorDetailModel = get_author_data(author_id=author_id)
 

@@ -25,6 +25,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             },
         }
     )
+    @api_tools.endpoint_metrics
     def get(self, *, project_id, **kwargs):
         ai_project_id = project_id
         filters = [Prompt.versions.any(PromptVersion.status == PromptVersionStatus.published)]

@@ -15,6 +15,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def post(self, version_id: int, **kwargs):
         try:
             result = set_public_version_status(version_id, PromptVersionStatus.rejected)

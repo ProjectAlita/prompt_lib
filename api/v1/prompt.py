@@ -25,6 +25,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def get(self, project_id, prompt_id):
         version = request.args.get('version', 'latest').lower()
         prompt = self.module.get_by_id(project_id, prompt_id, version)
@@ -38,6 +39,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def put(self, project_id):
         try:
             prompt = prompts_update_prompt(project_id, dict(request.json))
@@ -51,6 +53,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def patch(self, project_id, prompt_id):
         try:
             is_updated = prompts_update_name(project_id, prompt_id, dict(request.json))
@@ -64,6 +67,7 @@ class ProjectAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def delete(self, project_id, prompt_id):
         version_name = request.args.get('version', 'latest').lower()
         is_deleted = prompts_delete_prompt(project_id, prompt_id, version_name)
@@ -77,6 +81,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def get(self, project_id: int, prompt_id: int, version_name: str = 'latest', **kwargs):
         result = get_prompt_details(project_id, prompt_id, version_name)
         if not result['ok']:
@@ -89,6 +94,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def delete(self, project_id, prompt_id):
         with db.with_project_schema_session(project_id) as session:
             try:

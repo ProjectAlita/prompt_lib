@@ -5,6 +5,7 @@ from pylon.core.tools import log
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
+    @api_tools.endpoint_metrics
     def post(self, project_id: int, collection_id: int, **kwargs):
         try:
             result = CollectionPublishing(project_id, collection_id).publish()

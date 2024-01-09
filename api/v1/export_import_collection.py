@@ -27,6 +27,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
+    @api_tools.endpoint_metrics
     def get(self, project_id: int, collection_id: int = None, **kwargs):
         to_dail = 'to_dial' in request.args
         result = collection_export(project_id, collection_id, to_dail)
