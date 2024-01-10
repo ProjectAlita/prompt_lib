@@ -2,6 +2,7 @@ import json
 from flask import request, g
 from typing import List
 from sqlalchemy import or_
+from datetime import datetime
 
 from pylon.core.tools import web, log
 from tools import api_tools, config as c, db, auth
@@ -59,6 +60,17 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         # my liked prompts
         my_liked = request.args.get('my_liked', False)
+
+        # trending period
+        trend_start_period = request.args.get('trend_start_period')
+        trend_end_period = request.args.get('trend_end_period')
+
+        trend_period = None
+        if trend_start_period:
+            trend_end_period = datetime.now() if not trend_end_period else datetime.strptime(trend_end_period, "%Y-%m-%dT%H:%M:%S")
+            trend_start_period = datetime.strptime(trend_start_period, "%Y-%m-%dT%H:%M:%S")
+            trend_period = (trend_start_period, trend_end_period)
+
         # list prompts
         total, prompts = list_prompts(
             project_id=ai_project_id,
@@ -67,7 +79,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
             sort_by=sort_by,
             sort_order=sort_order,
             filters=filters,
-            my_liked=my_liked
+            my_liked=my_liked,
+            trend_period=trend_period,
         )
         # parsing
         parsed = MultiplePublishedPromptListModel(prompts=prompts)

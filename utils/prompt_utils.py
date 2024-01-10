@@ -1,5 +1,6 @@
 from json import loads
-from typing import List, Optional, Union
+from datetime import datetime
+from typing import List, Optional, Union, Tuple
 from werkzeug.datastructures import MultiDict
 from sqlalchemy import func, cast, String, desc, or_
 from sqlalchemy.orm import joinedload
@@ -223,7 +224,9 @@ def list_prompts(project_id: int,
                  sort_order: str = 'desc',
                  filters: Optional[list] = None,
                  with_likes: bool = True,
-                 my_liked: bool = False) -> tuple:
+                 my_liked: bool = False,
+                 trend_period: Optional[Tuple[datetime, datetime]] = None
+                ) -> tuple:
     
     if my_liked and not with_likes:
         my_liked = False
@@ -247,16 +250,17 @@ def list_prompts(project_id: int,
         )
 
         if with_likes:
-            query = add_likes_to_query(query, project_id, 'prompt', my_liked)
+            query = add_likes_to_query(query, project_id, 'prompt', my_liked, trend_period)
 
         if filters:
             query = query.filter(*filters)
 
         # Apply sorting
-        if sort_order.lower() == "asc":
-            query = query.order_by(getattr(Prompt, sort_by, sort_by))
-        else:
-            query = query.order_by(desc(getattr(Prompt, sort_by, sort_by)))
+        if not trend_period:
+            if sort_order.lower() == "asc":
+                query = query.order_by(getattr(Prompt, sort_by, sort_by))
+            else:
+                query = query.order_by(desc(getattr(Prompt, sort_by, sort_by)))
 
         total = query.count()
 

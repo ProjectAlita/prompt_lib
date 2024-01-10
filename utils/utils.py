@@ -1,8 +1,9 @@
 from queue import Empty
 from functools import wraps
-from typing import List, Literal, Set, Callable, Union
-from sqlalchemy import func
+from typing import List, Literal, Set, Callable, Optional, Tuple
+from sqlalchemy import func, desc
 from sqlalchemy.sql import literal
+from datetime import datetime
 
 from tools import db, VaultClient, auth, rpc_tools
 from ..models.all import Prompt, PromptVersion, Collection
@@ -135,7 +136,8 @@ def add_likes_to_query(
         query,
         project_id: int,
         entity_name: Literal['prompt', 'collection'],
-        my_liked: bool = False
+        my_liked: Optional[bool] = False,
+        trend_period: Optional[Tuple[datetime, datetime]] = None,
         ):
     '''
     Join likes to the query if social plugin is available.
@@ -153,12 +155,17 @@ def add_likes_to_query(
         Like = None
 
     if Like:
-        my_liked_filter = [Like.user_id==user_id] if my_liked else []
+        optional_filters = []
+        if my_liked:
+            optional_filters.append(Like.user_id==user_id)
+
+        if trend_period:
+            optional_filters.append(Like.created_at.between(*trend_period))
 
         likes_subquery = Like.query.filter(
             Like.project_id == project_id,
             Like.entity == entity_name,
-            *my_liked_filter
+            *optional_filters
             ).subquery()
 
         query = (
@@ -172,6 +179,9 @@ def add_likes_to_query(
         )
         if my_liked:
             query = query.having(func.bool_or(likes_subquery.c.user_id == user_id))
+        
+        if trend_period:
+            query = query.order_by(desc(func.count(likes_subquery.c.user_id).label('likes')))
     else:
         query = (
             query

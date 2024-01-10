@@ -191,14 +191,23 @@ def synchronize_collections(private_collection_data, added_prompts=[], removed_p
 def find_public_prompts(prompts: tuple, session):
     if not prompts:
         return []
-    
+
+    public_id = get_public_project_id()
+    public_prompts = filter(lambda x: x[0]==public_id, prompts)
+    private_prompts = filter(lambda x: x[0]!=public_id, prompts)
+
     return session.query(Prompt).filter(
         or_(
-            *[ 
+            *[
                 and_(
                     Prompt.shared_id==prompt[1],
                     Prompt.shared_owner_id==prompt[0]
-                ) for prompt in prompts
+                ) for prompt in private_prompts
+            ],
+            *[
+                and_(
+                    Prompt.id==data[1],
+                ) for data in public_prompts
             ]
         )
     ).all()
