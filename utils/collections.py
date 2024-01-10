@@ -97,8 +97,13 @@ def get_prompts_for_collection(collection: Collection, only_public: bool = False
 def list_collections(
         project_id: int,
         args:  MultiDict[str, str] | dict | None = None,
-        with_likes: bool = True
+        with_likes: bool = True,
+        my_liked: bool = False
         ):
+    
+    if my_liked:
+        my_liked = with_likes
+        
     if args is None:
         args = dict()
 
@@ -158,7 +163,7 @@ def list_collections(
 
         query = session.query(Collection)
         if with_likes:
-            query = add_likes_to_query(query, project_id, 'collection')
+            query = add_likes_to_query(query, project_id, 'collection', my_liked)
 
         if search:
             query = query.filter(

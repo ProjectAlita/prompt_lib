@@ -57,6 +57,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
         sort_by = request.args.get("sort_by", default="created_at")
         sort_order = request.args.get("sort_order", default="desc")
 
+        # my liked prompts
+        my_liked = request.args.get('my_liked', False)
         # list prompts
         total, prompts = list_prompts(
             project_id=ai_project_id,
@@ -64,7 +66,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
             offset=offset,
             sort_by=sort_by,
             sort_order=sort_order,
-            filters=filters
+            filters=filters,
+            my_liked=my_liked
         )
         # parsing
         parsed = MultiplePublishedPromptListModel(prompts=prompts)
