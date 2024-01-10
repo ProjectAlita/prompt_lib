@@ -10,6 +10,7 @@ from .base import AuthorBaseModel
 from .list import PromptListModel
 from .detail import PromptTagDetailModel
 from ..enums.all import CollectionPatchOperations
+from ...utils.publish_utils import get_public_project_id
 
 
 class PromptIds(BaseModel):
@@ -78,6 +79,8 @@ class CollectionListModel(BaseModel):
     created_at: datetime
     includes_prompt: Optional[bool] = None
     prompt_count: int = 0
+    likes: Optional[int]
+    is_liked: Optional[bool]
 
     class Config:
         orm_mode = True
@@ -93,8 +96,17 @@ class CollectionListModel(BaseModel):
 
 
 class PublishedCollectionListModel(CollectionListModel):
-    likes: Optional[int]
-    is_liked: Optional[bool]
+    @root_validator
+    def count_prompts(cls, values):
+        public_id = get_public_project_id()
+        values['prompt_count'] = len(
+            [
+                prompt
+                for prompt in values.get('prompts')
+                if prompt['owner_id'] == public_id
+            ]
+        )
+        return values
 
 
 class PublishedCollectionDetailModel(CollectionDetailModel):
