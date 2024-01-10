@@ -49,15 +49,12 @@ class PromptLibAPI(api_tools.APIModeHandler):
         user_map = {i['id']: i for i in users}
         for col in collections:
             col_model = PublishedCollectionListModel.from_orm(col)
-            col_model.prompt_count = len(get_prompts_for_collection(col, only_public=True))
             col_model.author = user_map.get(col_model.author_id)
             if need_tags:
                 col_model.tags = get_collection_tags(col.prompts)
-
             if prompt_id and prompt_owner_id:
                 populate_inlcude_prompt_flag(col_model, prompt_id, prompt_owner_id)
             parsed.append(col_model)
-
         return {
             "rows": [json.loads(i.json(exclude={"author_id"})) for i in parsed],
             "total": total,
