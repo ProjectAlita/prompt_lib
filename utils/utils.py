@@ -134,7 +134,8 @@ def get_trending_authors(project_id: int, limit: int = 5) -> List[dict]:
 def add_likes_to_query(
         query,
         project_id: int,
-        entity_name: Literal['prompt', 'collection']
+        entity_name: Literal['prompt', 'collection'],
+        my_liked: bool = False
         ):
     '''
     Join likes to the query if social plugin is available.
@@ -152,9 +153,12 @@ def add_likes_to_query(
         Like = None
 
     if Like:
+        my_liked_filter = [Like.user_id==user_id] if my_liked else []
+
         likes_subquery = Like.query.filter(
             Like.project_id == project_id,
-            Like.entity == entity_name
+            Like.entity == entity_name,
+            *my_liked_filter
             ).subquery()
 
         query = (
@@ -166,6 +170,8 @@ def add_likes_to_query(
             .outerjoin(likes_subquery, likes_subquery.c.entity_id == entity.id)
             .group_by(entity.id)
         )
+        if my_liked:
+            query = query.having(func.bool_or(likes_subquery.c.user_id == user_id))
     else:
         query = (
             query

@@ -222,7 +222,12 @@ def list_prompts(project_id: int,
                  sort_by: str = 'created_at',
                  sort_order: str = 'desc',
                  filters: Optional[list] = None,
-                 with_likes: bool = True) -> tuple:
+                 with_likes: bool = True,
+                 my_liked: bool = False) -> tuple:
+    
+    if my_liked and not with_likes:
+        my_liked = False
+    
     if filters is None:
         filters = []
 
@@ -242,7 +247,7 @@ def list_prompts(project_id: int,
         )
 
         if with_likes:
-            query = add_likes_to_query(query, project_id, 'prompt')
+            query = add_likes_to_query(query, project_id, 'prompt', my_liked)
 
         if filters:
             query = query.filter(*filters)
@@ -262,8 +267,6 @@ def list_prompts(project_id: int,
             query = query.offset(offset)
 
         prompts: Union[List[tuple[Prompt, int, bool]], List[Prompt]] = query.all()
-
-        # log.info(f'prompts: {prompts}')
 
         if with_likes:
             prompts_with_likes = []
