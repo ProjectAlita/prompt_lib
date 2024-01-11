@@ -12,7 +12,7 @@ from sqlalchemy.sql import exists
 from tools import auth, db, VaultClient, rpc_tools
 from pylon.core.tools import log
 
-from .utils import add_likes_to_query, get_authors_data
+from .utils import add_likes_to_query, get_authors_data, add_public_project_id
 from ..models.enums.all import CollectionPatchOperations, CollectionStatus, PromptVersionStatus
 from ..models.all import Collection, Prompt, PromptVersion, PromptTag
 from ..models.pd.base import PromptTagBaseModel
@@ -22,7 +22,7 @@ from ..models.pd.collections import (
     CollectionModel,
     PromptIds,
     CollectionPatchModel,
-    PublishedCollectionDetailModel,
+    PublishedCollectionDetailModel, CollectionListModel,
 )
 from .publish_utils import get_public_project_id
 
@@ -36,6 +36,11 @@ class PromptInaccessableError(Exception):
 
 class PromptDoesntExist(Exception):
     "Raised when prompt doesn't exist"
+    def __init__(self, message):
+        self.message = message
+
+class PromptAlreadyInCollectionError(Exception):
+    "Raised when prompt is already in collection"
     def __init__(self, message):
         self.message = message
 
@@ -101,10 +106,10 @@ def list_collections(
         with_likes: bool = True,
         my_liked: bool = False
         ):
-    
+
     if my_liked:
         my_liked = with_likes
-        
+
     if args is None:
         args = dict()
 
@@ -119,7 +124,7 @@ def list_collections(
 
         # Search query filters
         search = args.get('query')
-        
+
         # trend period
         trend_start_period = args.get('trend_start_period')
         trend_end_period = args.get('trend_end_period')
@@ -164,11 +169,11 @@ def list_collections(
             prompt_ids = session.query(Prompt.id).filter(
                 Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags)))
             ).all()
-            
+
             if not prompt_ids:
                 return 0, []
 
-            prompt_filters = [] 
+            prompt_filters = []
             for id_ in prompt_ids:
                 prompt_value = {
                     "owner_id": project_id,
@@ -420,12 +425,29 @@ def patch_collection(project_id, collection_id, data: CollectionPatchModel):
                 f"Prompt '{prompt_data.id}' in project '{prompt_data.owner_id}' doesn't exist"
             )
 
+
     with db.with_project_schema_session(project_id) as session:
         if collection := session.query(Collection).get(collection_id):
             if not check_prompts_addability(prompt_data.owner_id, collection.author_id):
                 raise PromptInaccessableError(
                     f"User doesn't have access to project '{prompt_data.owner_id}'"
                 )
+
+            # todo: check target collection id is not equal to public project id
+            # if collection.owner_id != prompt.owner_id:
+            #
+            if get_include_prompt_flag(
+                collection=CollectionListModel.from_orm(collection),
+                prompt_id=prompt.id,
+                prompt_owner_id=prompt.owner_id,
+            ):
+                raise PromptAlreadyInCollectionError('Already in collection')
+
+            # with db.with_project_schema_session(project_id) as session:
+            #     q = session.query(Prompt).filter(
+            #     ) todo: add personal prompt if public replica is being added
+            # log.info(f'{prompt_data=}')
+            # log.info(f'{collection=}')
 
             result = op_map[data.operation](collection, prompt_data)
             collection_data = collection.to_json()
@@ -456,7 +478,7 @@ def get_collection_tags(prompts: List[dict]) -> list:
 
                 if not prompt:
                     continue
-                
+
                 for version in prompt.versions:
                     for tag in version.tags:
                         tags[tag.name] = PromptTagBaseModel.from_orm(tag)
@@ -593,3 +615,28 @@ def group_by_project_id(data, data_type='dict'):
         prompts[entity[group_field]].append(entity[data_field])
     return prompts
 
+
+
+@add_public_project_id
+def get_include_prompt_flag(collection: CollectionListModel, prompt_id: int, prompt_owner_id: int, *,
+                                 project_id: int) -> bool:
+    public_prompts = []
+    for p in collection.prompts:
+        p_owner_id = int(p['owner_id'])
+        if p_owner_id == prompt_owner_id and \
+                int(p['id']) == prompt_id:
+            return True
+        elif p_owner_id == project_id and \
+                prompt_owner_id != project_id:
+            # if prompt is public but target collection owner is not public
+            public_prompts.append(p)
+    else:
+        if public_prompts:
+            with db.with_project_schema_session(project_id) as session:
+                q = session.query(Prompt).filter(
+                    Prompt.id.in_([p['id'] for p in public_prompts]),
+                    Prompt.shared_owner_id == prompt_owner_id,
+                    Prompt.shared_id == prompt_id,
+                )
+                return bool(q.first())
+    return False
