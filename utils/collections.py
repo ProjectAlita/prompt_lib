@@ -1,5 +1,6 @@
 import json
 import copy
+from datetime import datetime
 from collections import defaultdict
 from typing import List, Union, Optional
 from werkzeug.datastructures import MultiDict
@@ -107,7 +108,7 @@ def list_collections(
     if args is None:
         args = dict()
 
-    if isinstance(args, dict):
+    if type(args) == dict:
         # Pagination parameters
         limit = args.get("limit", 10)
         offset = args.get("offset", 0)
@@ -118,6 +119,10 @@ def list_collections(
 
         # Search query filters
         search = args.get('query')
+        
+        # trend period
+        trend_start_period = args.get('trend_start_period')
+        trend_end_period = args.get('trend_end_period')
     else:
         # Pagination parameters
         limit = args.get("limit", default=10, type=int)
@@ -129,6 +134,17 @@ def list_collections(
 
         # Search query filters
         search = args.get("query")
+
+        # trend period
+        trend_start_period = args.get('trend_start_period')
+        trend_end_period = args.get('trend_end_period')
+
+    trend_period = None
+    if trend_start_period:
+        trend_end_period = datetime.now() if not trend_end_period \
+            else datetime.strptime(trend_end_period, "%Y-%m-%dT%H:%M:%S")
+        trend_start_period = datetime.strptime(trend_start_period, "%Y-%m-%dT%H:%M:%S")
+        trend_period = (trend_start_period, trend_end_period)
 
     # filtering
     filters = []
@@ -163,7 +179,7 @@ def list_collections(
 
         query = session.query(Collection)
         if with_likes:
-            query = add_likes_to_query(query, project_id, 'collection', my_liked)
+            query = add_likes_to_query(query, project_id, 'collection', my_liked, trend_period)
 
         if search:
             query = query.filter(
@@ -177,10 +193,11 @@ def list_collections(
             query = query.filter(*filters)
 
         # Apply sorting
-        if sort_order.lower() == "asc":
-            query = query.order_by(getattr(Collection, sort_by, sort_by))
-        else:
-            query = query.order_by(desc(getattr(Collection, sort_by, sort_by)))
+        if not trend_period:
+            if sort_order.lower() == "asc":
+                query = query.order_by(getattr(Collection, sort_by, sort_by))
+            else:
+                query = query.order_by(desc(getattr(Collection, sort_by, sort_by)))
 
         total = query.count()
 
@@ -464,16 +481,24 @@ class CollectionPublishing:
 
     def get_public_prompts_of_collection(self, private_prompt_ids: List[dict]):
         with db.with_project_schema_session(self._public_id) as session:
+            public_prompts = filter(lambda x: x['owner_id']==self._public_id, private_prompt_ids)
+            private_prompts = filter(lambda x: x['owner_id']!=self._public_id, private_prompt_ids)
+
             prompt_ids = session.query(Prompt.id).filter(
                 or_(
                     *[
                         and_(
                             Prompt.shared_id==data['id'],
                             Prompt.shared_owner_id==data['owner_id']
-                        ) for data in private_prompt_ids
+                        ) for data in private_prompts
+                    ],
+                    *[
+                        and_(
+                            Prompt.id==data['id'],
+                        ) for data in public_prompts
                     ]
                 )
-            ).all()
+            )
         result = [{"id": prompt_id[0], "owner_id": self._public_id} for prompt_id in prompt_ids]
         return result
 
