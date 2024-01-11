@@ -67,7 +67,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         trend_period = None
         if trend_start_period:
-            trend_end_period = datetime.now() if not trend_end_period else datetime.strptime(trend_end_period, "%Y-%m-%dT%H:%M:%S")
+            trend_end_period = datetime.utcnow() if not trend_end_period else datetime.strptime(trend_end_period, "%Y-%m-%dT%H:%M:%S")
             trend_start_period = datetime.strptime(trend_start_period, "%Y-%m-%dT%H:%M:%S")
             trend_period = (trend_start_period, trend_end_period)
 
