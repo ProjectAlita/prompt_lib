@@ -1,6 +1,6 @@
 from json import loads
 from datetime import datetime
-from typing import List, Optional, Union, Tuple
+from typing import List, Optional, Union, Tuple, Dict
 from werkzeug.datastructures import MultiDict
 from sqlalchemy import func, cast, String, desc, or_
 from sqlalchemy.orm import joinedload
@@ -50,13 +50,23 @@ def get_prompt_tags(project_id: int, prompt_id: int) -> List[dict]:
         return [PromptTagListModel.from_orm(tag).dict() for tag in query.all()]
 
 
-def get_all_ranked_tags(project_id: int, args: MultiDict) -> List[dict]:
+def _flatten_prompt_ids(project_id: int, collection_prompts: List[Dict[str, int]]):
+    prompt_ids = []
+    for collection_prompt in collection_prompts:
+        prompts = collection_prompt[0]
+        for prompt in prompts:
+            if prompt['owner_id'] == project_id:
+                prompt_ids.append(prompt['id'])
+    return prompt_ids
 
+
+def get_all_ranked_tags(project_id: int, args: MultiDict) -> List[dict]:
     # Args to sort prompt subquery:
     limit = args.get("limit", default=10, type=int)
     offset = args.get("offset", default=0, type=int)
-    sort_by = args.get("sort_by", default="id")
-    sort_order = args.get("sort_order", default="desc")
+    my_liked_collections = args.get("my_liked_collections", default=False, type=bool)
+    my_liked_prompts = args.get("my_liked_prompts", default=False, type=bool)
+    
 
     # Filters to sort prompt subquery:
     filters = []
@@ -81,22 +91,22 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> List[dict]:
                     Collection.description.ilike(f"%{collection_phrase}%")
                 )
             ).all()
-
-            prompt_ids = []
-            for collection_prompt in collection_prompts:
-                prompts = collection_prompt[0]
-                for prompt in prompts:
-                    if prompt['owner_id'] == project_id:
-                        prompt_ids.append(prompt['id'])
-            
+            prompt_ids = prompt_ids = _flatten_prompt_ids(project_id, collection_prompts)
             filters.append(Prompt.id.in_(prompt_ids))
 
+        if my_liked_collections:
+            query = session.query(Collection.prompts)
+            query = add_likes_to_query(query, project_id, 'collection', my_liked=True)
+            collection_prompts = query.all()
+            prompt_ids = _flatten_prompt_ids(project_id, collection_prompts)
+            filters.append(Prompt.id.in_(prompt_ids))
+                        
         # Prompt subquery
         prompt_query = (
             session.query(Prompt)
             .options(joinedload(Prompt.versions))
         )
-        prompt_query = add_likes_to_query(prompt_query, project_id, 'prompt')
+        prompt_query = add_likes_to_query(prompt_query, project_id, 'prompt', my_liked=my_liked_prompts)
         if filters:
             prompt_query = prompt_query.filter(*filters)
 
