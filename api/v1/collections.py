@@ -1,7 +1,8 @@
 from typing import List
+
 from ...utils.constants import PROMPT_LIB_MODE
 
-from flask import request, g
+from flask import request
 from tools import api_tools, config as c, db, auth
 from pylon.core.tools import log
 from pydantic import ValidationError
@@ -11,22 +12,12 @@ from ...utils.collections import (
     list_collections,
     create_collection,
     get_detail_collection,
-    PromptInaccessableError,
+    PromptInaccessableError, get_include_prompt_flag,
 )
 
 import json
 
 from ...utils.utils import get_authors_data
-
-
-def populate_inlcude_prompt_flag(collection, prompt_id, prompt_owner_id):
-    for prompt in collection.prompts:
-        if int(prompt['owner_id']) == int(prompt_owner_id) and \
-            int(prompt['id']) == int(prompt_id):
-            collection.includes_prompt = True
-            break
-    else:
-        collection.includes_prompt = False
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
@@ -60,7 +51,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 col_model.tags = get_collection_tags(col.prompts)
 
             if prompt_id and prompt_owner_id:
-                populate_inlcude_prompt_flag(col_model, prompt_id, prompt_owner_id)
+                col_model.includes_prompt = get_include_prompt_flag(
+                    col_model, int(prompt_id), int(prompt_owner_id)
+                )
             parsed.append(col_model)
 
         return {

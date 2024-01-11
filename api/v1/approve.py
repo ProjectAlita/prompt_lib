@@ -57,13 +57,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         return result, 200
 
-        return json.loads(json.dumps(
-            [{'project_id': project_id,
-              'mode': self.mode,
-              'endpoint': f'api.{file_path.parent.name}.{self.mode}.{file_path.stem}',
-              'method': 'POST',
-              'status_code': 200}], default=lambda o: str(o)))
-
     @add_public_project_id
     @auth.decorators.check_api({
         "permissions": ["models.prompt_lib.approve.post"],

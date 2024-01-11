@@ -70,7 +70,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
     @api_tools.endpoint_metrics
-    def patch(self, project_id, collection_id):
+    def patch(self, project_id: int, collection_id: int):
         try:
             payload = request.get_json()
             collection_data = CollectionPatchModel.validate(payload)
