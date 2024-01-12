@@ -66,11 +66,11 @@ def get_author_data(author_id: int) -> AuthorDetailModel:
     except RuntimeError:
         return {}
     try:
-        user_data = rpc_tools.RpcMixin().rpc.timeout(2).social_get_user(author_data['id'])
+        social_data = rpc_tools.RpcMixin().rpc.timeout(2).social_get_user(author_data['id'])
     except (Empty, KeyError):
-        user_data = {}
-    author = author_data | user_data
-    return AuthorDetailModel(**author)
+        social_data = {}
+    social_data.update(author_data)
+    return AuthorDetailModel(**social_data)
 
 
 def get_trending_authors(project_id: int, limit: int = 5) -> List[dict]:
@@ -196,6 +196,7 @@ def add_likes_to_query(
             query
             .add_columns(literal(0).label('likes'))
             .add_columns(func.bool_or(False).label('is_liked'))
+            # .add_columns(literal(0).label('trend_likes'))
         )
 
     return query
