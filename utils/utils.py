@@ -189,8 +189,8 @@ def add_likes_to_query(
             ).subquery()
             query = query\
                 .add_columns(func.count(trending_likes_subquery.c.user_id).label('trend_likes'))\
-                .outerjoin(trending_likes_subquery, trending_likes_subquery.c.entity_id == entity.id)
-            query = query.order_by(desc(func.count(trending_likes_subquery.c.user_id).label('trend_likes')))
+                .outerjoin(trending_likes_subquery, trending_likes_subquery.c.entity_id == entity.id)\
+                .order_by(desc(func.count(trending_likes_subquery.c.user_id).label('trend_likes')))
     else:
         query = (
             query
