@@ -222,9 +222,11 @@ def list_collections(
 
         if with_likes:
             collections_with_likes = []
-            for collection, likes, is_liked in collections:
+            for collection, likes, is_liked, *other in collections:
                 collection.likes = likes
                 collection.is_liked = is_liked
+                if other:
+                    collection.trending_likes = other[0]
                 collections_with_likes.append(collection)
             collections = collections_with_likes
 
