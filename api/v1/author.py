@@ -23,15 +23,14 @@ class PromptLibAPI(api_tools.APIModeHandler):
     )
     @api_tools.endpoint_metrics
     def get(self, author_id: int, *, project_id: int):
-        author: AuthorDetailModel = get_author_data(author_id=author_id)
+        author: dict = get_author_data(author_id=author_id)
         try:
             author_project_id = self.module.context.rpc_manager.timeout(2).projects_get_personal_project_id(author.id)
-            stats = get_stats(author_project_id, author.id)
-            for key, value in stats.items():
-                 setattr(author, key, value)
+            stats = get_stats(author_project_id, author['id'])
+            author.update(stats)
         except Empty:
             ...
-        return author.dict(), 200
+        return author, 200
 
 class API(api_tools.APIBase):
     url_params = api_tools.with_modes([

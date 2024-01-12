@@ -60,7 +60,7 @@ def get_authors_data(author_ids: List[int]) -> List[dict]:
     return users_data
 
 
-def get_author_data(author_id: int) -> AuthorDetailModel:
+def get_author_data(author_id: int) -> dict:
     try:
         author_data = auth.get_user(user_id=author_id)
     except RuntimeError:
@@ -70,7 +70,7 @@ def get_author_data(author_id: int) -> AuthorDetailModel:
     except (Empty, KeyError):
         social_data = {}
     social_data.update(author_data)
-    return AuthorDetailModel(**social_data)
+    return AuthorDetailModel(**social_data).dict()
 
 
 def get_trending_authors(project_id: int, limit: int = 5) -> List[dict]:
