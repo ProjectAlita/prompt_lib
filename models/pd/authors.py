@@ -4,6 +4,7 @@ from .base import AuthorBaseModel
 
 
 class AuthorDetailModel(AuthorBaseModel):
+    id: Optional[int] = None
     title: Optional[str]
     description: Optional[str]
     public_prompts: int = 0
