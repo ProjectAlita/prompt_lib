@@ -4,27 +4,18 @@ from ...utils.constants import PROMPT_LIB_MODE
 from flask import request
 from tools import api_tools, config as c, db, auth
 from pylon.core.tools import log
-from pydantic import ValidationError
 from ...models.pd.collections import PublishedCollectionListModel
 from ...utils.collections import (
     get_collection_tags,
     list_collections,
-    get_prompts_for_collection
 )
 
 import json
 
 from ...utils.utils import add_public_project_id, get_authors_data
 
-
-def populate_inlcude_prompt_flag(collection, prompt_id, prompt_owner_id):
-    for prompt in collection.prompts:
-        if int(prompt['owner_id']) == int(prompt_owner_id) and \
-            int(prompt['id']) == int(prompt_id):
-            collection.includes_prompt = True
-            break
-    else:
-        collection.includes_prompt = False
+# THIS API IS NOT USED NOW
+# A CANDIDATE FOR REMOVAL
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
@@ -52,8 +43,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
             col_model.author = user_map.get(col_model.author_id)
             if need_tags:
                 col_model.tags = get_collection_tags(col.prompts)
-            if prompt_id and prompt_owner_id:
-                populate_inlcude_prompt_flag(col_model, prompt_id, prompt_owner_id)
+            # if prompt_id and prompt_owner_id:
+            #     populate_inlcude_prompt_flag(col_model, prompt_id, prompt_owner_id)
             parsed.append(col_model)
         return {
             "rows": [json.loads(i.json(exclude={"author_id"})) for i in parsed],
