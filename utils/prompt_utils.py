@@ -66,8 +66,16 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> List[dict]:
     offset = args.get("offset", default=0, type=int)
     my_liked_collections = args.get("my_liked_collections", default=False, type=bool)
     my_liked_prompts = args.get("my_liked_prompts", default=False, type=bool)
-    
 
+    # trending period
+    trend_start_period = args.get('trend_start_period')
+    trend_end_period = args.get('trend_end_period')
+    trend_period = None
+    if trend_start_period:
+        trend_end_period = datetime.utcnow() if not trend_end_period else datetime.strptime(trend_end_period, "%Y-%m-%dT%H:%M:%S")
+        trend_start_period = datetime.strptime(trend_start_period, "%Y-%m-%dT%H:%M:%S")
+        trend_period = (trend_start_period, trend_end_period)
+    
     # Filters to sort prompt subquery:
     filters = []
     if author_id := args.get('author_id'):
@@ -106,7 +114,9 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> List[dict]:
             session.query(Prompt)
             .options(joinedload(Prompt.versions))
         )
-        prompt_query = add_likes_to_query(prompt_query, project_id, 'prompt', my_liked=my_liked_prompts)
+        prompt_query = add_likes_to_query(
+            prompt_query, project_id, 'prompt', my_liked_prompts, trend_period
+        )
         if filters:
             prompt_query = prompt_query.filter(*filters)
 
