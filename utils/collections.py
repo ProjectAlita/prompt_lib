@@ -2,7 +2,7 @@ import json
 import copy
 from datetime import datetime
 from collections import defaultdict
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Dict
 from werkzeug.datastructures import MultiDict
 
 from sqlalchemy import or_, and_, desc
@@ -12,7 +12,7 @@ from sqlalchemy.sql import exists
 from tools import auth, db, VaultClient, rpc_tools
 from pylon.core.tools import log
 
-from .utils import add_likes_to_query, get_authors_data, add_public_project_id
+from .utils import add_likes_to_query, get_author_data, get_authors_data, add_public_project_id
 from ..models.enums.all import CollectionPatchOperations, CollectionStatus, PromptVersionStatus
 from ..models.all import Collection, Prompt, PromptVersion, PromptTag
 from ..models.pd.base import PromptTagBaseModel
@@ -54,29 +54,45 @@ def check_prompts_addability(owner_id: int, user_id: int):
     ) or membership_check(owner_id, user_id)
 
 
-def get_prompts_for_collection(collection: Collection, only_public: bool = False, user_map: Optional[dict] = None) -> list:
-    if not user_map:
-        user_map = dict()
-    prompts = []
-    actual_prompt_ids = {}
+def fire_prune_stale_prompts(collection: Collection, current_prompts: List[dict], all_prompts: Dict[int, List[int]]):
+    actual_prompt_ids = group_by_project_id(current_prompts)
+    payload = {
+        "existing_prompts": actual_prompt_ids,
+        "all_prompts": all_prompts,
+        "collection_data": {
+            'owner_id': collection.owner_id,
+            'id': collection.id
+        }
+    }
+    rpc_tools.EventManagerMixin().event_manager.fire_event(
+        "prune_collection_prompts", payload
+    )
 
+
+def get_prompts_for_collection(grouped_prompts: Dict[int, List[int]], only_public: bool = False) -> list:
+    prompts = []
     filters = []
     if only_public:
         filters.append(
             Prompt.versions.any(PromptVersion.status == PromptVersionStatus.published)
         )
 
-    transformed_prompts = defaultdict(list)
-    for prompt in collection.prompts:
-        project = prompt["owner_id"]
-        transformed_prompts[project].append(prompt["id"])
-
-    for project_id, ids in transformed_prompts.items():
+    for project_id, ids in grouped_prompts.items():
         with db.with_project_schema_session(project_id) as session:
             prompt_query = session.query(Prompt).filter(Prompt.id.in_(ids), *filters)
             if only_public:
                 prompt_query = add_likes_to_query(prompt_query, project_id, 'prompt')
             project_prompts = prompt_query.all()
+
+            # user_map
+            author_ids = []
+            for prompt in project_prompts:
+                prompt = prompt[0] if only_public else prompt
+                for version in prompt.versions:
+                    author_ids.append(version.author_id)
+            users = get_authors_data(author_ids)
+            user_map = {user['id']: user for user in users}
+            #
 
             if only_public:
                 for prompt_data in project_prompts:
@@ -91,12 +107,6 @@ def get_prompts_for_collection(collection: Collection, only_public: bool = False
                         "prompts"
                     ]
                 )
-
-            actual_prompt_ids[project_id] = [prompt['id'] for prompt in prompts]
-
-    if not only_public:
-        prune_stale_prompts(collection, transformed_prompts, actual_prompt_ids)
-
     return prompts
 
 
@@ -314,38 +324,18 @@ def get_detail_collection(collection: Collection, only_public: bool = False):
         else CollectionDetailModel
 
     collection_data = collection_model(**data)
-    user_ids = {collection.author_id}
-    for i in collection_data.prompts:
-        user_ids.update(i.author_ids)
-    # log.info(f'{user_ids=}')
-    users: list = get_authors_data(author_ids=list(user_ids))
-    # log.info(f'{users=}')
-    user_map = {i['id']: i for i in users}
-    # log.info(f'{user_map=}')
-    collection_data.author = user_map.get(collection_data.author_id)
+    collection_data.author = get_author_data(collection.author_id)
 
     if only_public:
         collection_data.get_likes(project_id)
         collection_data.check_is_liked(project_id)
 
     result = json.loads(collection_data.json(exclude={"author_id"}))
-    prompts = get_prompts_for_collection(collection, only_public=only_public, user_map=user_map)
+    transformed_prompts = group_by_project_id(collection.prompts)
+    prompts = get_prompts_for_collection(transformed_prompts, only_public=only_public)
     result["prompts"] = prompts
+    fire_prune_stale_prompts(collection, prompts, transformed_prompts)
     return result
-
-
-def prune_stale_prompts(collection, collection_prompts: dict, actual_prompts: dict):
-    payload = {
-        "existing_prompts": actual_prompts,
-        "all_prompts": collection_prompts,
-        "collection_data": {
-            'owner_id': collection.owner_id,
-            'id': collection.id
-        }
-    }
-    rpc_tools.EventManagerMixin().event_manager.fire_event(
-        "prune_collection_prompts", payload
-    )
 
 
 def create_collection(project_id: int, data, fire_event=True):
