@@ -22,7 +22,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def get(self, collection_id: int, *, project_id, **kwargs):
         result = get_collection(project_id, collection_id, only_public=True)
         if not result:
-            return {"error": f"No collection found with id '{collection_id}'"}, 404
+            return {"error": f"No collection found with id '{collection_id}'"}, 400
         return result, 200
 
 

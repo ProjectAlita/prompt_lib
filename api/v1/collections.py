@@ -39,7 +39,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
         prompt_id = request.args.get('prompt_id')
         prompt_owner_id = request.args.get('prompt_owner_id')
         need_tags = 'no_tags' not in request.args
-        total, collections = list_collections(project_id, request.args, with_likes=True)
+        my_liked = request.args.get('my_liked', default=False, type=bool)
+        total, collections = list_collections(project_id, request.args, with_likes=True, my_liked=my_liked)
         # parsing
         parsed: List[CollectionListModel] = []
         users = get_authors_data([i.author_id for i in collections])
