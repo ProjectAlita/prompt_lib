@@ -218,7 +218,7 @@ def list_collections(
 
         # Apply limit and offset for pagination
         query = query.limit(limit).offset(offset)
-        collections: Union[List[tuple[Collection, int, int]], List[Collection]] = query.all()
+        collections: Union[List[tuple[Collection, int, int]], List[Collection, int, bool, int]] = query.all()
 
         if with_likes:
             collections_with_likes = []

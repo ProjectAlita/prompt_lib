@@ -96,6 +96,8 @@ class CollectionListModel(BaseModel):
 
 
 class PublishedCollectionListModel(CollectionListModel):
+    trending_likes: Optional[int] = None
+
     @root_validator
     def count_prompts(cls, values):
         public_id = get_public_project_id()
