@@ -1,3 +1,5 @@
+from queue import Empty
+
 from pylon.core.tools import log
 
 from tools import api_tools, auth, config as c
@@ -22,9 +24,13 @@ class PromptLibAPI(api_tools.APIModeHandler):
     @api_tools.endpoint_metrics
     def get(self, project_id: int, author_id: int):
         author: AuthorDetailModel = get_author_data(author_id=author_id)
-        stats = get_stats(project_id, author_id)
-        for key, value in stats.items():
-             setattr(author, key, value)
+        try:
+            author_project_id = self.module.context.rpc_manager.timeout(2).projects_get_personal_project_id(author.id)
+            stats = get_stats(author_project_id, author.id)
+            for key, value in stats.items():
+                 setattr(author, key, value)
+        except Empty:
+            ...
         return author.dict(), 200
 
 class API(api_tools.APIBase):
