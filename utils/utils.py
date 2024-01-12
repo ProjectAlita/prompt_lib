@@ -162,9 +162,6 @@ def add_likes_to_query(
         if my_liked:
             optional_filters.append(Like.user_id==user_id)
 
-        if trend_period:
-            optional_filters.append(Like.created_at.between(*trend_period))
-
         likes_subquery = Like.query.filter(
             Like.project_id == project_id,
             Like.entity == entity_name,
@@ -184,7 +181,16 @@ def add_likes_to_query(
             query = query.having(func.bool_or(likes_subquery.c.user_id == user_id))
         
         if trend_period:
-            query = query.order_by(desc(func.count(likes_subquery.c.user_id).label('likes')))
+            trending_likes_subquery = Like.query.filter(
+                Like.project_id == project_id,
+                Like.entity == entity_name,
+                Like.created_at.between(*trend_period),
+                *optional_filters
+            ).subquery()
+            query = query\
+                .add_columns(func.count(trending_likes_subquery.c.user_id).label('trend_likes'))\
+                .outerjoin(trending_likes_subquery, trending_likes_subquery.c.entity_id == entity.id)
+            query = query.order_by(desc(func.count(trending_likes_subquery.c.user_id).label('trend_likes')))
     else:
         query = (
             query

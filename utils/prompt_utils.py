@@ -280,13 +280,15 @@ def list_prompts(project_id: int,
         if offset:
             query = query.offset(offset)
 
-        prompts: Union[List[tuple[Prompt, int, bool]], List[Prompt]] = query.all()
+        prompts: Union[List[tuple[Prompt, int, bool]], List[Prompt], List[tuple[Prompt, int, bool, int]]] = query.all()
 
         if with_likes:
             prompts_with_likes = []
-            for prompt, likes, is_liked in prompts:
+            for prompt, likes, is_liked, *other in prompts:
                 prompt.likes = likes
                 prompt.is_liked = is_liked
+                if other:
+                    prompt.trending_likes = other[0]
                 prompts_with_likes.append(prompt)
             prompts = prompts_with_likes
 

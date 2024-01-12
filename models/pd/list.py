@@ -74,6 +74,7 @@ class PromptListModel(BaseModel):
 class PublishedPromptListModel(PromptListModel):
     likes: Optional[int]
     is_liked: Optional[bool]
+    trending_likes: Optional[int] = None
 
     class Config:
         from_orm = True
