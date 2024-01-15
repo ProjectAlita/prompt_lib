@@ -428,7 +428,7 @@ def patch_collection(project_id, collection_id, data: CollectionPatchModel):
             # todo: check target collection id is not equal to public project id
             # if collection.owner_id != prompt.owner_id:
             #
-            if get_include_prompt_flag(
+            if data.operation == CollectionPatchOperations.add and get_include_prompt_flag(
                 collection=CollectionListModel.from_orm(collection),
                 prompt_id=prompt.id,
                 prompt_owner_id=prompt.owner_id,
