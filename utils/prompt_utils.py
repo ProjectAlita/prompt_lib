@@ -1,21 +1,22 @@
 from json import loads
 from datetime import datetime
-from typing import List, Optional, Union, Tuple, Dict
+from typing import List, Optional, Union, Tuple, Dict, Literal, Generator
 from werkzeug.datastructures import MultiDict
-from sqlalchemy import func, cast, String, desc, or_
+from sqlalchemy import func, cast, String, desc, or_, literal
 from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import IntegrityError
 
 from tools import db, auth, rpc_tools
 from pylon.core.tools import log
 
-from ..models.all import Collection, Prompt, PromptVersion, PromptVariable, PromptMessage, PromptTag, PromptVersionTagAssociation
+from .like_utils import add_likes, add_trending_likes, add_my_liked
+from ..models.all import Collection, Prompt, PromptVersion, PromptVariable, PromptMessage, PromptTag, \
+    PromptVersionTagAssociation
 from ..models.pd.legacy.variable import VariableModel
 from ..models.pd.update import PromptVersionUpdateModel
 from ..models.pd.detail import PromptDetailModel, PromptVersionDetailModel, PublishedPromptDetailModel
 from ..models.pd.list import PromptTagListModel
 from ..models.enums.all import PromptVersionStatus
-from .utils import add_likes_to_query
 
 
 def create_variables_bulk(project_id: int, variables: List[dict], **kwargs) -> List[dict]:
@@ -60,7 +61,7 @@ def _flatten_prompt_ids(project_id: int, collection_prompts: List[Dict[str, int]
     return prompt_ids
 
 
-def get_all_ranked_tags(project_id: int, args: MultiDict) -> List[dict]:
+def get_all_ranked_tags(project_id: int, args: MultiDict) -> dict:
     # Args to sort prompt subquery:
     limit = args.get("limit", default=10, type=int)
     offset = args.get("offset", default=0, type=int)
@@ -75,7 +76,7 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> List[dict]:
         trend_end_period = datetime.utcnow() if not trend_end_period else datetime.strptime(trend_end_period, "%Y-%m-%dT%H:%M:%S")
         trend_start_period = datetime.strptime(trend_start_period, "%Y-%m-%dT%H:%M:%S")
         trend_period = (trend_start_period, trend_end_period)
-    
+
     # Filters to sort prompt subquery:
     filters = []
     if author_id := args.get('author_id'):
@@ -104,19 +105,55 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> List[dict]:
 
         if my_liked_collections:
             query = session.query(Collection.prompts)
-            query = add_likes_to_query(query, project_id, 'collection', my_liked=True)
-            collection_prompts = query.all()
+            extra_columns = []
+
+            query, new_columns = add_likes(
+                original_query=query,
+                project_id=project_id,
+                entity_name='collection',
+            )
+            extra_columns.extend(new_columns)
+
+            query, new_columns = add_my_liked(
+                original_query=query,
+                project_id=project_id,
+                entity_name='collection',
+            )
+            extra_columns.extend(new_columns)
+
+            q_result = query.all()
+            collection_prompts = list(set_columns_as_attrs(q_result, extra_columns))
             prompt_ids = _flatten_prompt_ids(project_id, collection_prompts)
             filters.append(Prompt.id.in_(prompt_ids))
-                        
+
         # Prompt subquery
         prompt_query = (
             session.query(Prompt)
             .options(joinedload(Prompt.versions))
         )
-        prompt_query = add_likes_to_query(
-            prompt_query, project_id, 'prompt', my_liked_prompts, trend_period
+        extra_columns = []
+        prompt_query, new_columns = add_likes(
+            original_query=prompt_query,
+            project_id=project_id,
+            entity_name='prompt',
         )
+        extra_columns.extend(new_columns)
+        if trend_period:
+            prompt_query, new_columns = add_trending_likes(
+                original_query=prompt_query,
+                project_id=project_id,
+                entity_name='prompt',
+                trend_period=trend_period,
+                filter_results=True
+            )
+            extra_columns.extend(new_columns)
+        if my_liked_prompts:
+            prompt_query, new_columns = add_my_liked(
+                original_query=prompt_query,
+                project_id=project_id,
+                entity_name='prompt',
+            )
+            extra_columns.extend(new_columns)
         if filters:
             prompt_query = prompt_query.filter(*filters)
 
@@ -237,20 +274,30 @@ def prompts_update_version(project_id: int, version_data: PromptVersionUpdateMod
         result = PromptVersionDetailModel.from_orm(version)
         return {'updated': True, 'data': loads(result.json())}
 
+def set_columns_as_attrs(q_result, extra_columns: list) -> Generator:
+    # log.info(f'{extra_columns=}, {q_result=}')
+    for i in q_result:
+        try:
+            entity, *extra_data = i
+            for k, v in zip(extra_columns, extra_data):
+                # log.info(f'setting {k}={v} to {type(entity)}')
+                setattr(entity, k, v)
+        except TypeError:
+            entity = i
+        yield entity
 
 def list_prompts(project_id: int,
                  limit: int | None = 10, offset: int | None = 0,
                  sort_by: str = 'created_at',
-                 sort_order: str = 'desc',
+                 sort_order: Literal['asc', 'desc'] = 'desc',
                  filters: Optional[list] = None,
                  with_likes: bool = True,
                  my_liked: bool = False,
                  trend_period: Optional[Tuple[datetime, datetime]] = None
-                ) -> tuple:
-    
+                 ) -> Tuple[int, list]:
     if my_liked and not with_likes:
         my_liked = False
-    
+
     if filters is None:
         filters = []
 
@@ -264,13 +311,37 @@ def list_prompts(project_id: int,
         #     .group_by(Prompt)
         # )
 
+        extra_columns = []
+
         query = (
             session.query(Prompt)
             .options(joinedload(Prompt.versions).joinedload(PromptVersion.tags))
         )
 
         if with_likes:
-            query = add_likes_to_query(query, project_id, 'prompt', my_liked, trend_period)
+            query, new_columns = add_likes(
+                original_query=query,
+                project_id=project_id,
+                entity_name='prompt',
+            )
+            extra_columns.extend(new_columns)
+        if trend_period:
+            query, new_columns = add_trending_likes(
+                original_query=query,
+                project_id=project_id,
+                entity_name='prompt',
+                trend_period=trend_period,
+                filter_results=True
+            )
+            extra_columns.extend(new_columns)
+        # if my_liked:
+        query, new_columns = add_my_liked(
+            original_query=query,
+            project_id=project_id,
+            entity_name='prompt',
+            filter_results=my_liked
+        )
+        extra_columns.extend(new_columns)
 
         if filters:
             query = query.filter(*filters)
@@ -290,19 +361,22 @@ def list_prompts(project_id: int,
         if offset:
             query = query.offset(offset)
 
-        prompts: Union[List[tuple[Prompt, int, bool]], List[Prompt], List[tuple[Prompt, int, bool, int]]] = query.all()
+        # log.info(query.statement)
+        q_result: List[tuple[Prompt, int, bool, int]] = query.all()
 
-        if with_likes:
-            prompts_with_likes = []
-            for prompt, likes, is_liked, *other in prompts:
-                prompt.likes = likes
-                prompt.is_liked = is_liked
-                if other:
-                    prompt.trending_likes = other[0]
-                prompts_with_likes.append(prompt)
-            prompts = prompts_with_likes
+        # if with_likes:
+        #     prompts_with_likes = []
+        #     for prompt, likes, is_liked, *other in prompts:
+        #         prompt.likes = likes
+        #         prompt.is_liked = is_liked
+        #         if other:
+        #             prompt.trending_likes = other[0]
+        #         prompts_with_likes.append(prompt)
+        #     prompts = prompts_with_likes
+        # log.info(f'{q_result=}')
 
-    return total, prompts
+
+    return total, list(set_columns_as_attrs(q_result, extra_columns))
 
 
 # def is_personal_project(project_id: int) -> bool:
@@ -326,7 +400,7 @@ def get_prompt_details(project_id: int, prompt_id: int, version_name: str = 'lat
         prompt_version = query.first()
 
         if not prompt_version and version_name == 'latest':
-            filters = [PromptVersion.prompt_id == prompt_id,]
+            filters = [PromptVersion.prompt_id == prompt_id, ]
 
             query = (
                 session.query(PromptVersion)
@@ -340,7 +414,7 @@ def get_prompt_details(project_id: int, prompt_id: int, version_name: str = 'lat
             return {
                 'ok': False,
                 'msg': f'No prompt found with id \'{prompt_id}\' or no version \'{version_name}\''
-                }
+            }
 
         result = PromptDetailModel.from_orm(prompt_version.prompt)
         result.version_details = PromptVersionDetailModel.from_orm(prompt_version)
@@ -372,10 +446,77 @@ def get_published_prompt_details(project_id: int, prompt_id: int, version_name: 
             return {
                 'ok': False,
                 'msg': f'No prompt found with id \'{prompt_id}\' or no public version'
-                }
+            }
         result = PublishedPromptDetailModel.from_orm(prompt_version.prompt)
         result.version_details = PromptVersionDetailModel.from_orm(prompt_version)
         result.get_likes(project_id)
         result.check_is_liked(project_id)
 
     return {'ok': True, 'data': result.json()}
+
+
+def list_prompts_api(
+        project_id: int,
+        tags: str | list | None = None,
+        author_id: int | None = None,
+        statuses: str | list | None = None,
+        q: str | None = None,
+        limit: int = 10,
+        offset: int = 0,
+        sort_by: str = 'created_at',
+        sort_order: Literal['asc', 'desc'] = 'desc',
+        my_liked: bool = False,
+        trend_start_period: str | None = None,
+        trend_end_period: str | None = None,
+        with_likes: bool = True
+
+):
+    filters = []
+    if tags:
+        if isinstance(tags, str):
+            tags = tags.split(',')
+        filters.append(Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags))))
+
+    if author_id:
+        filters.append(Prompt.versions.any(PromptVersion.author_id == author_id))
+
+    if statuses:
+        if isinstance(statuses, str):
+            statuses = statuses.split(',')
+        filters.append(Prompt.versions.any(PromptVersion.status.in_(statuses)))
+
+    # Search parameters
+    if q:
+        filters.append(
+            or_(
+                Prompt.name.ilike(f"%{q}%"),
+                Prompt.description.ilike(f"%{q}%")
+            )
+        )
+
+    trend_period = None
+    if trend_start_period:
+        if isinstance(trend_start_period, str):
+            trend_start_period = datetime.strptime(trend_start_period, "%Y-%m-%dT%H:%M:%S")
+        if not trend_end_period:
+            trend_end_period = datetime.utcnow()
+        if isinstance(trend_end_period, str):
+            trend_end_period = datetime.strptime(trend_end_period, "%Y-%m-%dT%H:%M:%S")
+        trend_period = (trend_start_period, trend_end_period)
+
+    # list prompts
+    total, prompts = list_prompts(
+        project_id=project_id,
+        limit=limit,
+        offset=offset,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        my_liked=my_liked,
+        trend_period=trend_period,
+        with_likes=with_likes,
+        filters=filters,
+    )
+    return {
+        'total': total,
+        'prompts': prompts,
+    }

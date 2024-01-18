@@ -12,11 +12,13 @@ from sqlalchemy.sql import exists
 from tools import auth, db, VaultClient, rpc_tools
 from pylon.core.tools import log
 
-from .utils import add_likes_to_query, get_author_data, get_authors_data, add_public_project_id
+from .like_utils import add_likes, add_my_liked, add_trending_likes
+from .prompt_utils import set_columns_as_attrs
+from .utils import get_author_data, get_authors_data, add_public_project_id
 from ..models.enums.all import CollectionPatchOperations, CollectionStatus, PromptVersionStatus
 from ..models.all import Collection, Prompt, PromptVersion, PromptTag
 from ..models.pd.base import PromptTagBaseModel
-from ..models.pd.list import MultiplePromptListModel, PublishedPromptListModel
+from ..models.pd.list import MultiplePromptListModel, PublishedPromptListModel, PromptListModel
 from ..models.pd.collections import (
     CollectionDetailModel,
     CollectionModel,
@@ -80,33 +82,44 @@ def get_prompts_for_collection(grouped_prompts: Dict[int, List[int]], only_publi
     for project_id, ids in grouped_prompts.items():
         with db.with_project_schema_session(project_id) as session:
             prompt_query = session.query(Prompt).filter(Prompt.id.in_(ids), *filters)
+            extra_columns = []
+
             if only_public:
-                prompt_query = add_likes_to_query(prompt_query, project_id, 'prompt')
-            project_prompts = prompt_query.all()
+                prompt_query, new_columns = add_likes(
+                    original_query=prompt_query,
+                    project_id=project_id,
+                    entity_name='prompt',
+                )
+                extra_columns.extend(new_columns)
+                # prompt_query = add_likes(prompt_query, project_id, 'prompt')
+            q_result = prompt_query.all()
+            project_prompts = list(set_columns_as_attrs(q_result, extra_columns))
 
             # user_map
-            author_ids = []
+            author_ids = set()
             for prompt in project_prompts:
-                prompt = prompt[0] if only_public else prompt
+                # prompt = prompt[0] if only_public else prompt
                 for version in prompt.versions:
-                    author_ids.append(version.author_id)
-            users = get_authors_data(author_ids)
+                    author_ids.add(version.author_id)
+            users = get_authors_data(list(author_ids))
             user_map = {user['id']: user for user in users}
-            #
 
-            if only_public:
-                for prompt_data in project_prompts:
-                    prompt = PublishedPromptListModel.from_orm(prompt_data[0])
-                    prompt.likes = prompt_data[1]
-                    prompt.is_liked = prompt_data[2]
-                    prompt.set_authors(user_map)
-                    prompts.append(json.loads(prompt.json()))
-            else:
-                prompts.extend(
-                    json.loads(MultiplePromptListModel(prompts=project_prompts).json())[
-                        "prompts"
-                    ]
-                )
+            for prompt in project_prompts:
+                if only_public:
+                    prompt = PublishedPromptListModel.from_orm(prompt)
+                else:
+                    prompt = PromptListModel.from_orm(prompt)
+                prompt.set_authors(user_map)
+                prompts.append(json.loads(prompt.json()))
+                # if only_public:
+                #     prompts.append(json.loads(prompt.json()))
+                # else:
+                #     prompts.append()
+                #     prompts.extend(
+                #         json.loads(MultiplePromptListModel(prompts=project_prompts).json())[
+                #             "prompts"
+                #         ]
+                #     )
     return prompts
 
 
@@ -193,8 +206,31 @@ def list_collections(
             filters.append(or_(*prompt_filters))
 
         query = session.query(Collection)
+        extra_columns = []
         if with_likes:
-            query = add_likes_to_query(query, project_id, 'collection', my_liked, trend_period)
+            query, new_columns = add_likes(
+                original_query=query,
+                project_id=project_id,
+                entity_name='collection',
+            )
+            extra_columns.extend(new_columns)
+        if trend_period:
+            query, new_columns = add_trending_likes(
+                original_query=query,
+                project_id=project_id,
+                entity_name='collection',
+                trend_period=trend_period,
+                filter_results=True
+            )
+            extra_columns.extend(new_columns)
+        # if my_liked:
+        query, new_columns = add_my_liked(
+            original_query=query,
+            project_id=project_id,
+            entity_name='collection',
+            filter_results=my_liked
+        )
+        extra_columns.extend(new_columns)
 
         if search:
             query = query.filter(
@@ -218,19 +254,21 @@ def list_collections(
 
         # Apply limit and offset for pagination
         query = query.limit(limit).offset(offset)
-        collections: Union[List[tuple[Collection, int, int]], List[Collection]] = query.all()
 
-        if with_likes:
-            collections_with_likes = []
-            for collection, likes, is_liked, *other in collections:
-                collection.likes = likes
-                collection.is_liked = is_liked
-                if other:
-                    collection.trending_likes = other[0]
-                collections_with_likes.append(collection)
-            collections = collections_with_likes
 
-    return total, collections
+        q_result: Union[List[tuple[Collection, int, int]], List[Collection]] = query.all()
+
+        # if with_likes:
+        #     collections_with_likes = []
+        #     for collection, likes, is_liked, *other in collections:
+        #         collection.likes = likes
+        #         collection.is_liked = is_liked
+        #         if other:
+        #             collection.trending_likes = other[0]
+        #         collections_with_likes.append(collection)
+        #     collections = collections_with_likes
+
+    return total, list(set_columns_as_attrs(q_result, extra_columns))
 
 
 def delete_collection(project_id: int, collection_id: int):
@@ -438,8 +476,6 @@ def patch_collection(project_id, collection_id, data: CollectionPatchModel):
             # with db.with_project_schema_session(project_id) as session:
             #     q = session.query(Prompt).filter(
             #     ) todo: add personal prompt if public replica is being added
-            # log.info(f'{prompt_data=}')
-            # log.info(f'{collection=}')
 
             result = op_map[data.operation](collection, prompt_data)
             collection_data = collection.to_json()

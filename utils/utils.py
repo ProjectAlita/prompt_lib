@@ -1,9 +1,9 @@
+from pylon.core.tools import log
 from queue import Empty
 from functools import wraps
-from typing import List, Literal, Set, Callable, Optional, Tuple
-from sqlalchemy import func, desc
-from sqlalchemy.sql import literal
-from datetime import datetime
+from typing import List, Set, Callable
+
+from sqlalchemy import func
 
 from tools import db, VaultClient, auth, rpc_tools
 from ..models.all import Prompt, PromptVersion, Collection
@@ -27,6 +27,7 @@ def determine_prompt_status(version_statuses: Set[PromptVersionStatus]) -> Promp
 
 def add_public_project_id(f: Callable) -> Callable:
     wraps(f)
+
     def wrapper(*args, **kwargs):
         secrets = VaultClient().get_all_secrets()
         try:
@@ -38,6 +39,7 @@ def add_public_project_id(f: Callable) -> Callable:
 
         kwargs.update({'project_id': public_project_id})
         return f(*args, **kwargs)
+
     return wrapper
 
 
@@ -85,7 +87,7 @@ def get_trending_authors(project_id: int, limit: int = 5) -> List[dict]:
         likes_subquery = Like.query.filter(
             Like.project_id == project_id,
             Like.entity == 'prompt'
-            ).subquery()
+        ).subquery()
 
         # Subquery
         prompt_likes_subq = (
@@ -133,70 +135,3 @@ def get_trending_authors(project_id: int, limit: int = 5) -> List[dict]:
                     break
 
     return trending_authors
-
-
-def add_likes_to_query(
-        query,
-        project_id: int,
-        entity_name: Literal['prompt', 'collection'],
-        my_liked: Optional[bool] = False,
-        trend_period: Optional[Tuple[datetime, datetime]] = None,
-        ):
-    '''
-    Join likes to the query if social plugin is available.
-    Add 2 columns:
-    - 'likes' - number of likes for entity
-    - 'is_liked' - is current user liked the entity
-    '''
-
-    entity = Prompt if entity_name == 'prompt' else Collection
-    user_id = auth.current_user().get("id")
-
-    try:
-        Like = rpc_tools.RpcMixin().rpc.timeout(2).social_get_like_model()
-    except Empty:
-        Like = None
-
-    if Like:
-        optional_filters = []
-        if my_liked:
-            optional_filters.append(Like.user_id==user_id)
-
-        likes_subquery = Like.query.filter(
-            Like.project_id == project_id,
-            Like.entity == entity_name,
-            *optional_filters
-            ).subquery()
-
-        query = (
-            query
-            .add_columns(func.count(likes_subquery.c.user_id).label('likes'))
-            .add_columns(func.coalesce(
-                func.bool_or(likes_subquery.c.user_id == user_id), False
-                ).label('is_liked'))
-            .outerjoin(likes_subquery, likes_subquery.c.entity_id == entity.id)
-            .group_by(entity.id)
-        )
-        if my_liked:
-            query = query.having(func.bool_or(likes_subquery.c.user_id == user_id))
-        
-        if trend_period:
-            trending_likes_subquery = Like.query.filter(
-                Like.project_id == project_id,
-                Like.entity == entity_name,
-                Like.created_at.between(*trend_period),
-                *optional_filters
-            ).subquery()
-            query = query\
-                .add_columns(func.count(trending_likes_subquery.c.user_id).label('trend_likes'))\
-                .outerjoin(trending_likes_subquery, trending_likes_subquery.c.entity_id == entity.id)\
-                .order_by(desc(func.count(trending_likes_subquery.c.user_id).label('trend_likes')))
-    else:
-        query = (
-            query
-            .add_columns(literal(0).label('likes'))
-            .add_columns(func.bool_or(False).label('is_liked'))
-            # .add_columns(literal(0).label('trend_likes'))
-        )
-
-    return query

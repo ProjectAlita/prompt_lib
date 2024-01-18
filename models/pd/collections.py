@@ -80,6 +80,7 @@ class CollectionListModel(BaseModel):
     includes_prompt: Optional[bool] = None
     prompt_count: int = 0
     likes: Optional[int]
+    trending_likes: Optional[int]
     is_liked: Optional[bool]
 
     class Config:
