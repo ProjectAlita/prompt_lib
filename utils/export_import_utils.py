@@ -48,6 +48,8 @@ def prompts_export_to_dial(project_id: int, prompt_id: int = None, session=None)
 def collection_export(project_id: int, collection_id: int, to_dail=False):
     with db.with_project_schema_session(project_id) as session:
         collection = session.query(Collection).get(collection_id)
+        if not collection:
+            raise Exception(f"Collection with id '{collection_id}' not found")
         grouped_prompts = group_by_project_id(collection.prompts)
         result_prompts = []
         for project_id, prompts in grouped_prompts.items():

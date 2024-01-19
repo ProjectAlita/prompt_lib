@@ -30,7 +30,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
     @api_tools.endpoint_metrics
     def get(self, project_id: int, collection_id: int = None, **kwargs):
         to_dail = 'to_dial' in request.args
-        result = collection_export(project_id, collection_id, to_dail)
+        try:
+            result = collection_export(project_id, collection_id, to_dail)
+        except Exception as e:
+            return {"ok": False, "error": str(e)}, 404
         if 'as_file' in request.args:
             file = BytesIO()
             data = json.dumps(result, ensure_ascii=False, indent=4)

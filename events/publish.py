@@ -1,20 +1,16 @@
 from pylon.core.tools import log, web
 
 from tools import db
-
-from sqlalchemy.orm import joinedload
-from ..models.all import PromptVersion
-from ..models.enums.all import PromptVersionStatus
-
-from ..utils.publish_utils import set_status
-
+from copy import deepcopy
+from ..models.all import Collection
 from ..utils.publish_utils import (
-    close_private_version, 
-    fire_prompt_deleted_event,
+    close_private_version,
     delete_public_prompt,
     delete_public_version,
-    close_private_versions
+    close_private_versions,
+    set_status
 )
+from ..utils.collections import group_by_project_id
 
 
 class Event:
@@ -49,9 +45,16 @@ class Event:
             prompt_id = prompt_data['id']
             delete_public_prompt(prompt_owner_id, prompt_id, session)
             session.commit()
-            return fire_prompt_deleted_event(public_id, prompt_data)
 
-
+    @web.event("prompt_deleted")
+    def prompt_deleted_handler(self, context, event, payload: dict):
+        prompt_data = payload      
+        collections = group_by_project_id(prompt_data['collections'])
+        for owner_id, collection_ids in collections.items():
+            with db.with_project_schema_session(owner_id) as session:
+                delete_prompt_from_collections(collection_ids, prompt_data, session)
+                session.commit()
+    
     @web.event("public_prompt_deleted")
     def handler(self, context, event, payload: dict):
         prompt_data = payload['prompt_data']
@@ -73,3 +76,15 @@ class Event:
             prompt_version_name_or_id=private_version_id,
             status=status
         )
+
+
+def delete_prompt_from_collections(collection_ids: list, prompt_data: dict, session):
+    col_owner_id = prompt_data['owner_id']
+    col_id = prompt_data['id']
+    collections = session.query(Collection).filter(Collection.id.in_(collection_ids)).all()
+    for collection in collections:
+        new_data = [
+            deepcopy(prompt) for prompt in collection.prompts
+            if prompt['owner_id'] != col_owner_id or prompt['id'] != col_id   
+        ]
+        collection.prompts = new_data

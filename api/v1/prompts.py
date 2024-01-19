@@ -62,6 +62,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
     )
     @api_tools.endpoint_metrics
     def get(self, project_id: int | None = None, **kwargs):
+        collection = {
+            "id": request.args.get('collection_id', type=int),
+            "owner_id": request.args.get('collection_owner_id', type=int)
+        }
         some_result = list_prompts_api(
             project_id=project_id,
             tags=request.args.get('tags'),
@@ -74,7 +78,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
             my_liked=request.args.get('my_liked', False),
             trend_start_period=request.args.get('trend_start_period'),
             trend_end_period=request.args.get('trend_end_period'),
-            statuses=request.args.get('statuses')
+            statuses=request.args.get('statuses'),
+            collection=collection
         )
         parsed = MultiplePromptListModel(prompts=some_result['prompts'])
         return {
