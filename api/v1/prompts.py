@@ -85,7 +85,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         return {
             'total': some_result['total'],
             'rows': [
-                json.loads(i.json(exclude={'status'}))
+                json.loads(i.json())
                 for i in parsed.prompts
             ]
         }, 200
