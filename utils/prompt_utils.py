@@ -468,7 +468,8 @@ def list_prompts_api(
         my_liked: bool = False,
         trend_start_period: str | None = None,
         trend_end_period: str | None = None,
-        with_likes: bool = True
+        with_likes: bool = True,
+        collection: Optional[dict[str, int]] = None
 
 ):
     filters = []
@@ -493,6 +494,13 @@ def list_prompts_api(
                 Prompt.description.ilike(f"%{q}%")
             )
         )
+
+    if collection and collection.get('id') and collection.get('owner_id'):
+        collection_value = {
+            "id": collection['id'],
+            "owner_id": collection['owner_id']
+        }
+        filters.append(Prompt.collections.contains([collection_value]))
 
     trend_period = None
     if trend_start_period:

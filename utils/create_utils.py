@@ -2,6 +2,7 @@ from ..models.all import PromptVersion, PromptVariable, Prompt, PromptMessage, P
 from ..models.pd.base import PromptVariableBaseModel, PromptMessageBaseModel, PromptTagBaseModel
 from ..models.pd.create import PromptCreateModel, PromptVersionCreateModel, PromptVersionLatestCreateModel
 from typing import Generator, List
+from jinja2 import Environment, DebugUndefined, meta
 
 
 def create_variable(
@@ -77,6 +78,16 @@ def generate_tags(
         yield existing_tags_map.get(i.name, PromptTag(**i.dict()))
 
 
+def find_vars_from_context(version):
+    environment = Environment(undefined=DebugUndefined)
+    ast = environment.parse(version.context)
+    version_vars = [] if not version.variables else version.variables
+    context_vars = set(meta.find_undeclared_variables(ast))
+    version_vars = set(var.name for var in version_vars)
+    empty_vars = context_vars - version_vars
+    return [PromptVariableBaseModel(name=var) for var in empty_vars]
+    
+
 def create_version(
         version_data: PromptVersionCreateModel | PromptVersionLatestCreateModel,
         prompt: Prompt | None = None,
@@ -88,6 +99,12 @@ def create_version(
     ))
     if prompt:
         prompt_version.prompt = prompt
+
+    variables = find_vars_from_context(version_data)
+    if version_data.variables:
+        version_data.variables.extend(variables)
+    else:
+        version_data.variables = variables
 
     create_variables(version_data.variables, prompt_version=prompt_version, session=session)
     create_messages(version_data.messages, prompt_version=prompt_version, session=session)

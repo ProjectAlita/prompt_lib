@@ -4,7 +4,7 @@ from datetime import datetime
 from collections import defaultdict
 from typing import List, Union, Optional, Dict
 from werkzeug.datastructures import MultiDict
-
+from flask import request
 from sqlalchemy import or_, and_, desc
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import exists
@@ -56,29 +56,40 @@ def check_prompts_addability(owner_id: int, user_id: int):
     ) or membership_check(owner_id, user_id)
 
 
-def fire_prune_stale_prompts(collection: Collection, current_prompts: List[dict], all_prompts: Dict[int, List[int]]):
-    actual_prompt_ids = group_by_project_id(current_prompts)
-    payload = {
-        "existing_prompts": actual_prompt_ids,
-        "all_prompts": all_prompts,
-        "collection_data": {
-            'owner_id': collection.owner_id,
-            'id': collection.id
-        }
-    }
-    rpc_tools.EventManagerMixin().event_manager.fire_event(
-        "prune_collection_prompts", payload
-    )
-
-
-def get_prompts_for_collection(grouped_prompts: Dict[int, List[int]], only_public: bool = False) -> list:
+def get_prompts_for_collection(collection_prompts: List[Dict[str, int]], only_public: bool = False) -> list:
     prompts = []
     filters = []
+    offset = request.args.get("offset", 0, type=int)
+    limit = request.args.get("limit", 10, type=int)
+
+    if tags := request.args.get('tags'):
+        # # Filtering parameters
+        if isinstance(tags, str):
+            tags = tags.split(',')
+        filters.append(Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags))))
+
+    if author_id := request.args.get('author_id'):
+        filters.append(Prompt.versions.any(PromptVersion.author_id == author_id))
+
+    if statuses := request.args.get('statuses'):
+        statuses = statuses.split(',')
+        filters.append(Prompt.versions.any(PromptVersion.status.in_(statuses)))
+
+    # Search parameters
+    if search := request.args.get('query'):
+        filters.append(
+            or_(
+                Prompt.name.ilike(f"%{search}%"),
+                Prompt.description.ilike(f"%{search}%")
+            )
+        )
+
     if only_public:
         filters.append(
             Prompt.versions.any(PromptVersion.status == PromptVersionStatus.published)
         )
 
+    grouped_prompts = group_by_project_id(collection_prompts)
     for project_id, ids in grouped_prompts.items():
         with db.with_project_schema_session(project_id) as session:
             prompt_query = session.query(Prompt).filter(Prompt.id.in_(ids), *filters)
@@ -120,6 +131,8 @@ def get_prompts_for_collection(grouped_prompts: Dict[int, List[int]], only_publi
                 #             "prompts"
                 #         ]
                 #     )
+    
+    prompts = prompts[offset:limit+offset]
     return prompts
 
 
@@ -371,10 +384,8 @@ def get_detail_collection(collection: Collection, only_public: bool = False):
         collection_data.check_is_liked(project_id)
 
     result = json.loads(collection_data.json(exclude={"author_id"}))
-    transformed_prompts = group_by_project_id(collection.prompts)
-    prompts = get_prompts_for_collection(transformed_prompts, only_public=only_public)
-    result["prompts"] = prompts
-    fire_prune_stale_prompts(collection, prompts, transformed_prompts)
+    prompts = get_prompts_for_collection(collection.prompts, only_public=only_public)
+    result["prompts"] = {"total": len(collection.prompts), "rows": prompts}
     return result
 
 
@@ -636,11 +647,11 @@ def unpublish(current_user_id, project_id, collection_id):
         return {"ok": True, "msg": "Successfully unpublished"}
 
 def group_by_project_id(data, data_type='dict'):
-    prompts = defaultdict(list)
+    prompts = defaultdict(set)
     group_field = "owner_id" if not data_type == "tuple" else 0
     data_field = "id" if not data_type == "tuple" else 1
     for entity in data:
-        prompts[entity[group_field]].append(entity[data_field])
+        prompts[entity[group_field]].add(entity[data_field])
     return prompts
 
 

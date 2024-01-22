@@ -333,6 +333,9 @@ def fire_prompt_deleted_event(project_id, prompt: dict):
         f'{prefix}_prompt_deleted', payload
     )
 
+    rpc_tools.EventManagerMixin().event_manager.fire_event(
+        "prompt_deleted", prompt
+    )
 
 def is_public_project(project_id: int = None):
     ai_project_id = get_public_project_id()

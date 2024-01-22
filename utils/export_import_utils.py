@@ -28,17 +28,15 @@ def prompts_export_to_dial(project_id: int, prompt_id: int = None, session=None)
     prompts_to_export = []
     for prompt in prompts:
         prompt_data = prompt.to_json()
+        export_data = {**prompt_data}
         for version in prompt.versions:
-            export_data = {
-                'content': version.context or '',
-                **prompt_data
-            }
+            export_data['content'] = version.context or ''
             if version.model_settings:
                 export_data['model'] = DialModelImportModel(
                     id=version.model_settings.get('model', {}).get('name', '')
                     )
-            prompts_to_export.append(DialPromptImportModel(**export_data))
-
+        
+        prompts_to_export.append(DialPromptImportModel(**export_data))
     result = DialImportModel(prompts=prompts_to_export, folders=[])
     session.close()
 
@@ -48,6 +46,8 @@ def prompts_export_to_dial(project_id: int, prompt_id: int = None, session=None)
 def collection_export(project_id: int, collection_id: int, to_dail=False):
     with db.with_project_schema_session(project_id) as session:
         collection = session.query(Collection).get(collection_id)
+        if not collection:
+            raise Exception(f"Collection with id '{collection_id}' not found")
         grouped_prompts = group_by_project_id(collection.prompts)
         result_prompts = []
         for project_id, prompts in grouped_prompts.items():
@@ -83,7 +83,6 @@ def prompts_export(project_id: int, prompt_id: int = None, session=None) -> dict
         )
     )
     prompts: List[Prompt] = query.all()
-
     prompts_to_export = []
     for prompt in prompts:
         prompt_data = PromptExportModel.from_orm(prompt)
