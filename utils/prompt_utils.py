@@ -84,13 +84,16 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> dict:
     if statuses := args.get('statuses'):
         statuses = statuses.split(',')
         filters.append(Prompt.versions.any(PromptVersion.status.in_(statuses)))
-    if search := args.get('query'):
+    if query := args.get('query'):
         filters.append(
             or_(
-                Prompt.name.ilike(f"%{search}%"),
-                Prompt.description.ilike(f"%{search}%")
+                Prompt.name.ilike(f"%{query}%"),
+                Prompt.description.ilike(f"%{query}%")
             )
         )
+
+    if search := args.get("search"):
+        filters.append(PromptTag.name.ilike(f"%{search}%"))
 
     with db.with_project_schema_session(project_id) as session:
         if collection_phrase := args.get('collection_phrase'):
@@ -469,8 +472,8 @@ def list_prompts_api(
         trend_start_period: str | None = None,
         trend_end_period: str | None = None,
         with_likes: bool = True,
-        collection: Optional[dict[str, int]] = None
-
+        collection: Optional[dict[str, int]] = None,
+        search_data: Optional[dict] = None
 ):
     filters = []
     if tags:
@@ -494,6 +497,20 @@ def list_prompts_api(
                 Prompt.description.ilike(f"%{q}%")
             )
         )
+
+    if search_data:
+        searches = []
+        for keyword in search_data.get('keywords', []):
+            searches.append(
+                or_(
+                    Prompt.name.ilike(f"%{keyword}%"),
+                    Prompt.description.ilike(f"%{keyword}%")
+                )
+            )
+        if tag_ids := search_data.get('tag_ids'):
+            searches.append(Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tag_ids))))     
+        filters.append(or_(*searches))
+
 
     if collection and collection.get('id') and collection.get('owner_id'):
         collection_value = {
@@ -524,7 +541,20 @@ def list_prompts_api(
         with_likes=with_likes,
         filters=filters,
     )
+    if search_data:
+        fire_searched_event(project_id, search_data)
+
     return {
         'total': total,
         'prompts': prompts,
     }
+
+
+def fire_searched_event(project_id: int, search_data: dict):
+    rpc_tools.EventManagerMixin().event_manager.fire_event(
+        "prompt_lib_search_conducted", 
+        {
+            "project_id": project_id,
+            "search_data": search_data,
+        }
+    )
