@@ -563,6 +563,9 @@ class CollectionPublishing:
 
     def get_public_prompts_of_collection(self, private_prompt_ids: List[dict]):
         with db.with_project_schema_session(self._public_id) as session:
+            if not private_prompt_ids:
+                raise Exception("Collection doesn't contain public prompts")
+            
             public_prompts = filter(lambda x: x['owner_id']==self._public_id, private_prompt_ids)
             private_prompts = filter(lambda x: x['owner_id']!=self._public_id, private_prompt_ids)
 
@@ -580,7 +583,10 @@ class CollectionPublishing:
                         ) for data in public_prompts
                     ]
                 )
-            )
+            ).all()
+            if not prompt_ids:
+                raise Exception("Collection doesn't contain public prompts")
+            
         result = [{"id": prompt_id[0], "owner_id": self._public_id} for prompt_id in prompt_ids]
         return result
 
