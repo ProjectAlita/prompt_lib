@@ -92,9 +92,6 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> dict:
             )
         )
 
-    if search := args.get("search"):
-        filters.append(PromptTag.name.ilike(f"%{search}%"))
-
     with db.with_project_schema_session(project_id) as session:
         if collection_phrase := args.get('collection_phrase'):
             collection_prompts = session.query(Collection.prompts).filter(
@@ -164,6 +161,10 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> dict:
         prompt_subquery = prompt_query.subquery()
 
         # Main query
+        tag_filters = [PromptVersion.prompt_id.in_(prompt_subquery)]
+        if search := args.get("search"):
+            tag_filters.append(PromptTag.name.ilike(f"%{search}%"))
+
         query = (
             session.query(
                 PromptTag.id,
@@ -171,7 +172,7 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> dict:
                 cast(PromptTag.data, String),
                 func.count(func.distinct(PromptVersion.prompt_id))
             )
-            .filter(PromptVersion.prompt_id.in_(prompt_subquery))
+            .filter(*tag_filters)
             .join(PromptVersionTagAssociation, PromptVersionTagAssociation.c.tag_id == PromptTag.id)
             .join(PromptVersion, PromptVersion.id == PromptVersionTagAssociation.c.version_id)
             .group_by(PromptTag.id, PromptTag.name, cast(PromptTag.data, String))
