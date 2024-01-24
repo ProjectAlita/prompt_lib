@@ -79,6 +79,19 @@ class PublishedPromptListModel(PromptListModel):
     class Config:
         from_orm = True
 
+    @validator('is_liked')
+    def is_liked_field(cls, v):
+        if v is None:
+            return False
+        return v
+    
+
+    @validator('likes')
+    def likes_field(cls, v):
+        if v is None:
+            return 0
+        return v
+    
 
 class MultiplePromptListModel(BaseModel):
     prompts: List[PromptListModel]

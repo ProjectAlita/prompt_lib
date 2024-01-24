@@ -61,6 +61,8 @@ def get_prompts_for_collection(collection_prompts: List[Dict[str, int]], only_pu
     filters = []
     offset = request.args.get("offset", 0, type=int)
     limit = request.args.get("limit", 10, type=int)
+    trend_period = request.args.get("trending_period")
+    my_liked = request.args.get('my_liked', False)
 
     if tags := request.args.get('tags'):
         # # Filtering parameters
@@ -102,6 +104,25 @@ def get_prompts_for_collection(collection_prompts: List[Dict[str, int]], only_pu
                     entity_name='prompt',
                 )
                 extra_columns.extend(new_columns)
+
+                if trend_period:
+                    prompt_query, new_columns = add_trending_likes(
+                        original_query=prompt_query,
+                        project_id=project_id,
+                        entity_name='prompt',
+                        trend_period=trend_period,
+                        filter_results=True
+                    )
+                    extra_columns.extend(new_columns)
+
+                prompt_query, new_columns = add_my_liked(
+                    original_query=prompt_query,
+                    project_id=project_id,
+                    entity_name='prompt',
+                    filter_results=my_liked
+                )
+                extra_columns.extend(new_columns)
+
                 # prompt_query = add_likes(prompt_query, project_id, 'prompt')
             q_result = prompt_query.all()
             project_prompts = list(set_columns_as_attrs(q_result, extra_columns))
