@@ -133,3 +133,14 @@ class Collection(db_tools.AbstractBaseMixin, db.Base):
     # reference fields to origin 
     shared_owner_id: Mapped[int] = mapped_column(Integer, nullable=True)
     shared_id: Mapped[int] = mapped_column(Integer, nullable=True)
+
+
+
+class SearchRequest(db_tools.AbstractBaseMixin, db.Base):
+    __tablename__ = "search_requests"
+    __table_args__ = (
+        {"schema": c.POSTGRES_TENANT_SCHEMA},
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    search_keyword: Mapped[str] = mapped_column(String, nullable=False)
+    count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)

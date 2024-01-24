@@ -71,7 +71,8 @@ class Module(module.ModuleModel):
         from .models.all import (
             Prompt, PromptVersion,
             PromptTag, PromptMessage,
-            PromptVariable, PromptVersionTagAssociation
+            PromptVariable, PromptVersionTagAssociation,
+            SearchRequest,
         )
         project_list = self.context.rpc_manager.call.project_list()
         for i in project_list:

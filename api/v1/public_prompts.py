@@ -6,6 +6,7 @@ from tools import api_tools, config as c, db, auth
 
 from ...models.pd.list import MultiplePublishedPromptListModel
 from ...models.enums.all import PromptVersionStatus
+from ...models.pd.search import SearchDataModel
 
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.prompt_utils import list_prompts_api
@@ -25,6 +26,13 @@ class PromptLibAPI(api_tools.APIModeHandler):
     )
     @api_tools.endpoint_metrics
     def get(self, *, project_id: int, **kwargs):
+        try:
+            payload = request.get_json()
+            search_data = payload.get("search_data")
+            SearchDataModel.validate(search_data)
+        except Exception:
+            search_data = None
+        
         some_result = list_prompts_api(
             project_id=project_id,
             tags=request.args.get('tags'),
@@ -37,7 +45,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
             my_liked=request.args.get('my_liked', False),
             trend_start_period=request.args.get('trend_start_period'),
             trend_end_period=request.args.get('trend_end_period'),
-            statuses=[PromptVersionStatus.published]
+            statuses=[PromptVersionStatus.published],
+            search_data=search_data
         )
         parsed = MultiplePublishedPromptListModel(prompts=some_result['prompts'])
         return {

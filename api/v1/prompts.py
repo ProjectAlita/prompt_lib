@@ -8,6 +8,7 @@ from tools import api_tools, config as c, db, auth
 from ...models.pd.create import PromptCreateModel
 from ...models.pd.detail import PromptDetailModel, PromptVersionDetailModel
 from ...models.pd.list import MultiplePromptListModel
+from ...models.pd.search import SearchDataModel
 
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.create_utils import create_prompt
@@ -62,6 +63,13 @@ class PromptLibAPI(api_tools.APIModeHandler):
     )
     @api_tools.endpoint_metrics
     def get(self, project_id: int | None = None, **kwargs):
+        try:
+            payload = request.get_json()
+            search_data = payload.get("search_data")
+            SearchDataModel.validate(search_data)
+        except Exception:
+            search_data = None
+        
         collection = {
             "id": request.args.get('collection_id', type=int),
             "owner_id": request.args.get('collection_owner_id', type=int)
@@ -79,7 +87,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
             trend_start_period=request.args.get('trend_start_period'),
             trend_end_period=request.args.get('trend_end_period'),
             statuses=request.args.get('statuses'),
-            collection=collection
+            collection=collection,
+            search_data=search_data
         )
         parsed = MultiplePromptListModel(prompts=some_result['prompts'])
         return {
