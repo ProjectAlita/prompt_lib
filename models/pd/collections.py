@@ -1,7 +1,7 @@
 from datetime import datetime
 from queue import Empty
 from typing import Optional, List
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel, root_validator, validator
 
 # from pylon.core.tools import log
 from tools import rpc_tools
@@ -95,6 +95,19 @@ class CollectionListModel(BaseModel):
         values["prompt_count"] = count
         return values
 
+    @validator('is_liked')
+    def is_liked_field(cls, v):
+        if v is None:
+            return False
+        return v
+    
+
+    @validator('likes')
+    def likes_field(cls, v):
+        if v is None:
+            return 0
+        return v
+
 
 class PublishedCollectionListModel(CollectionListModel):
     @root_validator
@@ -111,8 +124,8 @@ class PublishedCollectionListModel(CollectionListModel):
 
 
 class PublishedCollectionDetailModel(CollectionDetailModel):
-    likes: Optional[int]
-    is_liked: Optional[bool]
+    likes: Optional[int] = 0
+    is_liked: Optional[bool] = False
 
 
     def get_likes(self, project_id: int) -> None:

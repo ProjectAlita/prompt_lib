@@ -118,12 +118,11 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> dict:
                 original_query=query,
                 project_id=project_id,
                 entity_name='collection',
+                filter_results=True
             )
             extra_columns.extend(new_columns)
-
             q_result = query.all()
-            collection_prompts = list(set_columns_as_attrs(q_result, extra_columns))
-            prompt_ids = _flatten_prompt_ids(project_id, collection_prompts)
+            prompt_ids = _flatten_prompt_ids(project_id, q_result)
             filters.append(Prompt.id.in_(prompt_ids))
 
         # Prompt subquery
@@ -152,6 +151,7 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> dict:
                 original_query=prompt_query,
                 project_id=project_id,
                 entity_name='prompt',
+                filter_results=True
             )
             extra_columns.extend(new_columns)
         if filters:
