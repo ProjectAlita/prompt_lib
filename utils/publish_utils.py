@@ -23,14 +23,15 @@ def set_status(project_id: int, prompt_version_name_or_id: int | str, status: Pr
             if not version:
                 return {
                     "ok": False, 
-                    "error": f"Version with id '{version.id}' not found",
+                    "error": f"Version with id/name '{prompt_version_name_or_id}' not found",
                     "error_code": 404,
                 }
             version.status = status
             session.commit()
             if return_data:
                 version_detail = PromptVersionDetailModel.from_orm(version)
-        except:
+        except Exception as e:
+            log.error(e)
             session.rollback()
             return {
                 "ok": False,

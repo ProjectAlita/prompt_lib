@@ -582,8 +582,10 @@ class CollectionPublishing:
                             Prompt.id==data['id'],
                         ) for data in public_prompts
                     ]
-                )
+                ),
+                Prompt.versions.any(PromptVersion.status == PromptVersionStatus.published)
             ).all()
+            
             if not prompt_ids:
                 raise Exception("Collection doesn't contain public prompts")
             
@@ -633,8 +635,9 @@ class CollectionPublishing:
             collection_data['prompts'] = self.get_public_prompts_of_collection(collection_data['prompts'])
 
         new_collection = create_collection(self._public_id, collection_data)
-        result = get_detail_collection(new_collection)
         self.set_statuses_published(new_collection)
+        new_collection.status = CollectionStatus.published
+        result = get_detail_collection(new_collection)
         return {
             "ok": True,
             "new_collection": result
