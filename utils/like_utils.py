@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Tuple, List, Optional
 
 from flask_sqlalchemy.query import Query
-from sqlalchemy import Subquery, func
+from sqlalchemy import Subquery, func, desc, asc
 from ..models.all import Prompt, Collection
 from typing_extensions import Literal
 
@@ -61,6 +61,9 @@ def add_likes(
         original_query,
         project_id: int,
         entity_name: Literal['prompt', 'collection'],
+        sort_by_likes: bool = False,
+        sort_order: str = 'desc'
+
 ) -> Tuple[Query, List[str]]:
     entity = Prompt if entity_name == 'prompt' else Collection
     Like = rpc_tools.RpcMixin().rpc.timeout(2).social_get_like_model()
@@ -85,8 +88,12 @@ def add_likes(
     mutated_query = (
         original_query
         .outerjoin(likes_subquery, likes_subquery.c.entity_id == entity.id)
-        .add_columns(likes_subquery.c.likes_count)
+        .add_columns(func.coalesce(likes_subquery.c.likes_count, 0))
     )
+    if sort_by_likes:
+        sort_fn = desc if sort_order != "asc" else asc
+        mutated_query = mutated_query.order_by(sort_fn(func.coalesce(likes_subquery.c.likes_count, 0)))
+
     return mutated_query, ['likes']
 
 
