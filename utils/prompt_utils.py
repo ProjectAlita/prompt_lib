@@ -2,7 +2,7 @@ from json import loads
 from datetime import datetime
 from typing import List, Optional, Union, Tuple, Dict, Literal, Generator
 from werkzeug.datastructures import MultiDict
-from sqlalchemy import func, cast, String, desc, or_, literal
+from sqlalchemy import func, cast, String, desc, or_, asc
 from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import IntegrityError
 
@@ -118,12 +118,11 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> dict:
                 original_query=query,
                 project_id=project_id,
                 entity_name='collection',
+                filter_results=True
             )
             extra_columns.extend(new_columns)
-
             q_result = query.all()
-            collection_prompts = list(set_columns_as_attrs(q_result, extra_columns))
-            prompt_ids = _flatten_prompt_ids(project_id, collection_prompts)
+            prompt_ids = _flatten_prompt_ids(project_id, q_result)
             filters.append(Prompt.id.in_(prompt_ids))
 
         # Prompt subquery
@@ -152,6 +151,7 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> dict:
                 original_query=prompt_query,
                 project_id=project_id,
                 entity_name='prompt',
+                filter_results=True
             )
             extra_columns.extend(new_columns)
         if filters:
@@ -321,14 +321,17 @@ def list_prompts(project_id: int,
             session.query(Prompt)
             .options(joinedload(Prompt.versions).joinedload(PromptVersion.tags))
         )
-
+        sort_by_likes = sort_by == "likes"
         if with_likes:
             query, new_columns = add_likes(
                 original_query=query,
                 project_id=project_id,
                 entity_name='prompt',
+                sort_by_likes=sort_by_likes,
+                sort_order=sort_order
             )
             extra_columns.extend(new_columns)
+
         if trend_period:
             query, new_columns = add_trending_likes(
                 original_query=query,
@@ -351,11 +354,9 @@ def list_prompts(project_id: int,
             query = query.filter(*filters)
 
         # Apply sorting
-        if not trend_period:
-            if sort_order.lower() == "asc":
-                query = query.order_by(getattr(Prompt, sort_by, sort_by))
-            else:
-                query = query.order_by(desc(getattr(Prompt, sort_by, sort_by)))
+        if not sort_by_likes:
+            sort_fn = asc if sort_order.lower() == "asc" else desc
+            query = query.order_by(sort_fn(getattr(Prompt, sort_by, sort_by)))
 
         total = query.count()
 
@@ -365,7 +366,6 @@ def list_prompts(project_id: int,
         if offset:
             query = query.offset(offset)
 
-        # log.info(query.statement)
         q_result: List[tuple[Prompt, int, bool, int]] = query.all()
 
         # if with_likes:
