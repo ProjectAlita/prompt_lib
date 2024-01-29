@@ -145,3 +145,17 @@ class PublishedCollectionDetailModel(CollectionDetailModel):
             )
         except Empty:
             self.is_liked = False
+
+
+
+class CollectionSearchModel(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]
+
+    class Config:
+        orm_mode = True
+
+
+class MultipleCollectionSearchModel(BaseModel):
+    items: List[CollectionSearchModel]

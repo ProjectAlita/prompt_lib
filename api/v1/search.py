@@ -6,9 +6,12 @@ from sqlalchemy import or_
 
 from tools import api_tools, auth, config as c
 
-from ...models.all import Prompt
-from ...models.pd.list import MultiplePromptListModel
+from ...models.all import Prompt, PromptTag, Collection
+from ...models.pd.list import MultiplePromptSearchModel, MultiplePromptTagListModel
+from ...models.pd.collections import MultipleCollectionSearchModel
 from ...utils.constants import PROMPT_LIB_MODE
+
+from ...utils.searches import get_search_options
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
@@ -23,26 +26,36 @@ class PromptLibAPI(api_tools.APIModeHandler):
     )
     @api_tools.endpoint_metrics
     def get(self, project_id: int):
-        args = request.args
-        search_query = "%{}%".format(args.get('query', ''))
-        filter_ = or_(Prompt.name.like(search_query),
-                      Prompt.description.like(search_query))
+        result = {}
+        entities = request.args.get('entities', '')
+        entities = entities.split(',')
+        meta_data = {
+            "prompt": {
+                "Model": Prompt,
+                "PDModel": MultiplePromptSearchModel,
+                "joinedload_": [Prompt.versions],
+                "args_prefix": "prompt"
+            },
+            "collection": {
+                "Model": Collection,
+                "PDModel": MultipleCollectionSearchModel,
+                "joinedload_": None,
+                "args_prefix": "col"
+            },
+            "tag": {
+                "Model": PromptTag,
+                "PDModel": MultiplePromptTagListModel,
+                "joinedload_": None,
+                "args_prefix": "tag"
+            } 
+        }
+        for section, data in meta_data.items():
+            if section in entities:
+                result[section] = get_search_options(project_id, **data)
+        return result, 200
 
-        total, res = api_tools.get(
-            project_id=project_id,
-            args=args,
-            data_model=Prompt,
-            custom_filter=filter_,
-            joinedload_=[Prompt.versions],
-            is_project_schema=True
-            )
 
-        parsed = MultiplePromptListModel(prompts=res)
 
-        return {
-            "total": total,
-            "rows": [json.loads(prompt.json()) for prompt in parsed.prompts]
-            }, 200
 
 class API(api_tools.APIBase):
     url_params = api_tools.with_modes([

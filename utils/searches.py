@@ -1,8 +1,10 @@
+import json
 from tools import db
 # from pylon.core.tools import log
 from ..models.all import SearchRequest
-from sqlalchemy import desc, asc
-
+from sqlalchemy import desc, asc, or_
+from tools import api_tools
+from flask import request
 
 
 def list_search_requests(project_id, args):
@@ -18,3 +20,47 @@ def list_search_requests(project_id, args):
         query = query.order_by(sort_fun(getattr(SearchRequest, sort_by)))
         query = query.limit(limit).offset(offset)
         return total, query.all()
+
+
+def get_search_options(project_id, Model, PDModel, joinedload_, args_prefix):
+    query = request.args.get('query', '')
+    search_query = f"%{query}%"
+    filter_fields = ('name', 'description', 'title')
+    
+    conditions = []
+    for field in filter_fields:
+        if hasattr(Model, field):
+            conditions.append(
+                getattr(Model, field).ilike(search_query)
+            )
+    filter_ = or_(*conditions)
+    
+    args_data = get_args(args_prefix)
+    total, res = api_tools.get(
+        project_id=project_id,
+        args=args_data,
+        data_model=Model,
+        custom_filter=filter_,
+        joinedload_=joinedload_,
+        is_project_schema=True
+    )
+    parsed = PDModel(items=res)
+    return {
+        "total": total,
+        "rows": [json.loads(prompt.json()) for prompt in parsed.items]
+    }
+
+
+def get_args(prefix):
+    args = request.args
+    limit = args.get('limit', 10, type=int)
+    offset = args.get('offset', 0, type=int)
+    sort = args.get('sort')
+    order = args.get('order')
+
+    result_args = dict(args)
+    result_args['limit'] = result_args.get(f'{prefix}_limit', limit)
+    result_args['offset'] = result_args.get(f'{prefix}_offset', offset)
+    result_args['sort'] = result_args.get(f'{prefix}_sort', sort)
+    result_args['order'] = result_args.get(f'{prefix}_order', order)
+    return result_args

@@ -113,3 +113,20 @@ class MultiplePromptListModel(BaseModel):
 
 class MultiplePublishedPromptListModel(MultiplePromptListModel):
     prompts: List[PublishedPromptListModel]
+
+
+class MultiplePromptTagListModel(BaseModel):
+    items: List[PromptTagListModel]
+
+
+class PromptSearchModel(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]
+
+    class Config:
+        orm_mode = True
+
+
+class MultiplePromptSearchModel(BaseModel):
+    items: List[PromptSearchModel]
