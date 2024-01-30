@@ -151,7 +151,6 @@ class PublishedCollectionDetailModel(CollectionDetailModel):
 class CollectionSearchModel(BaseModel):
     id: int
     name: str
-    description: Optional[str]
 
     class Config:
         orm_mode = True
