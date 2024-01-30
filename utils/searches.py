@@ -1,8 +1,8 @@
 import json
 from tools import db
-# from pylon.core.tools import log
+from pylon.core.tools import log
 from ..models.all import SearchRequest
-from sqlalchemy import desc, asc, or_
+from sqlalchemy import desc, asc, or_, and_
 from tools import api_tools
 from flask import request
 
@@ -22,19 +22,20 @@ def list_search_requests(project_id, args):
         return total, query.all()
 
 
-def get_search_options(project_id, Model, PDModel, joinedload_, args_prefix):
+def get_search_options(project_id, Model, PDModel, joinedload_, args_prefix, filters = None):
     query = request.args.get('query', '')
     search_query = f"%{query}%"
-    filter_fields = ('name', 'description', 'title')
-    
-    conditions = []
-    for field in filter_fields:
-        if hasattr(Model, field):
-            conditions.append(
-                getattr(Model, field).ilike(search_query)
-            )
-    filter_ = or_(*conditions)
-    
+
+    # filter_fields = ('name', 'title')
+    # conditions = []
+    # for field in filter_fields:
+    #     if hasattr(Model, field):
+    #         conditions.append(
+    #             getattr(Model, field).ilike(search_query)
+    #         )
+    # or_(*conditions)
+
+    filter_ = and_(getattr(Model, 'name').ilike(search_query), *filters)
     args_data = get_args(args_prefix)
     total, res = api_tools.get(
         project_id=project_id,

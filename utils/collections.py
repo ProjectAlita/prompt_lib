@@ -157,6 +157,30 @@ def get_prompts_for_collection(collection_prompts: List[Dict[str, int]], only_pu
     return prompts
 
 
+def get_filter_collection_by_tags_condition(project_id: int, tags: List[int], session=None):
+    if session is None:
+        session = db.get_project_schema_session(project_id)
+
+    prompt_ids = session.query(Prompt.id).filter(
+        Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags)))
+    ).all()
+
+    if not prompt_ids:
+        return 0, []
+
+    prompt_filters = []
+    for id_ in prompt_ids:
+        prompt_value = {
+            "owner_id": project_id,
+            "id": id_[0]
+        }
+        prompt_filters.append(Collection.prompts.contains([prompt_value]))
+    
+    session.close()
+    return or_(*prompt_filters)
+
+
+
 def list_collections(
         project_id: int,
         args:  MultiDict[str, str] | dict | None = None,
@@ -223,21 +247,8 @@ def list_collections(
             # tag filtering
             if isinstance(tags, str):
                 tags = tags.split(',')
-            prompt_ids = session.query(Prompt.id).filter(
-                Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags)))
-            ).all()
-
-            if not prompt_ids:
-                return 0, []
-
-            prompt_filters = []
-            for id_ in prompt_ids:
-                prompt_value = {
-                    "owner_id": project_id,
-                    "id": id_[0]
-                }
-                prompt_filters.append(Collection.prompts.contains([prompt_value]))
-            filters.append(or_(*prompt_filters))
+            condition = get_filter_collection_by_tags_condition(tags)
+            filters.append(condition)
 
         query = session.query(Collection)
         extra_columns = []
@@ -683,7 +694,6 @@ def group_by_project_id(data, data_type='dict'):
     for entity in data:
         prompts[entity[group_field]].add(entity[data_field])
     return prompts
-
 
 
 @add_public_project_id
