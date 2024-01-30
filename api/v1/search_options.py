@@ -28,8 +28,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
     @api_tools.endpoint_metrics
     def get(self, project_id: int):
         result = {}
-        entities = request.args.getlist('entities')
-        tags = [int(tag) for tag in request.args.getlist('tags')]
+        entities = request.args.getlist('entities[]')
+        tags = [int(tag) for tag in request.args.getlist('tags[]')]
+        statuses = request.args.getlist('statuses[]')
 
         meta_data = {
             "prompt": {
@@ -66,6 +67,14 @@ class PromptLibAPI(api_tools.APIModeHandler):
             )
             meta_data['tag']['filters'].append(
                 PromptTag.id.in_(tags)
+            )
+        
+        if statuses:
+            meta_data['prompt']['filters'].append(
+                (Prompt.versions.any(PromptVersion.status.in_(statuses)))
+            )
+            meta_data['collection']['filters'].append(
+                Collection.status.in_(statuses)
             )
 
         for section, data in meta_data.items():
