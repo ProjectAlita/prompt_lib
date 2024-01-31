@@ -24,7 +24,8 @@ from ..models.pd.collections import (
     CollectionModel,
     PromptIds,
     CollectionPatchModel,
-    PublishedCollectionDetailModel, CollectionListModel,
+    PublishedCollectionDetailModel, CollectionListModel, 
+    CollectionShortDetailModel,
 )
 from .publish_utils import get_public_project_id
 
@@ -556,6 +557,15 @@ def get_collection_tags(prompts: List[dict]) -> list:
 
     return list(tags.values())
 
+
+def fire_public_collection_status_change_event(shared_owner_id, shared_id, status):
+    rpc_tools.EventManagerMixin().event_manager.fire_event(
+        'prompt_public_collection_status_change', {
+        'private_project_id': shared_owner_id,
+        'private_collection_id': shared_id,
+        'status': status
+    })
+
 class CollectionPublishing:
     def __init__(self, project_id: int, collection_id: int):
         self._project_id = project_id
@@ -603,24 +613,63 @@ class CollectionPublishing:
         result = [{"id": prompt_id[0], "owner_id": self._public_id} for prompt_id in prompt_ids]
         return result
 
+    @staticmethod
+    def set_status(project_id, collection_id, status: CollectionStatus, session=None):
+        if session is None:
+            session = db.get_project_schema_session(project_id)
 
-    def _set_status(self, project_id, collection_id, status: CollectionStatus):
+        collection = session.query(Collection).get(collection_id)
+        #
+        if not collection:
+            return
+        #
+        collection.status = status
+        session.commit()
+        session.close
+        
+        if session:
+            return collection
+
+    @staticmethod
+    def approve(project_id, collection_id):
+        # changing the status of collection
         with db.with_project_schema_session(project_id) as session:
-            collection = session.query(Collection).get(collection_id)
+            collection = CollectionPublishing.set_status(
+                    project_id, collection_id, CollectionStatus.published, session
+            )
             #
-            if not collection:
-                return
-            #
-            collection.status = status
-            session.commit()
+            fire_public_collection_status_change_event(
+                collection.shared_owner_id,
+                collection.shared_id,
+                CollectionStatus.published
+            )
+            collection_model = CollectionShortDetailModel.from_orm(collection)
+        return {"ok": True, "result": json.loads(collection_model.json())}
 
-    def set_statuses_published(self, public_collection_data: Collection):
-        # set public collection published
+
+    @staticmethod
+    def reject(project_id, collection_id):
+        # changing the status of collection
+        with db.with_project_schema_session(project_id) as session:
+            collection = CollectionPublishing.set_status(
+                    project_id, collection_id, CollectionStatus.rejected, session
+            )
+            #
+            fire_public_collection_status_change_event(
+                collection.shared_owner_id,
+                collection.shared_id,
+                CollectionStatus.rejected
+            )
+            collection_model = CollectionShortDetailModel.from_orm(collection)
+        return {"ok": True, "result": json.loads(collection_model.json())}
+
+    def set_statuses(self, public_collection_data: Collection, status: CollectionStatus):
+        # set public collection
         collection_id = public_collection_data.id
-        self._set_status(self._public_id, collection_id, CollectionStatus.published)
+        self.set_status(self._public_id, collection_id, status)
 
-        # set private collection published
-        self._set_status(self._project_id, self._collection_id, CollectionStatus.published)
+        # set private collection
+        self.set_status(self._project_id, self._collection_id, status)
 
     def publish(self):
         if self.check_already_published():
@@ -646,8 +695,8 @@ class CollectionPublishing:
             collection_data['prompts'] = self.get_public_prompts_of_collection(collection_data['prompts'])
 
         new_collection = create_collection(self._public_id, collection_data)
-        self.set_statuses_published(new_collection)
-        new_collection.status = CollectionStatus.published
+        self.set_statuses(new_collection, CollectionStatus.on_moderation)
+        new_collection.status = CollectionStatus.on_moderation
         result = get_detail_collection(new_collection)
         return {
             "ok": True,

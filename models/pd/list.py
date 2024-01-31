@@ -122,7 +122,6 @@ class MultiplePromptTagListModel(BaseModel):
 class PromptSearchModel(BaseModel):
     id: int
     name: str
-    description: Optional[str]
 
     class Config:
         orm_mode = True

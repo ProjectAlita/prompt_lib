@@ -16,7 +16,10 @@ class PromptVersionStatus(StrEnum):
 
 class CollectionStatus(StrEnum):
     draft = 'draft'
+    on_moderation = 'on_moderation'
     published = 'published'
+    rejected = 'rejected'
+    user_approval = 'user_approval'
 
 
 class PromptVersionType(StrEnum):
