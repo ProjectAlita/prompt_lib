@@ -1,5 +1,4 @@
 from pylon.core.tools import log, web
-from collections import defaultdict
 from tools import db
 from ..models.all import Collection, Prompt
 from ..models.enums.all import CollectionPatchOperations, CollectionStatus
@@ -11,12 +10,26 @@ from ..utils.collections import (
     group_by_project_id,
 )
 from ..utils.publish_utils import get_public_project_id
+from ..utils.collections import CollectionPublishing
 from sqlalchemy import or_, and_
 
 from ..models.pd.collections import PromptIds
 
 
 class Event:
+    @web.event("prompt_public_collection_status_change")
+    def handle_collection_status_change(self, context, event, payload: dict):
+        log.info(f'Event {payload}')
+        private_project_id = payload['private_project_id']
+        private_collection_id = payload['private_collection_id']
+        status = payload['status']
+
+        CollectionPublishing.set_status(
+            project_id=private_project_id,
+            collection_id=private_collection_id,
+            status=status
+        )
+
     @web.event("prompt_lib_collection_updated")
     def handle_collection_updated(self, context, event, payload: dict):
         added_prompts = payload['added_prompts']

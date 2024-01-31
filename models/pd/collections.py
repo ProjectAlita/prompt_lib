@@ -43,6 +43,17 @@ class PromptBaseModel(BaseModel):
         orm_mode = True
 
 
+
+class CollectionShortDetailModel(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]
+    owner_id: int
+    status: str
+
+    class Config:
+        orm_mode = True
+
 class CollectionDetailModel(BaseModel):
     id: int
     name: str
