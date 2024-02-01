@@ -1,10 +1,12 @@
 import json
+from typing import List
 from tools import db
 from pylon.core.tools import log
-from ..models.all import SearchRequest
-from sqlalchemy import desc, asc, or_, and_
+from ..models.all import SearchRequest, Prompt, PromptTag, PromptVersion, Collection
+from sqlalchemy import desc, asc, or_, and_, func, distinct
 from tools import api_tools
 from flask import request
+from .collections import NotFound
 
 
 def list_search_requests(project_id, args):
@@ -50,6 +52,48 @@ def get_search_options(project_id, Model, PDModel, joinedload_, args_prefix, fil
         "total": total,
         "rows": [json.loads(prompt.json()) for prompt in parsed.items]
     }
+
+
+def get_prompt_ids_by_tags(project_id, tags: List[int], session=None):
+    if session is None:
+        session = db.get_project_schema_session(project_id)
+
+    prompts =  (
+        session.query(Prompt.id)
+        .join(Prompt.versions)
+        .join(PromptVersion.tags)
+        .filter(PromptTag.id.in_(tags))
+        .group_by(Prompt.id)
+        .having(
+            func.count(distinct(PromptTag.id)) == len(tags)
+        )
+        .all()
+    )
+    prompt_ids = [prompt.id for prompt in prompts]
+    
+    session.close()
+    return prompt_ids
+
+
+def get_filter_collection_by_tags_condition(project_id: int, tags: List[int], session=None):
+    if session is None:
+        session = db.get_project_schema_session(project_id)
+
+    prompt_ids = get_prompt_ids_by_tags(project_id, tags, session)
+
+    if not prompt_ids:
+        raise NotFound("No prompt with given tags found")
+
+    prompt_filters = []
+    for id_ in prompt_ids:
+        prompt_value = {
+            "owner_id": project_id,
+            "id": id_
+        }
+        prompt_filters.append(Collection.prompts.contains([prompt_value]))
+    
+    session.close()
+    return or_(*prompt_filters)
 
 
 def get_args(prefix):
