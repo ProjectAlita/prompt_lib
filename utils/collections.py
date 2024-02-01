@@ -48,6 +48,12 @@ class PromptAlreadyInCollectionError(Exception):
         self.message = message
 
 
+class NotFound(Exception):
+    "Raised when nothing found by the query when it was required"
+    def __def__(self, message):
+        self.message = message
+
+
 def check_prompts_addability(owner_id: int, user_id: int):
     membership_check = rpc_tools.RpcMixin().rpc.call.admin_check_user_in_project
     secrets = VaultClient().get_all_secrets()
@@ -167,7 +173,7 @@ def get_filter_collection_by_tags_condition(project_id: int, tags: List[int], se
     ).all()
 
     if not prompt_ids:
-        return 0, []
+        raise NotFound("No prompt with given tags found")
 
     prompt_filters = []
     for id_ in prompt_ids:
@@ -248,7 +254,10 @@ def list_collections(
             # tag filtering
             if isinstance(tags, str):
                 tags = tags.split(',')
-            condition = get_filter_collection_by_tags_condition(tags)
+            try:
+                condition = get_filter_collection_by_tags_condition(tags)
+            except NotFound:
+                return 0, []
             filters.append(condition)
 
         query = session.query(Collection)

@@ -1,9 +1,4 @@
-import json
-from typing import List
 from flask import request
-from pylon.core.tools import log
-from sqlalchemy import or_
-
 from tools import api_tools, auth, config as c
 
 from ...models.all import Prompt, PromptTag, Collection, PromptVersion
@@ -11,8 +6,12 @@ from ...models.pd.list import MultiplePromptSearchModel, MultiplePromptTagListMo
 from ...models.pd.collections import MultipleCollectionSearchModel
 from ...utils.constants import PROMPT_LIB_MODE
 
-from ...utils.searches import get_search_options
-from ...utils.collections import get_filter_collection_by_tags_condition
+from ...utils.searches import (
+    get_search_options, 
+    get_prompt_ids_by_tags,
+    get_filter_collection_by_tags_condition
+)
+from ...utils.collections import NotFound
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
@@ -29,7 +28,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def get(self, project_id: int):
         result = {}
         entities = request.args.getlist('entities[]')
-        tags = [int(tag) for tag in request.args.getlist('tags[]')]
+        tags = tuple(set(int(tag) for tag in request.args.getlist('tags[]')))
         statuses = request.args.getlist('statuses[]')
 
         meta_data = {
@@ -57,17 +56,31 @@ class PromptLibAPI(api_tools.APIModeHandler):
         }
 
         if tags:
-            data = get_filter_collection_by_tags_condition(project_id, tags)
-            meta_data['collection']['filters'].append(
-                # get_filter_collection_by_tags_condition(project_id, tags)
-                data
-            ) 
+            try:
+                data = get_filter_collection_by_tags_condition(project_id, tags)
+                meta_data['collection']['filters'].append(data) 
+            except NotFound:
+                entities = [entity for entity in entities if entity != "collection"]
+                result['collection'] = {
+                    "total": 0,
+                    "rows": []
+                }
+
+            prompt_ids = get_prompt_ids_by_tags(project_id, tags)
             meta_data['prompt']['filters'].append(
-                Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags)))
+                Prompt.id.in_(prompt_ids)
             )
-            meta_data['tag']['filters'].append(
-                PromptTag.id.in_(tags)
-            )
+            
+            if len(tags) > 1:
+                entities = [entity for entity in entities if entity != "tag"]
+                result['tag'] = {
+                    "total": 0,
+                    "rows": []
+                }
+            else:
+                meta_data['tag']['filters'].append(
+                    PromptTag.id.in_(tags)
+                )
         
         if statuses:
             meta_data['prompt']['filters'].append(
