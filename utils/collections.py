@@ -2,15 +2,15 @@ import json
 import copy
 from datetime import datetime
 from collections import defaultdict
-from typing import List, Union, Optional, Dict
+from typing import List, Union, Dict
 from werkzeug.datastructures import MultiDict
 from flask import request
 from sqlalchemy import or_, and_, desc
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import exists
 
-from tools import auth, db, VaultClient, rpc_tools
-from pylon.core.tools import log
+from tools import db, VaultClient, rpc_tools
+# from pylon.core.tools import log
 
 from .like_utils import add_likes, add_my_liked, add_trending_likes
 from .prompt_utils import set_columns_as_attrs
@@ -18,7 +18,7 @@ from .utils import get_author_data, get_authors_data, add_public_project_id
 from ..models.enums.all import CollectionPatchOperations, CollectionStatus, PromptVersionStatus
 from ..models.all import Collection, Prompt, PromptVersion, PromptTag
 from ..models.pd.base import PromptTagBaseModel
-from ..models.pd.list import MultiplePromptListModel, PublishedPromptListModel, PromptListModel
+from ..models.pd.list import PublishedPromptListModel, PromptListModel
 from ..models.pd.collections import (
     CollectionDetailModel,
     CollectionModel,
@@ -28,30 +28,12 @@ from ..models.pd.collections import (
     CollectionShortDetailModel,
 )
 from .publish_utils import get_public_project_id
-
-
-class PromptInaccessableError(Exception):
-    "Raised when prompt in project for which user doesn't have permission"
-
-    def __init__(self, message):
-        self.message = message
-
-
-class PromptDoesntExist(Exception):
-    "Raised when prompt doesn't exist"
-    def __init__(self, message):
-        self.message = message
-
-class PromptAlreadyInCollectionError(Exception):
-    "Raised when prompt is already in collection"
-    def __init__(self, message):
-        self.message = message
-
-
-class NotFound(Exception):
-    "Raised when nothing found by the query when it was required"
-    def __def__(self, message):
-        self.message = message
+from .expceptions import (
+    PromptInaccessableError,
+    PromptDoesntExist,
+    PromptAlreadyInCollectionError,
+    NotFound
+)
 
 
 def check_prompts_addability(owner_id: int, user_id: int):

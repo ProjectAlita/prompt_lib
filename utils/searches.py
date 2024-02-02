@@ -14,7 +14,7 @@ from sqlalchemy import desc, asc, or_, and_, func, distinct, cast, String
 from tools import api_tools
 from flask import request
 from sqlalchemy.orm import joinedload
-from .collections import NotFound
+from .expceptions import NotFound
 
 
 def list_search_requests(project_id, args):
