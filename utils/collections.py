@@ -255,7 +255,7 @@ def list_collections(
             if isinstance(tags, str):
                 tags = tags.split(',')
             try:
-                condition = get_filter_collection_by_tags_condition(tags)
+                condition = get_filter_collection_by_tags_condition(project_id, tags)
             except NotFound:
                 return 0, []
             filters.append(condition)

@@ -9,10 +9,10 @@ from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.searches import (
     get_search_options, 
     get_prompt_ids_by_tags,
-    get_filter_collection_by_tags_condition
+    get_filter_collection_by_tags_condition,
+    get_tag_filter
 )
 from ...utils.collections import NotFound
-
 
 class PromptLibAPI(api_tools.APIModeHandler):
     @auth.decorators.check_api(
@@ -30,6 +30,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         entities = request.args.getlist('entities[]')
         tags = tuple(set(int(tag) for tag in request.args.getlist('tags[]')))
         statuses = request.args.getlist('statuses[]')
+        author_id = request.args.get("author_id", type=int)
 
         meta_data = {
             "prompt": {
@@ -71,16 +72,16 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 Prompt.id.in_(prompt_ids)
             )
             
-            if len(tags) > 1:
-                entities = [entity for entity in entities if entity != "tag"]
-                result['tag'] = {
-                    "total": 0,
-                    "rows": []
-                }
-            else:
-                meta_data['tag']['filters'].append(
-                    PromptTag.id.in_(tags)
-                )
+        if author_id:
+            # collection filtering
+            meta_data['collection']['filters'].append(
+                Collection.author_id==author_id
+            )
+
+            # prompt filtering
+            meta_data['prompt']['filters'].append(
+                Prompt.versions.any(PromptVersion.author_id == author_id)
+            )
         
         if statuses:
             meta_data['prompt']['filters'].append(
@@ -89,6 +90,15 @@ class PromptLibAPI(api_tools.APIModeHandler):
             meta_data['collection']['filters'].append(
                 Collection.status.in_(statuses)
             )
+
+        meta_data['tag']['filters'].append(
+            get_tag_filter(
+                project_id=project_id, 
+                author_id=author_id, 
+                statuses=statuses, 
+                tags=tags
+            )
+        )
 
         for section, data in meta_data.items():
             if section in entities:

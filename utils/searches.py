@@ -2,10 +2,18 @@ import json
 from typing import List
 from tools import db
 from pylon.core.tools import log
-from ..models.all import SearchRequest, Prompt, PromptTag, PromptVersion, Collection
-from sqlalchemy import desc, asc, or_, and_, func, distinct
+from ..models.all import (
+    SearchRequest, 
+    Prompt, 
+    PromptTag, 
+    PromptVersion,
+    PromptVersionTagAssociation, 
+    Collection,
+)
+from sqlalchemy import desc, asc, or_, and_, func, distinct, cast, String
 from tools import api_tools
 from flask import request
+from sqlalchemy.orm import joinedload
 from .collections import NotFound
 
 
@@ -53,6 +61,48 @@ def get_search_options(project_id, Model, PDModel, joinedload_, args_prefix, fil
         "rows": [json.loads(prompt.json()) for prompt in parsed.items]
     }
 
+
+def get_tag_filter(
+        project_id, 
+        author_id: int=None, 
+        statuses: List[str]=None,
+        tags: List[int] = None, 
+        session=None
+    ):
+    if session is None:
+        session = db.get_project_schema_session(project_id)
+
+    prompt_query = (
+        session.query(Prompt)
+        .options(joinedload(Prompt.versions))
+    )
+
+    filters = []
+    if author_id:
+        filters.append(Prompt.versions.any(PromptVersion.author_id == author_id))
+    
+    if statuses:
+        filters.append(Prompt.versions.any(PromptVersion.status.in_(statuses)))
+
+    if tags:
+        prompt_ids = get_prompt_ids_by_tags(project_id, tags, session)
+        filters.append(
+            Prompt.id.in_(prompt_ids)
+        )
+        
+    prompt_query = prompt_query.filter(*filters)
+    prompt_query = prompt_query.with_entities(Prompt.id)
+    prompt_subquery = prompt_query.subquery()
+    
+
+    query = (
+        session.query(PromptTag.id)
+        .filter(PromptVersion.prompt_id.in_(prompt_subquery))
+        .join(PromptVersionTagAssociation, PromptVersionTagAssociation.c.tag_id == PromptTag.id)
+        .join(PromptVersion, PromptVersion.id == PromptVersionTagAssociation.c.version_id)
+        .group_by(PromptTag.id)
+    ).subquery()
+    return PromptTag.id.in_(query)
 
 def get_prompt_ids_by_tags(project_id, tags: List[int], session=None):
     if session is None:
