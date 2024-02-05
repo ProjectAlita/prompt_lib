@@ -10,7 +10,6 @@ from ..models.pd.export_import import (
     DialImportModel,
     DialModelImportModel,
     DialPromptImportModel,
-    CollectionImportModel,
     PromptExportModel,
 )
 from ..utils.create_utils import create_version
@@ -58,11 +57,15 @@ def collection_export(project_id: int, collection_id: int, to_dail=False):
                     else:
                         result = prompts_export(project_id, prompt_id, session2)
                         del result['collections']
-                    result_prompts.extend(result['prompts'])
+                    result_prompts.extend(result['prompts'])    
 
-        collection.prompts = result_prompts
-        result = CollectionImportModel.from_orm(collection)
-        return result.dict()
+        folder = {
+            "name": collection.name,
+            "description": collection.description,
+        }
+        if to_dail:
+             folder['type'] = "prompt"
+        return {"prompts": result_prompts, "folders": [folder]}
 
 
 def prompts_export(project_id: int, prompt_id: int = None, session=None) -> dict:
