@@ -8,7 +8,7 @@ from ...utils.constants import PROMPT_LIB_MODE
 
 from ...utils.searches import (
     get_search_options, 
-    get_prompt_ids_by_tags,
+    get_prompts_by_tags,
     get_filter_collection_by_tags_condition,
     get_tag_filter
 )
@@ -67,9 +67,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
                     "rows": []
                 }
 
-            prompt_ids = get_prompt_ids_by_tags(project_id, tags)
+            prompts_subq = get_prompts_by_tags(project_id, tags)
             meta_data['prompt']['filters'].append(
-                Prompt.id.in_(prompt_ids)
+                Prompt.id.in_(prompts_subq)
             )
             
         if author_id:

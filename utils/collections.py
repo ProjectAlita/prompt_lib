@@ -2,15 +2,15 @@ import json
 import copy
 from datetime import datetime
 from collections import defaultdict
-from typing import List, Union, Optional, Dict
+from typing import List, Union, Dict
 from werkzeug.datastructures import MultiDict
 from flask import request
 from sqlalchemy import or_, and_, desc
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import exists
 
-from tools import auth, db, VaultClient, rpc_tools
-from pylon.core.tools import log
+from tools import db, VaultClient, rpc_tools
+# from pylon.core.tools import log
 
 from .like_utils import add_likes, add_my_liked, add_trending_likes
 from .prompt_utils import set_columns_as_attrs
@@ -18,7 +18,7 @@ from .utils import get_author_data, get_authors_data, add_public_project_id
 from ..models.enums.all import CollectionPatchOperations, CollectionStatus, PromptVersionStatus
 from ..models.all import Collection, Prompt, PromptVersion, PromptTag
 from ..models.pd.base import PromptTagBaseModel
-from ..models.pd.list import MultiplePromptListModel, PublishedPromptListModel, PromptListModel
+from ..models.pd.list import PublishedPromptListModel, PromptListModel
 from ..models.pd.collections import (
     CollectionDetailModel,
     CollectionModel,
@@ -28,30 +28,14 @@ from ..models.pd.collections import (
     CollectionShortDetailModel,
 )
 from .publish_utils import get_public_project_id
+from .expceptions import (
+    PromptInaccessableError,
+    PromptDoesntExist,
+    PromptAlreadyInCollectionError,
+    NotFound
+)
 
-
-class PromptInaccessableError(Exception):
-    "Raised when prompt in project for which user doesn't have permission"
-
-    def __init__(self, message):
-        self.message = message
-
-
-class PromptDoesntExist(Exception):
-    "Raised when prompt doesn't exist"
-    def __init__(self, message):
-        self.message = message
-
-class PromptAlreadyInCollectionError(Exception):
-    "Raised when prompt is already in collection"
-    def __init__(self, message):
-        self.message = message
-
-
-class NotFound(Exception):
-    "Raised when nothing found by the query when it was required"
-    def __def__(self, message):
-        self.message = message
+from .searches import get_filter_collection_by_tags_condition, get_prompts_by_tags
 
 
 def check_prompts_addability(owner_id: int, user_id: int):
@@ -70,12 +54,6 @@ def get_prompts_for_collection(collection_prompts: List[Dict[str, int]], only_pu
     limit = request.args.get("limit", 10, type=int)
     trend_period = request.args.get("trending_period")
     my_liked = request.args.get('my_liked', False)
-
-    if tags := request.args.get('tags'):
-        # # Filtering parameters
-        if isinstance(tags, str):
-            tags = tags.split(',')
-        filters.append(Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags))))
 
     if author_id := request.args.get('author_id'):
         filters.append(Prompt.versions.any(PromptVersion.author_id == author_id))
@@ -101,6 +79,14 @@ def get_prompts_for_collection(collection_prompts: List[Dict[str, int]], only_pu
     grouped_prompts = group_by_project_id(collection_prompts)
     for project_id, ids in grouped_prompts.items():
         with db.with_project_schema_session(project_id) as session:
+
+            if tags := request.args.get('tags'):
+                # Filtering parameters
+                if isinstance(tags, str):
+                    tags = [int(tag) for tag in tags.split(',')]
+                prompts_subq = get_prompts_by_tags(project_id, tags)
+                filters.append(Prompt.id.in_(prompts_subq))
+
             prompt_query = session.query(Prompt).filter(Prompt.id.in_(ids), *filters)
             extra_columns = []
 
@@ -164,27 +150,27 @@ def get_prompts_for_collection(collection_prompts: List[Dict[str, int]], only_pu
     return prompts
 
 
-def get_filter_collection_by_tags_condition(project_id: int, tags: List[int], session=None):
-    if session is None:
-        session = db.get_project_schema_session(project_id)
+# def get_filter_collection_by_tags_condition(project_id: int, tags: List[int], session=None):
+#     if session is None:
+#         session = db.get_project_schema_session(project_id)
 
-    prompt_ids = session.query(Prompt.id).filter(
-        Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags)))
-    ).all()
+#     prompt_ids = session.query(Prompt.id).filter(
+#         Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags)))
+#     ).all()
 
-    if not prompt_ids:
-        raise NotFound("No prompt with given tags found")
+#     if not prompt_ids:
+#         raise NotFound("No prompt with given tags found")
 
-    prompt_filters = []
-    for id_ in prompt_ids:
-        prompt_value = {
-            "owner_id": project_id,
-            "id": id_[0]
-        }
-        prompt_filters.append(Collection.prompts.contains([prompt_value]))
+#     prompt_filters = []
+#     for id_ in prompt_ids:
+#         prompt_value = {
+#             "owner_id": project_id,
+#             "id": id_[0]
+#         }
+#         prompt_filters.append(Collection.prompts.contains([prompt_value]))
     
-    session.close()
-    return or_(*prompt_filters)
+#     session.close()
+#     return or_(*prompt_filters)
 
 
 
@@ -253,7 +239,7 @@ def list_collections(
         if tags := args.get('tags'):
             # tag filtering
             if isinstance(tags, str):
-                tags = tags.split(',')
+                tags = [int(tag) for tag in tags.split(',')]
             try:
                 condition = get_filter_collection_by_tags_condition(project_id, tags)
             except NotFound:
