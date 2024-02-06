@@ -14,7 +14,7 @@ from sqlalchemy import desc, asc, or_, and_, func, distinct, cast, String
 from tools import api_tools
 from flask import request
 from sqlalchemy.orm import joinedload
-from .collections import NotFound
+from .expceptions import NotFound
 
 
 def list_search_requests(project_id, args):
@@ -85,9 +85,9 @@ def get_tag_filter(
         filters.append(Prompt.versions.any(PromptVersion.status.in_(statuses)))
 
     if tags:
-        prompt_ids = get_prompt_ids_by_tags(project_id, tags, session)
+        prompts_subq = get_prompts_by_tags(project_id, tags, session)
         filters.append(
-            Prompt.id.in_(prompt_ids)
+            Prompt.id.in_(prompts_subq)
         )
         
     prompt_query = prompt_query.filter(*filters)
@@ -104,11 +104,14 @@ def get_tag_filter(
     ).subquery()
     return PromptTag.id.in_(query)
 
-def get_prompt_ids_by_tags(project_id, tags: List[int], session=None):
+def get_prompts_by_tags(project_id, tags: List[int], session=None, subquery=True):
+    session_created = False
+    result = None
     if session is None:
         session = db.get_project_schema_session(project_id)
+        session_created = True
 
-    prompts =  (
+    query =  (
         session.query(Prompt.id)
         .join(Prompt.versions)
         .join(PromptVersion.tags)
@@ -117,19 +120,24 @@ def get_prompt_ids_by_tags(project_id, tags: List[int], session=None):
         .having(
             func.count(distinct(PromptTag.id)) == len(tags)
         )
-        .all()
     )
-    prompt_ids = [prompt.id for prompt in prompts]
+    if not subquery:
+        prompts = query.all()
+        result = [prompt.id for prompt in prompts]
+    else:
+        result = query.subquery()
     
-    session.close()
-    return prompt_ids
+    if session_created:
+        session.close()
+    
+    return result
 
 
 def get_filter_collection_by_tags_condition(project_id: int, tags: List[int], session=None):
     if session is None:
         session = db.get_project_schema_session(project_id)
 
-    prompt_ids = get_prompt_ids_by_tags(project_id, tags, session)
+    prompt_ids = get_prompts_by_tags(project_id, tags, session, subquery=False)
 
     if not prompt_ids:
         raise NotFound("No prompt with given tags found")

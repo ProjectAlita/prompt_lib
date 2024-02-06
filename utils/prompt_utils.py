@@ -18,6 +18,8 @@ from ..models.pd.detail import PromptDetailModel, PromptVersionDetailModel, Publ
 from ..models.pd.list import PromptTagListModel
 from ..models.enums.all import PromptVersionStatus
 
+from .searches import get_prompts_by_tags
+
 
 def create_variables_bulk(project_id: int, variables: List[dict], **kwargs) -> List[dict]:
     result = []
@@ -479,8 +481,10 @@ def list_prompts_api(
     filters = []
     if tags:
         if isinstance(tags, str):
-            tags = tags.split(',')
-        filters.append(Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags))))
+            tags = [int(tag) for tag in tags.split(',')]
+        prompts_subq = get_prompts_by_tags(project_id, tags)
+        filters.append(Prompt.id.in_(prompts_subq))
+        # filters.append(Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags))))
 
     if author_id:
         filters.append(Prompt.versions.any(PromptVersion.author_id == author_id))
@@ -499,18 +503,17 @@ def list_prompts_api(
             )
         )
 
-    if search_data:
-        searches = []
-        for keyword in search_data.get('keywords', []):
-            searches.append(
-                or_(
-                    Prompt.name.ilike(f"%{keyword}%"),
-                    Prompt.description.ilike(f"%{keyword}%")
-                )
-            )
-        if tag_ids := search_data.get('tag_ids'):
-            searches.append(Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tag_ids))))     
-        filters.append(or_(*searches))
+    # if search_data:
+    #     for keyword in search_data.get('keywords', []):
+    #         filters.append(
+    #             or_(
+    #                 Prompt.name.ilike(f"%{keyword}%"),
+    #                 Prompt.description.ilike(f"%{keyword}%")
+    #             )
+    #         )
+    #     if tag_ids := search_data.get('tag_ids'):
+    #         prompt_ids = get_prompts_by_tags(project_id, tag_ids)
+    #         filters.append(Prompt.id.in_(prompt_ids))
 
 
     if collection and collection.get('id') and collection.get('owner_id'):
