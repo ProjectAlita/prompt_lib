@@ -75,7 +75,7 @@ def get_author_data(author_id: int) -> dict:
     return AuthorDetailModel(**social_data).dict()
 
 
-def get_trending_authors(project_id: int, limit: int = 5) -> List[dict]:
+def get_trending_authors(project_id: int, limit: int = 5, entity_name: str = 'prompt') -> List[dict]:
     try:
         Like = rpc_tools.RpcMixin().rpc.timeout(2).social_get_like_model()
     except Empty:
@@ -86,7 +86,7 @@ def get_trending_authors(project_id: int, limit: int = 5) -> List[dict]:
         # Likes subquery
         likes_subquery = Like.query.filter(
             Like.project_id == project_id,
-            Like.entity == 'prompt'
+            Like.entity == entity_name
         ).subquery()
 
         # Subquery
