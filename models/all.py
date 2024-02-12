@@ -9,12 +9,19 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
 
-class Prompt(db_tools.AbstractBaseMixin, db.Base):
+class AbstractLikesMixin:
+    @property
+    def likes_entity_name(self):
+        raise NotImplementedError
+
+
+class Prompt(db_tools.AbstractBaseMixin, db.Base, AbstractLikesMixin):
     __tablename__ = 'prompts'
     __table_args__ = (
         UniqueConstraint('shared_owner_id', 'shared_id', name='_shared_origin'),
         {'schema': c.POSTGRES_TENANT_SCHEMA},
     )
+    likes_entity_name: str = 'prompt'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -115,12 +122,14 @@ PromptVersionTagAssociation = Table(
     schema=c.POSTGRES_TENANT_SCHEMA
 )
 
-class Collection(db_tools.AbstractBaseMixin, db.Base):
+
+class Collection(db_tools.AbstractBaseMixin, db.Base, AbstractLikesMixin):
     __tablename__ = "prompt_collections"
     __table_args__ = (
         UniqueConstraint('shared_owner_id', 'shared_id', name='_collection_shared_origin'),
         {"schema": c.POSTGRES_TENANT_SCHEMA},
     )
+    likes_entity_name: str = 'collection'
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(String, nullable=True)

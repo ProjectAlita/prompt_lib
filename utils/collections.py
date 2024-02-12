@@ -94,7 +94,7 @@ def get_prompts_for_collection(collection_prompts: List[Dict[str, int]], only_pu
                 prompt_query, new_columns = add_likes(
                     original_query=prompt_query,
                     project_id=project_id,
-                    entity_name='prompt',
+                    entity=Prompt,
                 )
                 extra_columns.extend(new_columns)
 
@@ -102,7 +102,7 @@ def get_prompts_for_collection(collection_prompts: List[Dict[str, int]], only_pu
                     prompt_query, new_columns = add_trending_likes(
                         original_query=prompt_query,
                         project_id=project_id,
-                        entity_name='prompt',
+                        entity=Prompt,
                         trend_period=trend_period,
                         filter_results=True
                     )
@@ -111,7 +111,7 @@ def get_prompts_for_collection(collection_prompts: List[Dict[str, int]], only_pu
                 prompt_query, new_columns = add_my_liked(
                     original_query=prompt_query,
                     project_id=project_id,
-                    entity_name='prompt',
+                    entity=Prompt,
                     filter_results=my_liked
                 )
                 extra_columns.extend(new_columns)
@@ -252,14 +252,14 @@ def list_collections(
             query, new_columns = add_likes(
                 original_query=query,
                 project_id=project_id,
-                entity_name='collection',
+                entity=Collection,
             )
             extra_columns.extend(new_columns)
         if trend_period:
             query, new_columns = add_trending_likes(
                 original_query=query,
                 project_id=project_id,
-                entity_name='collection',
+                entity=Collection,
                 trend_period=trend_period,
                 filter_results=True
             )
@@ -268,7 +268,7 @@ def list_collections(
         query, new_columns = add_my_liked(
             original_query=query,
             project_id=project_id,
-            entity_name='collection',
+            entity=Collection,
             filter_results=my_liked
         )
         extra_columns.extend(new_columns)
