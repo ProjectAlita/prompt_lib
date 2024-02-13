@@ -112,14 +112,14 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> dict:
             query, new_columns = add_likes(
                 original_query=query,
                 project_id=project_id,
-                entity_name='collection',
+                entity=Collection,
             )
             extra_columns.extend(new_columns)
 
             query, new_columns = add_my_liked(
                 original_query=query,
                 project_id=project_id,
-                entity_name='collection',
+                entity=Collection,
                 filter_results=True
             )
             extra_columns.extend(new_columns)
@@ -136,14 +136,14 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> dict:
         prompt_query, new_columns = add_likes(
             original_query=prompt_query,
             project_id=project_id,
-            entity_name='prompt',
+            entity=Prompt,
         )
         extra_columns.extend(new_columns)
         if trend_period:
             prompt_query, new_columns = add_trending_likes(
                 original_query=prompt_query,
                 project_id=project_id,
-                entity_name='prompt',
+                entity=Prompt,
                 trend_period=trend_period,
                 filter_results=True
             )
@@ -152,7 +152,7 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> dict:
             prompt_query, new_columns = add_my_liked(
                 original_query=prompt_query,
                 project_id=project_id,
-                entity_name='prompt',
+                entity=Prompt,
                 filter_results=True
             )
             extra_columns.extend(new_columns)
@@ -328,7 +328,7 @@ def list_prompts(project_id: int,
             query, new_columns = add_likes(
                 original_query=query,
                 project_id=project_id,
-                entity_name='prompt',
+                entity=Prompt,
                 sort_by_likes=sort_by_likes,
                 sort_order=sort_order
             )
@@ -338,7 +338,7 @@ def list_prompts(project_id: int,
             query, new_columns = add_trending_likes(
                 original_query=query,
                 project_id=project_id,
-                entity_name='prompt',
+                entity=Prompt,
                 trend_period=trend_period,
                 filter_results=True
             )
@@ -347,7 +347,7 @@ def list_prompts(project_id: int,
         query, new_columns = add_my_liked(
             original_query=query,
             project_id=project_id,
-            entity_name='prompt',
+            entity=Prompt,
             filter_results=my_liked
         )
         extra_columns.extend(new_columns)

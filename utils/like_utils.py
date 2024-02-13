@@ -12,20 +12,17 @@ from tools import rpc_tools, db, auth
 def add_my_liked(
         original_query,
         project_id: int,
-        entity_name: Literal['prompt', 'collection'],
+        entity: db.Base,
         filter_results: bool = False,
-        entity = None,
 ) -> Tuple[Query, List[str]]:
     """
 
     :param original_query:
     :param project_id:
-    :param entity_name:
+    :param entity:
     :param filter_results: will filter results with only liked by user
     :return:
     """
-    if not entity:
-        entity = Prompt if entity_name == 'prompt' else Collection
     Like = rpc_tools.RpcMixin().rpc.timeout(2).social_get_like_model()
 
     user_likes_subquery: Subquery = (
@@ -36,7 +33,7 @@ def add_my_liked(
             ).label('user_liked')
         )
         .filter(
-            Like.entity == entity_name,
+            Like.entity == entity.likes_entity_name,
             Like.project_id == project_id,
             # Like.user_id == auth.current_user().get('id')
         )
@@ -62,15 +59,11 @@ def add_my_liked(
 def add_likes(
         original_query,
         project_id: int,
-        entity_name: Literal['prompt', 'collection', 'datasource'],
+        entity: db.Base,
         sort_by_likes: bool = False,
-        sort_order: str = 'desc',
-        entity = None,
+        sort_order: str = 'desc'
 
 ) -> Tuple[Query, List[str]]:
-    if not entity:
-        entity = Prompt if entity_name == 'prompt' else Collection
-
     Like = rpc_tools.RpcMixin().rpc.timeout(2).social_get_like_model()
 
     likes_subquery: Subquery = (
@@ -79,7 +72,7 @@ def add_likes(
             func.count(Like.id).label('likes_count')
         )
         .filter(
-            Like.entity == entity_name,
+            Like.entity == entity.likes_entity_name,
             Like.project_id == project_id
         )
         .group_by(Like.entity_id)
@@ -105,22 +98,19 @@ def add_likes(
 def add_trending_likes(
         original_query,
         project_id: int,
-        entity_name: Literal['prompt', 'collection'],
+        entity: db.Base,
         trend_period: Optional[Tuple[datetime, datetime]],
-        filter_results: bool = False,
-        entity = None,
+        filter_results: bool = False
 ) -> Tuple[Query, List[str]]:
     """
 
     :param original_query:
     :param project_id:
-    :param entity_name:
+    :param entity:
     :param trend_period:
     :param filter_results: if true will filter results with trending likes > 0
     :return:
     """
-    if not entity:
-        entity = Prompt if entity_name == 'prompt' else Collection
     Like = rpc_tools.RpcMixin().rpc.timeout(2).social_get_like_model()
 
     trend_subquery = (
@@ -129,7 +119,7 @@ def add_trending_likes(
             func.count(Like.id).label('trend_likes_count')
         )
         .filter(
-            Like.entity == entity_name,
+            Like.entity == entity.likes_entity_name,
             Like.project_id == project_id,
             Like.created_at.between(*trend_period),
         )
