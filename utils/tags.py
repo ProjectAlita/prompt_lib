@@ -82,7 +82,6 @@ class TagList(metaclass=TagListABC):
         entity_query, new_columns = add_likes(
             original_query=entity_query,
             project_id=self.project_id,
-            entity_name=self.entity_name,
             entity=self.Entity
         )
         extra_columns.extend(new_columns)
@@ -90,7 +89,6 @@ class TagList(metaclass=TagListABC):
             entity_query, new_columns = add_trending_likes(
                 original_query=entity_query,
                 project_id=self.project_id,
-                entity_name=self.entity_name,
                 trend_period=self.trend_period,
                 filter_results=True,
                 entity=self.Entity,
@@ -100,7 +98,6 @@ class TagList(metaclass=TagListABC):
             entity_query, new_columns = add_my_liked(
                 original_query=entity_query,
                 project_id=self.project_id,
-                entity_name=self.entity_name,
                 filter_results=True,
                 entity=self.Entity
             )
@@ -208,13 +205,13 @@ class PromptTagList(TagList):
             query, new_columns = add_likes(
                 original_query=query,
                 project_id=self.project_id,
-                entity_name='collection',
+                entity=Collection,
             )
             extra_columns.extend(new_columns)
             query, new_columns = add_my_liked(
                 original_query=query,
                 project_id=self.project_id,
-                entity_name='collection',
+                entity=Collection,
                 filter_results=True
             )
             extra_columns.extend(new_columns)
@@ -228,7 +225,6 @@ class PromptTagList(TagList):
         self.Entity = Prompt
         self.Version = PromptVersion
         self.VersionTagAssociation = PromptVersionTagAssociation
-        self.entity_name = "prompt"
         self.foriegn_key = "prompt_id"
         self.count_name = "prompt_count"
 
@@ -242,7 +238,6 @@ class DatasourceTagList(TagList):
         self.Entity = self.rpc.datasources_get_datasource_model()
         self.Version = self.rpc.datasources_get_version_model()
         self.VersionTagAssociation = self.rpc.datasources_get_version_association_model()
-        self.entity_name = 'datasource'
         self.foriegn_key = 'datasource_id'
         self.count_name = "datasource_count"
 
@@ -252,7 +247,7 @@ class AllTagList(TagList):
         pass
 
 
-def get_tags(project_id, args):
+def list_tags(project_id, args):
     entity_coverage = args.get("entity_coverage", default="all")
     TagClass: TagList = TagListABC.meta_registry.get(entity_coverage)
     return TagClass(project_id, args).get_tags()
