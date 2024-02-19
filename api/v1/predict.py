@@ -250,6 +250,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         model_settings = payload.model_settings.dict()
         model_settings.update(payload.model_settings.model.dict())
+
+        if "model_name" not in model_settings and "name" in model_settings:
+            model_settings["model_name"] = model_settings["name"]
+
         log.info('prompt messages----')
         log.info(messages)
         result = AIProvider.predict(
