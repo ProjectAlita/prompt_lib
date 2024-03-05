@@ -26,7 +26,6 @@ class PromptVersionListModel(BaseModel):
     class Config:
         orm_mode = True
         fields = {
-            'author_id': {'exclude': True},
             'tags': {'exclude': True},
         }
 
