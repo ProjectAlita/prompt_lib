@@ -22,6 +22,13 @@ class PromptVersionListModel(BaseModel):
     created_at: datetime  # probably delete this
     author_id: int
     tags: List[PromptTagListModel]
+    author: Optional[AuthorBaseModel]
+
+    @validator('author', always=True)
+    def add_author_data(cls, value: dict, values: dict) -> AuthorBaseModel:
+        authors_data: list = get_authors_data(author_ids=[values['author_id']])
+        if authors_data:
+            return AuthorBaseModel(**authors_data[0])
 
     class Config:
         orm_mode = True
