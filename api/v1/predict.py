@@ -162,7 +162,7 @@ class ProjectAPI(api_tools.APIModeHandler):
         return result['response'], 200
 
 
-from jinja2 import Environment, DebugUndefined, meta
+from jinja2 import Environment, DebugUndefined, meta, TemplateSyntaxError
 
 
 def _resolve_variables(text, vars) -> str:
@@ -205,7 +205,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 # }, 200
         # elif not payload.context:
         #     return {'error': 'Context cannot be empty'}, 400
-        log.info(f'payload {payload}')
+        log.info(f'{payload=}')
 
         try:
             integration = AIProvider.get_integration(
@@ -234,13 +234,15 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
             if payload.user_input:
                 user = auth.current_user()
-                messages.append(PromptMessagePredictModel(
-                    role=MessageRoles.user,
-                    content=payload.user_input,
-                    name=user.get('name')
-                ).dict(exclude_unset=True)
-                                )
-
+                messages.append(
+                    PromptMessagePredictModel(
+                        role=MessageRoles.user,
+                        content=payload.user_input,
+                        name=user.get('name')
+                    ).dict(exclude_unset=True)
+                )
+        except TemplateSyntaxError:
+            return {'ok': False, 'msg': 'Invalid Template Syntax', 'loc': []}, 400
         except Exception as e:
             log.error("************* AIProvider.get_integration and self.module.prepare_prompt_struct")
             log.error(str(e))
