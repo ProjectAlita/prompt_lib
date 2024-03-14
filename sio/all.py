@@ -95,7 +95,10 @@ class SIO:  # pylint: disable=E1101,R0903
         settings = {**integration.settings, **payload.model_settings.merged}
         log.info(f'{settings=}')
         api_token = SecretField.parse_obj(settings["api_token"])
-        api_token = api_token.unsecret(integration.project_id)
+        try:
+            api_token = api_token.unsecret(integration.project_id)
+        except AttributeError:
+            api_token = api_token.unsecret(None)
 
         chat = AzureChatOpenAI(
             api_key=api_token,
