@@ -1,7 +1,8 @@
+import uuid
 from typing import Optional, List
 
-from pydantic import BaseModel, validator
-from .base import PromptVersionBaseModel, PromptVariableBaseModel, PromptMessageBaseModel, ModelSettingsBaseModel
+from pydantic import BaseModel, validator, Field
+from .base import PromptVariableBaseModel, PromptMessageBaseModel, ModelSettingsBaseModel
 from ..enums.all import PromptVersionType
 from pylon.core.tools import log
 import re
@@ -31,6 +32,13 @@ class PromptVersionPredictModel(BaseModel):
 
     def merge_update(self, other: 'PromptVersionPredictModel') -> 'PromptVersionPredictModel':
         this = self.dict(exclude_unset=True, exclude_none=True, exclude_defaults=True)
-        updater = other.dict(exclude_unset=True, exclude_none=True, exclude_defaults=True)
+        updater = other.dict(exclude_unset=True, exclude_none=True, )
         this.update(updater)
         return self.__class__.parse_obj(this)
+
+
+class PromptVersionPredictStreamModel(PromptVersionPredictModel):
+    project_id: int
+    prompt_version_id: Optional[int] = None
+    message_id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_name: Optional[str] = None
