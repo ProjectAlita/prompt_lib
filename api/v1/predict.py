@@ -8,7 +8,6 @@ from pydantic import ValidationError
 from ....integrations.models.pd.integration import SecretField
 from ...models.all import PromptVersion
 from ...models.pd.legacy.prompts_pd import PredictPostModel
-from ...models.pd.predict import PromptVersionPredictStreamModel
 from ...utils.ai_providers import AIProvider
 from traceback import format_exc
 
@@ -184,7 +183,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             raw_data['user_name'] = user.get('name')
 
         try:
-            payload = prepare_payload(data=raw_data, pd_model=PromptVersionPredictStreamModel)
+            payload = prepare_payload(data=raw_data)
         except ValidationError as e:
             return e.errors(), 400
 
@@ -197,27 +196,21 @@ class PromptLibAPI(api_tools.APIModeHandler):
             return {'ok': False, 'msg': str(e), 'loc': []}, 400
 
         log.info(f'{conversation=}')
-
-        integration = AIProvider.get_integration(
-            project_id=payload.project_id,
-            integration_uid=payload.model_settings.model.integration_uid,
-        )
-        settings = {**integration.settings, **payload.model_settings.merged}
-        log.info(f'{settings=}')
-        api_token = SecretField.parse_obj(settings["api_token"])
+        log.info(f'{payload.merged_settings=}')
+        api_token = SecretField.parse_obj(payload.merged_settings["api_token"])
         try:
-            api_token = api_token.unsecret(integration.project_id)
+            api_token = api_token.unsecret(payload.integration.project_id)
         except AttributeError:
             api_token = api_token.unsecret(None)
 
         chat = AzureChatOpenAI(
             api_key=api_token,
-            azure_endpoint=settings['api_base'],
-            azure_deployment=settings['name'],
-            api_version=settings['api_version'],
+            azure_endpoint=payload.merged_settings['api_base'],
+            azure_deployment=payload.merged_settings['name'],
+            api_version=payload.merged_settings['api_version'],
             streaming=False
         )
-        result = chat.invoke(input=conversation, config=settings)
+        result = chat.invoke(input=conversation, config=payload.merged_settings)
 
         return {'messages': [result.dict()]}, 200
 

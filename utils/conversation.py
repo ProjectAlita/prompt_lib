@@ -1,11 +1,11 @@
-from typing import Type, List
+from typing import List
 
 from jinja2 import TemplateSyntaxError, Environment, DebugUndefined
 
 from sqlalchemy.orm import joinedload
 from ..models.all import PromptVersion
 from ..models.enums.all import MessageRoles
-from ..models.pd.predict import PromptVersionPredictModel, PromptVersionPredictStreamModel, PromptMessagePredictModel
+from ..models.pd.predict import PromptVersionPredictModel, PromptMessagePredictModel
 from tools import db
 from pylon.core.tools import log
 
@@ -17,11 +17,8 @@ def _resolve_variables(text, vars) -> str:
     return template.render(vars)
 
 
-def prepare_payload(
-        data: dict,
-        pd_model: Type[PromptVersionPredictModel] | Type[PromptVersionPredictStreamModel]
-) -> PromptVersionPredictModel | PromptVersionPredictStreamModel:
-    payload = pd_model.parse_obj(data)
+def prepare_payload(data: dict) -> PromptVersionPredictModel:
+    payload = PromptVersionPredictModel.parse_obj(data)
     if payload.prompt_version_id:
         with db.with_project_schema_session(payload.project_id) as session:
             query_options = []
@@ -32,7 +29,7 @@ def prepare_payload(
 
             prompt_version = session.query(PromptVersion).options(*query_options).get(payload.prompt_version_id)
             prompt_version.project_id = payload.project_id
-            prompt_version_pd = pd_model.from_orm(prompt_version)
+            prompt_version_pd = PromptVersionPredictModel.from_orm(prompt_version)
             payload = prompt_version_pd.merge_update(payload)
     log.info(f'{payload=}')
     return payload
@@ -49,7 +46,7 @@ class CustomTemplateError(Exception):
         return [{'ok': False, 'msg': self.msg, 'type': self.type, 'loc': self.loc}]
 
 
-def prepare_conversation(payload: PromptVersionPredictStreamModel) -> List[dict]:
+def prepare_conversation(payload: PromptVersionPredictModel) -> List[dict]:
     variables = {v.name: v.value for v in payload.variables}
     messages = []
 

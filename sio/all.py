@@ -24,8 +24,6 @@ from pylon.core.tools import log, web  # pylint: disable=E0611,E0401,W0611
 
 from pydantic import ValidationError
 from ..models.enums.all import PromptVersionType
-from ..models.pd.predict import PromptVersionPredictStreamModel
-from ..utils.ai_providers import AIProvider
 from ..utils.conversation import prepare_payload, prepare_conversation, CustomTemplateError
 from ...integrations.models.pd.integration import SecretField
 from langchain_openai import AzureChatOpenAI
@@ -33,6 +31,33 @@ from langchain_openai import AzureChatOpenAI
 
 class SioEvents(str, Enum):
     promptlib_predict = 'promptlib_predict'
+
+
+class SioValidationError(Exception):
+    def __init__(self, sio, event: SioEvents, error, stream_id: str):
+        self.sio = sio
+        self.type = 'error'
+        self.event = event
+        self.error = error
+        self.stream_id = stream_id
+        self.emit_error()
+        super().__init__(error)
+
+    def emit_error(self) -> None:
+        room =get_event_room(
+            event_name=self.event,
+            room_id=self.stream_id
+        )
+        log.info(f'sio validation {self.event=}: {self.error=} : {self.stream_id=} room={room}')
+        self.sio.emit(
+            event=self.event,
+            data={
+                'content': self.error,
+                'type': self.type,
+                'stream_id': self.stream_id
+            },
+            room=room,
+        )
 
 
 def get_event_room(event_name: SioEvents, room_id: uuid) -> str:
@@ -58,19 +83,48 @@ class SIO:  # pylint: disable=E1101,R0903
     def predict(self, sid, data):
 
         try:
-            payload = prepare_payload(data=data, pd_model=PromptVersionPredictStreamModel)
+            payload = prepare_payload(data=data)
         except ValidationError as e:
-            return e.errors()
+            raise SioValidationError(
+                sio=self.context.sio,
+                event=SioEvents.promptlib_predict,
+                error=e.errors(),
+                stream_id=data.get("message_id")
+            )
 
         try:
             conversation = prepare_conversation(payload=payload)
         except CustomTemplateError as e:
-            return e.errors()
+            raise SioValidationError(
+                sio=self.context.sio,
+                event=SioEvents.promptlib_predict,
+                error=e.errors(),
+                stream_id=payload.message_id
+            )
         except Exception as e:
             log.exception("prepare_conversation")
-            return {'ok': False, 'msg': str(e), 'loc': []}
+            raise SioValidationError(
+                sio=self.context.sio,
+                event=SioEvents.promptlib_predict,
+                error={'ok': False, 'msg': str(e), 'loc': []},
+                stream_id=payload.message_id
+            )
 
         log.info(f'{conversation=}')
+        log.info(f'{payload.merged_settings=}')
+        api_token = SecretField.parse_obj(payload.merged_settings["api_token"])
+        try:
+            api_token = api_token.unsecret(payload.integration.project_id)
+        except AttributeError:
+            api_token = api_token.unsecret(None)
+
+        chat = AzureChatOpenAI(
+            api_key=api_token,
+            azure_endpoint=payload.merged_settings['api_base'],
+            azure_deployment=payload.merged_settings['name'],
+            api_version=payload.merged_settings['api_version'],
+            streaming=True
+        )
 
         stream_id = payload.message_id
         room = get_event_room(
@@ -87,27 +141,7 @@ class SIO:  # pylint: disable=E1101,R0903
             },
             room=room,
         )
-
-        integration = AIProvider.get_integration(
-            project_id=payload.project_id,
-            integration_uid=payload.model_settings.model.integration_uid,
-        )
-        settings = {**integration.settings, **payload.model_settings.merged}
-        log.info(f'{settings=}')
-        api_token = SecretField.parse_obj(settings["api_token"])
-        try:
-            api_token = api_token.unsecret(integration.project_id)
-        except AttributeError:
-            api_token = api_token.unsecret(None)
-
-        chat = AzureChatOpenAI(
-            api_key=api_token,
-            azure_endpoint=settings['api_base'],
-            azure_deployment=settings['name'],
-            api_version=settings['api_version'],
-            streaming=True
-        )
-        for chunk in chat.stream(input=conversation, config=settings):
+        for chunk in chat.stream(input=conversation, config=payload.merged_settings):
             data = chunk.dict()
             data['stream_id'] = stream_id
             if payload.type == PromptVersionType.freeform:
