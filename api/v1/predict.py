@@ -178,7 +178,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         raw_data = dict(request.json)
         raw_data['project_id'] = project_id
-        raw_data['prompt_version_id'] = project_id
+        raw_data['prompt_version_id'] = prompt_version_id
         if 'user_name' not in raw_data:
             user = auth.current_user()
             raw_data['user_name'] = user.get('name')
