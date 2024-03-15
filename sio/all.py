@@ -34,21 +34,25 @@ class SioEvents(str, Enum):
 
 
 class SioValidationError(Exception):
-    def __init__(self, sio, event: SioEvents, error, stream_id: str):
+    def __init__(self, sio, sid, event: SioEvents, error, stream_id: str):
         self.sio = sio
         self.type = 'error'
         self.event = event
         self.error = error
         self.stream_id = stream_id
+        self.sid = sid
+        self.room = get_event_room(
+            event_name=SioEvents.promptlib_predict,
+            room_id=stream_id
+        )
+        self.enter_room()
         self.emit_error()
         super().__init__(error)
 
+    def enter_room(self) -> None:
+        self.sio.enter_room(self.sid, self.room)
+
     def emit_error(self) -> None:
-        room =get_event_room(
-            event_name=self.event,
-            room_id=self.stream_id
-        )
-        log.info(f'sio validation {self.event=}: {self.error=} : {self.stream_id=} room={room}')
         self.sio.emit(
             event=self.event,
             data={
@@ -56,7 +60,7 @@ class SioValidationError(Exception):
                 'type': self.type,
                 'stream_id': self.stream_id
             },
-            room=room,
+            room=self.room,
         )
 
 
@@ -81,12 +85,12 @@ class SIO:  # pylint: disable=E1101,R0903
 
     @web.sio(SioEvents.promptlib_predict)
     def predict(self, sid, data):
-
         try:
             payload = prepare_payload(data=data)
         except ValidationError as e:
             raise SioValidationError(
                 sio=self.context.sio,
+                sid=sid,
                 event=SioEvents.promptlib_predict,
                 error=e.errors(),
                 stream_id=data.get("message_id")
@@ -97,6 +101,7 @@ class SIO:  # pylint: disable=E1101,R0903
         except CustomTemplateError as e:
             raise SioValidationError(
                 sio=self.context.sio,
+                sid=sid,
                 event=SioEvents.promptlib_predict,
                 error=e.errors(),
                 stream_id=payload.message_id
@@ -105,6 +110,7 @@ class SIO:  # pylint: disable=E1101,R0903
             log.exception("prepare_conversation")
             raise SioValidationError(
                 sio=self.context.sio,
+                sid=sid,
                 event=SioEvents.promptlib_predict,
                 error={'ok': False, 'msg': str(e), 'loc': []},
                 stream_id=payload.message_id
