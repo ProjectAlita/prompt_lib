@@ -143,6 +143,24 @@ class SIO:  # pylint: disable=E1101,R0903
                 openai_api_version=payload.merged_settings['api_version'],
                 streaming=True
             )
+            #
+            from langchain.schema import (
+                AIMessage,
+                HumanMessage,
+                SystemMessage,
+            )
+            from ..models.enums.all import MessageRoles
+            #
+            new_conversation = conversation
+            conversation = []
+            #
+            for item in new_conversation:
+                if item["role"] == MessageRoles.assistant:
+                    conversation.append(AIMessage(content=item["content"]))
+                elif item["role"] == MessageRoles.user:
+                    conversation.append(HumanMessage(content=item["content"]))
+                elif item["role"] == MessageRoles.system:
+                    conversation.append(SystemMessage(content=item["content"]))
 
         stream_id = payload.message_id
         room = get_event_room(

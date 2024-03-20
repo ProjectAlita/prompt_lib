@@ -222,6 +222,24 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 openai_api_version=payload.merged_settings['api_version'],
                 streaming=False
             )
+            #
+            from langchain.schema import (
+                AIMessage,
+                HumanMessage,
+                SystemMessage,
+            )
+            from ..models.enums.all import MessageRoles
+            #
+            new_conversation = conversation
+            conversation = []
+            #
+            for item in new_conversation:
+                if item["role"] == MessageRoles.assistant:
+                    conversation.append(AIMessage(content=item["content"]))
+                elif item["role"] == MessageRoles.user:
+                    conversation.append(HumanMessage(content=item["content"]))
+                elif item["role"] == MessageRoles.system:
+                    conversation.append(SystemMessage(content=item["content"]))
 
         result = chat.invoke(input=conversation, config=payload.merged_settings)
 
