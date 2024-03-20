@@ -1,6 +1,6 @@
 from pylon.core.tools import module, log
 
-from tools import db, theme
+from tools import db, theme, VaultClient
 
 
 class Module(module.ModuleModel):
@@ -10,9 +10,45 @@ class Module(module.ModuleModel):
 
     def init(self):
         self.descriptor.init_all()
-
         self.init_db()
-
+        #
+        if self.descriptor.config.get("auto_setup", False):
+            # Create public project
+            system_user = "system@centry.user"
+            try:
+                system_user_id = self.context.rpc_manager.call.auth_get_user(
+                    email=system_user,
+                )["id"]
+            except:  # pylint: disable=W0702
+                system_user_id = None
+            #
+            vault_client = VaultClient()
+            secrets = vault_client.get_all_secrets()
+            #
+            if "ai_project_id" not in secrets and system_user_id is not None:
+                #
+                public_project_name = self.descriptor.config.get(
+                    "public_project_name",
+                    "promptlib_public",
+                )
+                #
+                public_project_id = self.context.rpc_manager.call.projects_create_project(
+                    project_name=public_project_name,
+                    plugins=["configuration", "models"],
+                    admin_email=system_user,
+                    owner_id=system_user_id,
+                    roles=["editor", "viewer"],
+                )
+                #
+                if public_project_id is not None:
+                    secrets["ai_project_id"] = public_project_id
+                    vault_client.set_secrets(secrets)
+            # Activate personal project schedule
+            self.context.rpc_manager.call.scheduling_make_active(
+                "projects_create_personal_project",
+                True,
+            )
+        #
         try:
             theme.register_section(
                 "models",
