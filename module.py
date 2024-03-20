@@ -13,6 +13,23 @@ class Module(module.ModuleModel):
         self.init_db()
         #
         if self.descriptor.config.get("auto_setup", False):
+            # Check and create secrets
+            vault_client = VaultClient()
+            secrets = vault_client.get_all_secrets()
+            secrets_changed = False
+            #
+            setup_secrets = {
+                "ai_project_allowed_domains": self.descriptor.config.get(
+                    "ai_project_allowed_domains", ""
+                ),
+                "ai_project_roles": "viewer",
+                "ai_public_admin_role": "editor",
+            }
+            #
+            for key, value in setup_secrets.items():
+                if key not in secrets:
+                    secrets[key] = value
+                    secrets_changed = True
             # Create public project
             system_user = "system@centry.user"
             try:
@@ -21,9 +38,6 @@ class Module(module.ModuleModel):
                 )["id"]
             except:  # pylint: disable=W0702
                 system_user_id = None
-            #
-            vault_client = VaultClient()
-            secrets = vault_client.get_all_secrets()
             #
             if "ai_project_id" not in secrets and system_user_id is not None:
                 #
@@ -42,7 +56,10 @@ class Module(module.ModuleModel):
                 #
                 if public_project_id is not None:
                     secrets["ai_project_id"] = public_project_id
-                    vault_client.set_secrets(secrets)
+                    secrets_changed = True
+            # Save secrets if changes are made
+            if secrets_changed:
+                vault_client.set_secrets(secrets)
             # Activate personal project schedule
             self.context.rpc_manager.call.scheduling_make_active(
                 "projects_create_personal_project",
