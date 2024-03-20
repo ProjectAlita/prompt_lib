@@ -137,7 +137,7 @@ class SIO:  # pylint: disable=E1101,R0903
                 api_key=api_token,
                 azure_endpoint=payload.merged_settings['api_base'],
                 azure_deployment=payload.merged_settings['name'],
-                openai_api_version=payload.merged_settings['api_version'],
+                api_version="2023-03-15-preview",
                 streaming=True
             )
 
