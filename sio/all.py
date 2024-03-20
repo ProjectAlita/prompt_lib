@@ -135,12 +135,12 @@ class SIO:  # pylint: disable=E1101,R0903
                 api_version=payload.merged_settings['api_version'],
                 streaming=True
             )
-        except KeyError:
+        except:
             chat = AzureChatOpenAI(
-                api_key=api_token,
-                azure_endpoint=payload.merged_settings['api_base'],
-                azure_deployment=payload.merged_settings['name'],
-                api_version="2023-03-15-preview",
+                openai_api_key=api_token,
+                openai_api_base=payload.merged_settings['api_base'],
+                deployment_name=payload.merged_settings['name'],
+                openai_api_version=payload.merged_settings['api_version'],
                 streaming=True
             )
 
