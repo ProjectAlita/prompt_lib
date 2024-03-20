@@ -29,7 +29,7 @@ class Event:
             except KeyError:
                 log.critical('Secret for "ai_project_id" is not set')
                 return
-
+            #
             try:
                 ai_project_roles = secrets['ai_project_roles']
             except KeyError:
@@ -39,9 +39,21 @@ class Event:
                 except KeyError:
                     log.critical('Secret for "ai_project_roles" is not set')
                     return
+            #
+            global_admin_role = "admin"
+            global_user_roles = context.rpc_manager.call.auth_get_user_roles(
+                payload['user_id']
+            )
+            #
+            ai_moderator_role = "editor"  # get from ai_public_admin_role?
             ai_project_roles = [i.strip() for i in ai_project_roles.split(',')]
+            #
+            if self.descriptor.config.get("admins_are_moderators", False) and \
+                    global_admin_role in global_user_roles:
+                ai_project_roles.append(ai_moderator_role)
+            #
             log.info('Adding AI user %s to project %s with roles %s', payload, ai_project_id, ai_project_roles)
-
+            #
             context.rpc_manager.call.admin_add_user_to_project(
                 ai_project_id, payload['user_id'], ai_project_roles
             )
