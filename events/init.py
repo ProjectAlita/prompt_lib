@@ -5,7 +5,7 @@ from tools import VaultClient
 class Event:
 
     @web.event("pylon_modules_initialized")
-    def handle_new_ai_user(self, context, event, payload):
+    def handle_pylon_modules_initialized(self, context, event, payload):
         _ = context, event
         #
         event_pylon_id = payload
