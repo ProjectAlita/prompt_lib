@@ -24,6 +24,7 @@ class Module(module.ModuleModel):
                 ),
                 "ai_project_roles": "viewer",
                 "ai_public_admin_role": "editor",
+                "ai_project_api_url": "",
             }
             #
             for key, value in setup_secrets.items():
