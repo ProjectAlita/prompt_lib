@@ -45,9 +45,6 @@ class Event:
                 payload['user_id']
             )
             #
-            ai_system_role = "system"
-            ai_admin_role = "admin"
-            ai_moderator_role = "editor"  # get from ai_public_admin_role?
             ai_project_roles = [i.strip() for i in ai_project_roles.split(',')]
             #
             user_roles = context.rpc_manager.call.admin_get_user_roles(
@@ -60,23 +57,11 @@ class Event:
                 if target_role not in user_role_names:
                     target_roles.append(target_role)
             #
-            if self.descriptor.config.get("admins_are_ai_moderators", False) and \
-                    global_admin_role in global_user_roles:
-                target_role = ai_moderator_role
-                if target_role not in user_role_names:
-                    target_roles.append(target_role)
-            #
-            if self.descriptor.config.get("admins_are_ai_admins", False) and \
-                    global_admin_role in global_user_roles:
-                target_role = ai_admin_role
-                if target_role not in user_role_names:
-                    target_roles.append(target_role)
-            #
-            if self.descriptor.config.get("admins_are_ai_systems", False) and \
-                    global_admin_role in global_user_roles:
-                target_role = ai_system_role
-                if target_role not in user_role_names:
-                    target_roles.append(target_role)
+            if global_admin_role in global_user_roles:
+                additional_roles = self.descriptor.config.get("add_admin_roles", [])
+                for target_role in additional_roles:
+                    if target_role not in user_role_names:
+                        target_roles.append(target_role)
             #
             log.info(
                 'Adding AI user %s to project %s with new roles %s',
