@@ -6,7 +6,8 @@ from tools import auth
 
 from pydantic import BaseModel, root_validator, validator
 
-from .base import PromptTagBaseModel, AuthorBaseModel
+from ....promptlib_shared.models.pd.base import AuthorBaseModel
+from .base import PromptTagBaseModel
 from ..enums.all import PromptVersionStatus
 from ...utils.utils import determine_prompt_status, get_authors_data
 

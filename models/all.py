@@ -8,11 +8,7 @@ from sqlalchemy import Integer, String, DateTime, func, ForeignKey, JSON, Table,
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
-
-class AbstractLikesMixin:
-    @property
-    def likes_entity_name(self):
-        raise NotImplementedError
+from ...promptlib_shared.models.all import AbstractLikesMixin, PromptTag
 
 
 class Prompt(db_tools.AbstractBaseMixin, db.Base, AbstractLikesMixin):
@@ -100,17 +96,6 @@ class PromptMessage(db_tools.AbstractBaseMixin, db.Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True, onupdate=func.now())
     custom_content: Mapped[dict] = mapped_column(JSON, nullable=True)
     # todo: add order
-
-
-class PromptTag(db_tools.AbstractBaseMixin, db.Base):
-    __tablename__ = 'prompt_tags'
-    __table_args__ = ({'schema': c.POSTGRES_TENANT_SCHEMA},)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    # prompt_versions: Mapped[List['PromptVersion']] = relationship(secondary=lambda: PromptVersionTagAssociation, lazy=True)
-    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
-    data: Mapped[dict] = mapped_column(JSON, nullable=True)
-    # from_public = Column(Boolean, nullable=False, default=False)
 
 
 # log.info(f'db.Base.metadata, {db.Base.metadata}')

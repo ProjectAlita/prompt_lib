@@ -1,6 +1,7 @@
 from datetime import datetime
-from typing import Optional, List
-from .base import AuthorBaseModel
+from typing import Optional
+
+from ....promptlib_shared.models.pd.base import AuthorBaseModel
 
 
 class AuthorDetailModel(AuthorBaseModel):

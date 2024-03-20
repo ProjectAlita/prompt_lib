@@ -5,11 +5,11 @@ from pydantic import BaseModel, validator
 
 from tools import rpc_tools
 
+from ....promptlib_shared.models.pd.base import AuthorBaseModel
 from .base import (
     PromptTagBaseModel,
     PromptBaseModel,
     PromptVersionBaseModel,
-    AuthorBaseModel,
     PromptVariableBaseModel,
     PromptMessageBaseModel
 )
