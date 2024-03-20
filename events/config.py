@@ -45,7 +45,8 @@ class Event:
                 payload['user_id']
             )
             #
-            ai_admin_role = "admin"  # get from ai_public_admin_role?
+            ai_system_role = "system"
+            ai_admin_role = "admin"
             ai_moderator_role = "editor"  # get from ai_public_admin_role?
             ai_project_roles = [i.strip() for i in ai_project_roles.split(',')]
             #
@@ -59,15 +60,21 @@ class Event:
                 if target_role not in user_role_names:
                     target_roles.append(target_role)
             #
-            if self.descriptor.config.get("admins_are_moderators", False) and \
+            if self.descriptor.config.get("admins_are_ai_moderators", False) and \
                     global_admin_role in global_user_roles:
                 target_role = ai_moderator_role
                 if target_role not in user_role_names:
                     target_roles.append(target_role)
             #
-            if self.descriptor.config.get("admins_are_admins", False) and \
+            if self.descriptor.config.get("admins_are_ai_admins", False) and \
                     global_admin_role in global_user_roles:
                 target_role = ai_admin_role
+                if target_role not in user_role_names:
+                    target_roles.append(target_role)
+            #
+            if self.descriptor.config.get("admins_are_ai_systems", False) and \
+                    global_admin_role in global_user_roles:
+                target_role = ai_system_role
                 if target_role not in user_role_names:
                     target_roles.append(target_role)
             #
