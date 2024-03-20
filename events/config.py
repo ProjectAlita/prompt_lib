@@ -48,14 +48,30 @@ class Event:
             ai_moderator_role = "editor"  # get from ai_public_admin_role?
             ai_project_roles = [i.strip() for i in ai_project_roles.split(',')]
             #
+            user_roles = context.rpc_manager.call.admin_get_user_roles(
+                ai_project_id, payload['user_id']
+            )
+            user_role_names = [item["name"] for item in user_roles]
+            target_roles = []
+            #
+            for target_role in ai_project_roles:
+                if target_role not in user_role_names:
+                    target_roles.append(target_role)
+            #
             if self.descriptor.config.get("admins_are_moderators", False) and \
                     global_admin_role in global_user_roles:
-                ai_project_roles.append(ai_moderator_role)
+                target_role = ai_moderator_role
+                if target_role not in user_role_names:
+                    target_roles.append(target_role)
             #
-            log.info('Adding AI user %s to project %s with roles %s', payload, ai_project_id, ai_project_roles)
-            #
-            context.rpc_manager.call.admin_add_user_to_project(
-                ai_project_id, payload['user_id'], ai_project_roles
+            log.info(
+                'Adding AI user %s to project %s with new roles %s',
+                payload, ai_project_id, target_roles,
             )
+            #
+            if target_roles:
+                context.rpc_manager.call.admin_add_user_to_project(
+                    ai_project_id, payload['user_id'], target_roles
+                )
         else:
             log.warning('User with non-AI email registered %s', payload)
