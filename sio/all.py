@@ -26,7 +26,10 @@ from pydantic import ValidationError
 from ..models.enums.all import PromptVersionType
 from ..utils.conversation import prepare_payload, prepare_conversation, CustomTemplateError
 from ...integrations.models.pd.integration import SecretField
-from langchain_openai import AzureChatOpenAI
+try:
+    from langchain_openai import AzureChatOpenAI
+except:
+    from langchain.chat_models import AzureChatOpenAI
 
 
 class SioEvents(str, Enum):

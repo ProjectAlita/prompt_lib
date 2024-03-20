@@ -3,7 +3,10 @@ from typing import Optional
 from flask import request, g
 from pylon.core.tools import log
 import tiktoken
-from langchain_openai import AzureChatOpenAI
+try:
+    from langchain_openai import AzureChatOpenAI
+except:
+    from langchain.chat_models import AzureChatOpenAI
 from pydantic import ValidationError
 from ....integrations.models.pd.integration import SecretField
 from ...models.all import PromptVersion
