@@ -124,13 +124,22 @@ class SIO:  # pylint: disable=E1101,R0903
         except AttributeError:
             api_token = api_token.unsecret(None)
 
-        chat = AzureChatOpenAI(
-            api_key=api_token,
-            azure_endpoint=payload.merged_settings['api_base'],
-            azure_deployment=payload.merged_settings['name'],
-            api_version=payload.merged_settings['api_version'],
-            streaming=True
-        )
+        try:
+            chat = AzureChatOpenAI(
+                api_key=api_token,
+                azure_endpoint=payload.merged_settings['api_base'],
+                azure_deployment=payload.merged_settings['name'],
+                api_version=payload.merged_settings['api_version'],
+                streaming=True
+            )
+        except KeyError:
+            chat = AzureChatOpenAI(
+                api_key=api_token,
+                azure_endpoint=payload.merged_settings['api_base'],
+                azure_deployment=payload.merged_settings['name'],
+                openai_api_version=payload.merged_settings['api_version'],
+                streaming=True
+            )
 
         stream_id = payload.message_id
         room = get_event_room(
