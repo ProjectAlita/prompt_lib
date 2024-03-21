@@ -15,8 +15,8 @@ from tools import db, VaultClient, rpc_tools
 from .like_utils import add_likes, add_my_liked, add_trending_likes
 from .prompt_utils import set_columns_as_attrs
 from .utils import get_author_data, get_authors_data, add_public_project_id
-from ..models.enums.all import CollectionPatchOperations, CollectionStatus, PromptVersionStatus
-from ..models.all import Collection, Prompt, PromptVersion, PromptTag
+from ..models.enums.all import CollectionPatchOperations
+from ..models.all import Collection, Prompt, PromptVersion
 from ..models.pd.base import PromptTagBaseModel
 from ..models.pd.list import PublishedPromptListModel, PromptListModel
 from ..models.pd.collections import (
@@ -36,6 +36,7 @@ from .expceptions import (
 )
 
 from .searches import get_filter_collection_by_tags_condition, get_prompts_by_tags
+from ...promptlib_shared.models.enums.all import PublishStatus
 
 
 def check_prompts_addability(owner_id: int, user_id: int):
@@ -73,7 +74,7 @@ def get_prompts_for_collection(collection_prompts: List[Dict[str, int]], only_pu
 
     if only_public:
         filters.append(
-            Prompt.versions.any(PromptVersion.status == PromptVersionStatus.published)
+            Prompt.versions.any(PromptVersion.status == PublishStatus.published)
         )
 
     grouped_prompts = group_by_project_id(collection_prompts)
@@ -155,7 +156,7 @@ def get_prompts_for_collection(collection_prompts: List[Dict[str, int]], only_pu
 #         session = db.get_project_schema_session(project_id)
 
 #     prompt_ids = session.query(Prompt.id).filter(
-#         Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags)))
+#         Prompt.versions.any(PromptVersion.tags.any(Tag.id.in_(tags)))
 #     ).all()
 
 #     if not prompt_ids:
@@ -599,7 +600,7 @@ class CollectionPublishing:
                         ) for data in public_prompts
                     ]
                 ),
-                Prompt.versions.any(PromptVersion.status == PromptVersionStatus.published)
+                Prompt.versions.any(PromptVersion.status == PublishStatus.published)
             ).all()
             
             if not prompt_ids:
@@ -609,7 +610,7 @@ class CollectionPublishing:
         return result
 
     @staticmethod
-    def set_status(project_id, collection_id, status: CollectionStatus, session=None):
+    def set_status(project_id, collection_id, status: PublishStatus, session=None):
         if session is None:
             session = db.get_project_schema_session(project_id)
 
@@ -630,13 +631,13 @@ class CollectionPublishing:
         # changing the status of collection
         with db.with_project_schema_session(project_id) as session:
             collection = CollectionPublishing.set_status(
-                    project_id, collection_id, CollectionStatus.published, session
+                    project_id, collection_id, PublishStatus.published, session
             )
             #
             fire_public_collection_status_change_event(
                 collection.shared_owner_id,
                 collection.shared_id,
-                CollectionStatus.published
+                PublishStatus.published
             )
             collection_model = CollectionShortDetailModel.from_orm(collection)
         return {"ok": True, "result": json.loads(collection_model.json())}
@@ -647,18 +648,18 @@ class CollectionPublishing:
         # changing the status of collection
         with db.with_project_schema_session(project_id) as session:
             collection = CollectionPublishing.set_status(
-                    project_id, collection_id, CollectionStatus.rejected, session
+                    project_id, collection_id, PublishStatus.rejected, session
             )
             #
             fire_public_collection_status_change_event(
                 collection.shared_owner_id,
                 collection.shared_id,
-                CollectionStatus.rejected
+                PublishStatus.rejected
             )
             collection_model = CollectionShortDetailModel.from_orm(collection)
         return {"ok": True, "result": json.loads(collection_model.json())}
 
-    def set_statuses(self, public_collection_data: Collection, status: CollectionStatus):
+    def set_statuses(self, public_collection_data: Collection, status: PublishStatus):
         # set public collection
         collection_id = public_collection_data.id
         self.set_status(self._public_id, collection_id, status)
@@ -690,8 +691,8 @@ class CollectionPublishing:
             collection_data['prompts'] = self.get_public_prompts_of_collection(collection_data['prompts'])
 
         new_collection = create_collection(self._public_id, collection_data)
-        self.set_statuses(new_collection, CollectionStatus.on_moderation)
-        new_collection.status = CollectionStatus.on_moderation
+        self.set_statuses(new_collection, PublishStatus.on_moderation)
+        new_collection.status = PublishStatus.on_moderation
         result = get_detail_collection(new_collection)
         return {
             "ok": True,
@@ -721,7 +722,7 @@ def unpublish(current_user_id, project_id, collection_id):
                 "error_code": 403
             }
 
-        if collection.status  == CollectionStatus.draft:
+        if collection.status  == PublishStatus.draft:
             return {"ok": False, "error": "Collection is not public yet"}
 
         collection_data = collection.to_json()

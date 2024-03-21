@@ -1,7 +1,7 @@
 from pylon.core.tools import log, web
 
 from tools import db
-from ..models.all import SearchRequest, PromptTag
+from ..models.all import SearchRequest
 
 
 class Event:
@@ -14,8 +14,8 @@ class Event:
         keywords.extend(keywords)
 
         with db.with_project_schema_session(project_id) as session:
-            tags = session.query(PromptTag).filter(
-                PromptTag.id.in_(tag_ids)
+            tags = session.query(Tag).filter(
+                Tag.id.in_(tag_ids)
             ).all()
             for tag in tags:
                 keywords.append(tag.name)

@@ -6,6 +6,7 @@ from ...utils.prompt_utils import get_all_ranked_tags, get_prompt_tags
 from ...utils.prompt_utils_legacy import get_all_tags, get_tags, update_tags
 
 from ...utils.constants import PROMPT_LIB_MODE
+from ...utils.tags import list_tags
 
 class ProjectAPI(api_tools.APIModeHandler):
 
@@ -45,7 +46,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def get(self, project_id, prompt_id=None):
         if prompt_id:
             return get_prompt_tags(project_id, prompt_id), 200
-        return get_all_ranked_tags(project_id, request.args), 200
+        return list_tags(project_id, request.args), 200
 
 
 class API(api_tools.APIBase):

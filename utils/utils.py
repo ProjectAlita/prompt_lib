@@ -8,16 +8,16 @@ from sqlalchemy import func
 from tools import db, VaultClient, auth, rpc_tools
 from ..models.all import Prompt, PromptVersion, Collection
 from ..models.pd.authors import AuthorDetailModel, TrendingAuthorModel
-from ..models.enums.all import PromptVersionStatus
+from ...promptlib_shared.models.enums.all import PublishStatus
 
 
-def determine_prompt_status(version_statuses: Set[PromptVersionStatus]) -> PromptVersionStatus:
+def determine_prompt_status(version_statuses: Set[PublishStatus]) -> PublishStatus:
     status_priority = (
-        PromptVersionStatus.rejected,
-        PromptVersionStatus.on_moderation,
-        PromptVersionStatus.published,
-        PromptVersionStatus.draft,
-        # PromptVersionStatus.user_approval,
+        PublishStatus.rejected,
+        PublishStatus.on_moderation,
+        PublishStatus.published,
+        PublishStatus.draft,
+        # PublishStatus.user_approval,
     )
 
     for status in status_priority:

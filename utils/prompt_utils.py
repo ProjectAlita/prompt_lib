@@ -10,15 +10,16 @@ from tools import db, auth, rpc_tools
 from pylon.core.tools import log
 
 from .like_utils import add_likes, add_trending_likes, add_my_liked
-from ..models.all import Collection, Prompt, PromptVersion, PromptVariable, PromptMessage, PromptTag, \
+from ..models.all import Collection, Prompt, PromptVersion, PromptVariable, PromptMessage, \
     PromptVersionTagAssociation
 from ..models.pd.legacy.variable import VariableModel
 from ..models.pd.update import PromptVersionUpdateModel
 from ..models.pd.detail import PromptDetailModel, PromptVersionDetailModel, PublishedPromptDetailModel
 from ..models.pd.list import PromptTagListModel
-from ..models.enums.all import PromptVersionStatus
 
 from .searches import get_prompts_by_tags
+from ...promptlib_shared.models.all import Tag
+from ...promptlib_shared.models.enums.all import PublishStatus
 
 
 def create_variables_bulk(project_id: int, variables: List[dict], **kwargs) -> List[dict]:
@@ -44,8 +45,8 @@ def prompts_create_variable(project_id: int, variable: dict, **kwargs) -> dict:
 def get_prompt_tags(project_id: int, prompt_id: int) -> List[dict]:
     with db.with_project_schema_session(project_id) as session:
         query = (
-            session.query(PromptTag)
-            .join(PromptVersionTagAssociation, PromptVersionTagAssociation.c.tag_id == PromptTag.id)
+            session.query(Tag)
+            .join(PromptVersionTagAssociation, PromptVersionTagAssociation.c.tag_id == Tag.id)
             .join(PromptVersion, PromptVersion.id == PromptVersionTagAssociation.c.version_id)
             .filter(PromptVersion.prompt_id == prompt_id)
             .order_by(PromptVersion.id)
@@ -165,27 +166,27 @@ def get_all_ranked_tags(project_id: int, args: MultiDict) -> dict:
         # Main query
         tag_filters = [PromptVersion.prompt_id.in_(prompt_subquery)]
         if search := args.get("search"):
-            tag_filters.append(PromptTag.name.ilike(f"%{search}%"))
+            tag_filters.append(Tag.name.ilike(f"%{search}%"))
 
         query = (
             session.query(
-                PromptTag.id,
-                PromptTag.name,
-                cast(PromptTag.data, String),
+                Tag.id,
+                Tag.name,
+                cast(Tag.data, String),
                 func.count(func.distinct(PromptVersion.prompt_id))
             )
             .filter(*tag_filters)
-            .join(PromptVersionTagAssociation, PromptVersionTagAssociation.c.tag_id == PromptTag.id)
+            .join(PromptVersionTagAssociation, PromptVersionTagAssociation.c.tag_id == Tag.id)
             .join(PromptVersion, PromptVersion.id == PromptVersionTagAssociation.c.version_id)
-            .group_by(PromptTag.id, PromptTag.name, cast(PromptTag.data, String))
+            .group_by(Tag.id, Tag.name, cast(Tag.data, String))
             .order_by(func.count(func.distinct(PromptVersion.prompt_id)).desc())
         )
         total = query.count()
 
         # if sort_order.lower() == "asc":
-        #     query = query.order_by(getattr(PromptTag, sort_by, sort_by))
+        #     query = query.order_by(getattr(Tag, sort_by, sort_by))
         # else:
-        #     query = query.order_by(desc(getattr(PromptTag, sort_by, sort_by)))
+        #     query = query.order_by(desc(getattr(Tag, sort_by, sort_by)))
         if limit:
             query = query.limit(limit)
         if offset:
@@ -263,12 +264,12 @@ def prompts_update_version(project_id: int, version_data: PromptVersionUpdateMod
             _update_related_table(session, version, version_data.messages, PromptMessage)
 
             version.tags.clear()
-            existing_tags = session.query(PromptTag).filter(
-                PromptTag.name.in_({i.name for i in version_data.tags})
+            existing_tags = session.query(Tag).filter(
+                Tag.name.in_({i.name for i in version_data.tags})
             ).all()
             existing_tags_map = {i.name: i for i in existing_tags}
             for tag in version_data.tags:
-                prompt_tag = existing_tags_map.get(tag.name, PromptTag(**tag.dict()))
+                prompt_tag = existing_tags_map.get(tag.name, Tag(**tag.dict()))
                 version.tags.append(prompt_tag)
 
             session.add(version)
@@ -431,7 +432,7 @@ def get_published_prompt_details(project_id: int, prompt_id: int, version_name: 
     with db.with_project_schema_session(project_id) as session:
         filters = [
             PromptVersion.prompt_id == prompt_id,
-            PromptVersion.status == PromptVersionStatus.published
+            PromptVersion.status == PublishStatus.published
         ]
         if version_name:
             filters.append(PromptVersion.name == version_name)
@@ -484,7 +485,7 @@ def list_prompts_api(
             tags = [int(tag) for tag in tags.split(',')]
         prompts_subq = get_prompts_by_tags(project_id, tags)
         filters.append(Prompt.id.in_(prompts_subq))
-        # filters.append(Prompt.versions.any(PromptVersion.tags.any(PromptTag.id.in_(tags))))
+        # filters.append(Prompt.versions.any(PromptVersion.tags.any(Tag.id.in_(tags))))
 
     if author_id:
         filters.append(Prompt.versions.any(PromptVersion.author_id == author_id))

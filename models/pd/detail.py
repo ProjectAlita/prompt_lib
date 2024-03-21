@@ -5,16 +5,16 @@ from pydantic import BaseModel, validator
 
 from tools import rpc_tools
 
-from ....promptlib_shared.models.pd.base import AuthorBaseModel
+from ....promptlib_shared.models.enums.all import PublishStatus
 from .base import (
     PromptTagBaseModel,
     PromptBaseModel,
     PromptVersionBaseModel,
+    AuthorBaseModel,
     PromptVariableBaseModel,
     PromptMessageBaseModel
 )
 from .list import PromptVersionListModel
-from ..enums.all import PromptVersionStatus
 from ...utils.utils import get_authors_data
 
 
@@ -36,7 +36,7 @@ class PromptVariableDetailModel(PromptVariableBaseModel):
 
 class PromptVersionDetailModel(PromptVersionBaseModel):
     id: int
-    status: PromptVersionStatus
+    status: PublishStatus
     created_at: datetime
     variables: Optional[List[PromptVariableDetailModel]]
     messages: Optional[List[PromptMessageDetailModel]]
@@ -92,7 +92,7 @@ class PublishedPromptDetailModel(PromptDetailModel):
 
     @validator('versions')
     def check_versions(cls, value: list) -> list:
-        return [version for version in value if version.status == PromptVersionStatus.published]
+        return [version for version in value if version.status == PublishStatus.published]
 
     def get_likes(self, project_id: int) -> None:
         try:

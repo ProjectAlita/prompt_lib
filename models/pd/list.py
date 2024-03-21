@@ -5,10 +5,9 @@ from pylon.core.tools import log
 from tools import auth
 
 from pydantic import BaseModel, root_validator, validator
+from ....promptlib_shared.models.enums.all import PublishStatus
 
-from ....promptlib_shared.models.pd.base import AuthorBaseModel
-from .base import PromptTagBaseModel
-from ..enums.all import PromptVersionStatus
+from .base import PromptTagBaseModel, AuthorBaseModel
 from ...utils.utils import determine_prompt_status, get_authors_data
 
 
@@ -19,7 +18,7 @@ class PromptTagListModel(PromptTagBaseModel):
 class PromptVersionListModel(BaseModel):
     id: int
     name: str
-    status: PromptVersionStatus
+    status: PublishStatus
     created_at: datetime  # probably delete this
     author_id: int
     tags: List[PromptTagListModel]
@@ -48,7 +47,7 @@ class PromptListModel(BaseModel):
     author_ids: set[int] = set()
     authors: List[AuthorBaseModel] = []
     tags: Optional[PromptTagBaseModel]
-    status: Optional[PromptVersionStatus]
+    status: Optional[PublishStatus]
 
     class Config:
         orm_mode = True
