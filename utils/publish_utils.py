@@ -7,12 +7,12 @@ from pylon.core.tools import log
 
 from ..models.all import Prompt, PromptVersion
 from ..models.pd.create import PromptVersionBaseModel
-from ..models.enums.all import PromptVersionStatus
 from .create_utils import create_version
 from ..models.pd.detail import PromptVersionDetailModel
+from ...promptlib_shared.models.enums.all import PublishStatus
 
 
-def set_status(project_id: int, prompt_version_name_or_id: int | str, status: PromptVersionStatus, return_data=False) -> dict:
+def set_status(project_id: int, prompt_version_name_or_id: int | str, status: PublishStatus, return_data=False) -> dict:
     f = [PromptVersion.name == prompt_version_name_or_id]
     if isinstance(prompt_version_name_or_id, int):
         f = [PromptVersion.id == prompt_version_name_or_id]
@@ -89,7 +89,7 @@ class Publishing(rpc_tools.EventManagerMixin):
             version = session.query(PromptVersion).get(self.original_version)
             if not version:
                 return {"ok": False, "error": f"Prompt version with id '{self.original_version}' not found"}
-            version.status = PromptVersionStatus.on_moderation
+            version.status = PublishStatus.on_moderation
             session.commit()
         return {"ok": True}
 
@@ -173,7 +173,7 @@ class Publishing(rpc_tools.EventManagerMixin):
         if not result['ok']:
             return result
 
-        result = self.set_statuses(PromptVersionStatus.on_moderation)
+        result = self.set_statuses(PublishStatus.on_moderation)
         if not result['ok']:
             return result
 
@@ -205,7 +205,7 @@ class Publishing(rpc_tools.EventManagerMixin):
 
             return exists_query
     
-    def set_statuses(self, status: PromptVersionStatus):
+    def set_statuses(self, status: PublishStatus):
         if not (self.public_version_id and self.original_project):
             return
 
@@ -236,7 +236,7 @@ def close_private_version(shared_owner_id, shared_id, session):
         log.warning(f"Private prompt version is not found(shared_id={shared_id}, shared_owner_id={shared_owner_id})")
         return
 
-    version.status = PromptVersionStatus.draft
+    version.status = PublishStatus.draft
 
 
 def close_private_versions(shared_owner_id, shared_id):
@@ -247,7 +247,7 @@ def close_private_versions(shared_owner_id, shared_id):
             return
         
         session.query(PromptVersion).filter_by(prompt_id=prompt.id).update({
-            PromptVersion.status: PromptVersionStatus.draft
+            PromptVersion.status: PublishStatus.draft
         })
 
         session.commit()
@@ -372,7 +372,7 @@ def unpublish(current_user_id, project_id, version_id):
                 "error_code": 403
             }
 
-        if version.status in [PromptVersionStatus.draft, PromptVersionStatus.rejected]:
+        if version.status in [PublishStatus.draft, PublishStatus.rejected]:
             return {"ok": False, "error": "Version is not public yet"}
         
         version_data = version.to_json()

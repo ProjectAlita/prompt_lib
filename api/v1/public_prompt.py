@@ -1,7 +1,4 @@
 import json
-
-from flask import request
-from pydantic import ValidationError
 from pylon.core.tools import log
 
 from ...utils.prompt_utils import get_published_prompt_details
@@ -17,7 +14,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         "permissions": ["models.prompt_lib.public_prompt.details"],
         "recommended_roles": {
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": True},
         }})
     @api_tools.endpoint_metrics
     def get(self, prompt_id: int, version_name: str = None, *, project_id, **kwargs):

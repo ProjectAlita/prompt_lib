@@ -68,9 +68,11 @@ class Module(module.ModuleModel):
 
     def init_db(self):
         from .models.all import (
-            Prompt, PromptVersion,
-            PromptTag, PromptMessage,
-            PromptVariable, PromptVersionTagAssociation,
+            Prompt,
+            PromptVersion,
+            PromptMessage,
+            PromptVariable,
+            PromptVersionTagAssociation,
             SearchRequest,
         )
         project_list = self.context.rpc_manager.call.project_list()

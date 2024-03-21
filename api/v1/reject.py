@@ -1,6 +1,6 @@
+from ....promptlib_shared.models.enums.all import PublishStatus
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.publish_utils import set_public_version_status
-from ...models.enums.all import PromptVersionStatus
 from pylon.core.tools import log
 from tools import api_tools, auth, config as c
 
@@ -18,7 +18,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
     @api_tools.endpoint_metrics
     def post(self, version_id: int, **kwargs):
         try:
-            result = set_public_version_status(version_id, PromptVersionStatus.rejected)
+            result = set_public_version_status(version_id, PublishStatus.rejected)
         except Exception as e:
             log.error(e)
             return {"ok": False, "error": str(e)}, 400

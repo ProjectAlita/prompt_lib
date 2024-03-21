@@ -3,11 +3,10 @@ from typing import List
 from tools import db
 from pylon.core.tools import log
 from ..models.all import (
-    SearchRequest, 
-    Prompt, 
-    PromptTag, 
+    SearchRequest,
+    Prompt,
     PromptVersion,
-    PromptVersionTagAssociation, 
+    PromptVersionTagAssociation,
     Collection,
 )
 from sqlalchemy import desc, asc, or_, and_, func, distinct, cast, String
@@ -15,6 +14,7 @@ from tools import api_tools
 from flask import request
 from sqlalchemy.orm import joinedload
 from .expceptions import NotFound
+from ...promptlib_shared.models.all import Tag
 
 
 def list_search_requests(project_id, args):
@@ -32,7 +32,7 @@ def list_search_requests(project_id, args):
         return total, query.all()
 
 
-def get_search_options(project_id, Model, PDModel, joinedload_, args_prefix, filters = None):
+def get_search_options(project_id, Model, PDModel, joinedload_, args_prefix, filters=None):
     query = request.args.get('query', '')
     search_query = f"%{query}%"
 
@@ -63,12 +63,12 @@ def get_search_options(project_id, Model, PDModel, joinedload_, args_prefix, fil
 
 
 def get_tag_filter(
-        project_id, 
-        author_id: int=None, 
-        statuses: List[str]=None,
-        tags: List[int] = None, 
+        project_id,
+        author_id: int = None,
+        statuses: List[str] = None,
+        tags: List[int] = None,
         session=None
-    ):
+):
     if session is None:
         session = db.get_project_schema_session(project_id)
 
@@ -80,7 +80,7 @@ def get_tag_filter(
     filters = []
     if author_id:
         filters.append(Prompt.versions.any(PromptVersion.author_id == author_id))
-    
+
     if statuses:
         filters.append(Prompt.versions.any(PromptVersion.status.in_(statuses)))
 
@@ -89,20 +89,20 @@ def get_tag_filter(
         filters.append(
             Prompt.id.in_(prompts_subq)
         )
-        
+
     prompt_query = prompt_query.filter(*filters)
     prompt_query = prompt_query.with_entities(Prompt.id)
     prompt_subquery = prompt_query.subquery()
-    
 
     query = (
-        session.query(PromptTag.id)
+        session.query(Tag.id)
         .filter(PromptVersion.prompt_id.in_(prompt_subquery))
-        .join(PromptVersionTagAssociation, PromptVersionTagAssociation.c.tag_id == PromptTag.id)
+        .join(PromptVersionTagAssociation, PromptVersionTagAssociation.c.tag_id == Tag.id)
         .join(PromptVersion, PromptVersion.id == PromptVersionTagAssociation.c.version_id)
-        .group_by(PromptTag.id)
+        .group_by(Tag.id)
     ).subquery()
-    return PromptTag.id.in_(query)
+    return Tag.id.in_(query)
+
 
 def get_prompts_by_tags(project_id, tags: List[int], session=None, subquery=True):
     session_created = False
@@ -111,14 +111,14 @@ def get_prompts_by_tags(project_id, tags: List[int], session=None, subquery=True
         session = db.get_project_schema_session(project_id)
         session_created = True
 
-    query =  (
+    query = (
         session.query(Prompt.id)
         .join(Prompt.versions)
         .join(PromptVersion.tags)
-        .filter(PromptTag.id.in_(tags))
+        .filter(Tag.id.in_(tags))
         .group_by(Prompt.id)
         .having(
-            func.count(distinct(PromptTag.id)) == len(tags)
+            func.count(distinct(Tag.id)) == len(tags)
         )
     )
     if not subquery:
@@ -126,10 +126,10 @@ def get_prompts_by_tags(project_id, tags: List[int], session=None, subquery=True
         result = [prompt.id for prompt in prompts]
     else:
         result = query.subquery()
-    
+
     if session_created:
         session.close()
-    
+
     return result
 
 
@@ -149,7 +149,7 @@ def get_filter_collection_by_tags_condition(project_id: int, tags: List[int], se
             "id": id_
         }
         prompt_filters.append(Collection.prompts.contains([prompt_value]))
-    
+
     session.close()
     return or_(*prompt_filters)
 

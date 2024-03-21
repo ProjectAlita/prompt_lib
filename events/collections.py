@@ -1,7 +1,7 @@
 from pylon.core.tools import log, web
 from tools import db
 from ..models.all import Collection, Prompt
-from ..models.enums.all import CollectionPatchOperations, CollectionStatus
+from ..models.enums.all import CollectionPatchOperations
 from copy import deepcopy
 from ..utils.collections import (
     fire_patch_collection_event, 
@@ -14,6 +14,7 @@ from ..utils.collections import CollectionPublishing
 from sqlalchemy import or_, and_
 
 from ..models.pd.collections import PromptIds
+from ...promptlib_shared.models.enums.all import PublishStatus
 
 
 class Event:
@@ -147,7 +148,7 @@ class Event:
             collection = session.query(Collection).get(private_id)
             if not collection:
                 return
-            collection.status = CollectionStatus.draft
+            collection.status = PublishStatus.draft
             session.commit()
 
 

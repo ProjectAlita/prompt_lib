@@ -1,6 +1,6 @@
 {
   "name": "Prompt library backend",
   "version": "0.1",
-  "depends_on": ["projects"],
+  "depends_on": ["promptlib_shared"],
   "init_after": []
 }

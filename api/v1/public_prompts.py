@@ -4,8 +4,8 @@ from flask import request
 from pylon.core.tools import web, log
 from tools import api_tools, config as c, db, auth
 
+from ....promptlib_shared.models.enums.all import PublishStatus
 from ...models.pd.list import MultiplePublishedPromptListModel
-from ...models.enums.all import PromptVersionStatus
 from ...models.pd.search import SearchDataModel
 
 from ...utils.constants import PROMPT_LIB_MODE
@@ -45,7 +45,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             my_liked=request.args.get('my_liked', False),
             trend_start_period=request.args.get('trend_start_period'),
             trend_end_period=request.args.get('trend_end_period'),
-            statuses=[PromptVersionStatus.published],
+            statuses=[PublishStatus.published],
             search_data=search_data
         )
         parsed = MultiplePublishedPromptListModel(prompts=some_result['prompts'])

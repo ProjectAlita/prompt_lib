@@ -1,9 +1,10 @@
+from ....promptlib_shared.models.enums.all import PublishStatus
 from sqlalchemy import desc
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.publish_utils import set_public_version_status
-from ...models.enums.all import PromptVersionStatus
 from pylon.core.tools import log
 from tools import api_tools, auth, config as c
+from pathlib import Path
 
 from ...utils.utils import add_public_project_id, get_authors_data
 
@@ -20,8 +21,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
     @api_tools.endpoint_metrics
     def get(self, project_id: int, **kwargs):
         from ....usage.models.usage_api import UsageAPI
-        import json
-        from pathlib import Path
         file_path = Path(__file__)
 
         q = UsageAPI.query.with_entities(
@@ -67,7 +66,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
     @api_tools.endpoint_metrics
     def post(self, version_id: int, **kwargs):
         try:
-            result = set_public_version_status(version_id, PromptVersionStatus.published)
+            result = set_public_version_status(version_id, PublishStatus.published)
         except Exception as e:
             log.error(e)
             return {"ok": False, "error": str(e)}, 400

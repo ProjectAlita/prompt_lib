@@ -1,8 +1,10 @@
-from ..models.all import PromptVersion, PromptVariable, Prompt, PromptMessage, PromptTag
+from ..models.all import PromptVersion, PromptVariable, Prompt, PromptMessage
 from ..models.pd.base import PromptVariableBaseModel, PromptMessageBaseModel, PromptTagBaseModel
 from ..models.pd.create import PromptCreateModel, PromptVersionCreateModel, PromptVersionLatestCreateModel
 from typing import Generator, List
 from jinja2 import Environment, DebugUndefined, meta
+
+from ...promptlib_shared.models.all import Tag
 
 
 def create_variable(
@@ -55,27 +57,27 @@ def get_existing_tags(
         tags: List[PromptTagBaseModel],
         session=None,
         project_id: int | None = None
-) -> dict[str, PromptTag]:
+) -> dict[str, Tag]:
     assert session or project_id, 'session or project_id is required'
     if not session and project_id:
         from tools import db
         with db.with_project_schema_session(project_id) as project_session:
-            existing_tags: List[PromptTag] = project_session.query(PromptTag).filter(
-                PromptTag.name.in_({i.name for i in tags})
+            existing_tags: List[Tag] = project_session.query(Tag).filter(
+                Tag.name.in_({i.name for i in tags})
             ).all()
     else:
-        existing_tags: List[PromptTag] = session.query(PromptTag).filter(
-            PromptTag.name.in_({i.name for i in tags})
+        existing_tags: List[Tag] = session.query(Tag).filter(
+            Tag.name.in_({i.name for i in tags})
         ).all()
     return {i.name: i for i in existing_tags}
 
 
 def generate_tags(
         tags: List[PromptTagBaseModel],
-        existing_tags_map: dict[str, PromptTag]
-) -> Generator[PromptTag, None, None]:
+        existing_tags_map: dict[str, Tag]
+) -> Generator[Tag, None, None]:
     for i in tags:
-        yield existing_tags_map.get(i.name, PromptTag(**i.dict()))
+        yield existing_tags_map.get(i.name, Tag(**i.dict()))
 
 
 def find_vars_from_context(version):

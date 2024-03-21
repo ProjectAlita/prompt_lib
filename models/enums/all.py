@@ -6,22 +6,6 @@ except ImportError:
         pass
 
 
-class PromptVersionStatus(StrEnum):
-    draft = 'draft'
-    on_moderation = 'on_moderation'
-    published = 'published'
-    rejected = 'rejected'
-    user_approval = 'user_approval'
-
-
-class CollectionStatus(StrEnum):
-    draft = 'draft'
-    on_moderation = 'on_moderation'
-    published = 'published'
-    rejected = 'rejected'
-    user_approval = 'user_approval'
-
-
 class PromptVersionType(StrEnum):
     chat = 'chat'
     structured = 'structured'

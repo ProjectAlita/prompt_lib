@@ -1,18 +1,20 @@
 from flask import request
 from tools import api_tools, auth, config as c
 
-from ...models.all import Prompt, PromptTag, Collection, PromptVersion
+from ....promptlib_shared.models.all import Tag
+from ...models.all import Prompt, Collection, PromptVersion
 from ...models.pd.list import MultiplePromptSearchModel, MultiplePromptTagListModel
 from ...models.pd.collections import MultipleCollectionSearchModel
 from ...utils.constants import PROMPT_LIB_MODE
 
 from ...utils.searches import (
-    get_search_options, 
+    get_search_options,
     get_prompts_by_tags,
     get_filter_collection_by_tags_condition,
     get_tag_filter
 )
 from ...utils.collections import NotFound
+
 
 class PromptLibAPI(api_tools.APIModeHandler):
     @auth.decorators.check_api(
@@ -48,18 +50,18 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 "filters": [],
             },
             "tag": {
-                "Model": PromptTag,
+                "Model": Tag,
                 "PDModel": MultiplePromptTagListModel,
                 "joinedload_": None,
                 "args_prefix": "tag",
                 "filters": []
-            } 
+            }
         }
 
         if tags:
             try:
                 data = get_filter_collection_by_tags_condition(project_id, tags)
-                meta_data['collection']['filters'].append(data) 
+                meta_data['collection']['filters'].append(data)
             except NotFound:
                 entities = [entity for entity in entities if entity != "collection"]
                 result['collection'] = {
@@ -71,18 +73,18 @@ class PromptLibAPI(api_tools.APIModeHandler):
             meta_data['prompt']['filters'].append(
                 Prompt.id.in_(prompts_subq)
             )
-            
+
         if author_id:
             # collection filtering
             meta_data['collection']['filters'].append(
-                Collection.author_id==author_id
+                Collection.author_id == author_id
             )
 
             # prompt filtering
             meta_data['prompt']['filters'].append(
                 Prompt.versions.any(PromptVersion.author_id == author_id)
             )
-        
+
         if statuses:
             meta_data['prompt']['filters'].append(
                 (Prompt.versions.any(PromptVersion.status.in_(statuses)))
@@ -93,9 +95,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         meta_data['tag']['filters'].append(
             get_tag_filter(
-                project_id=project_id, 
-                author_id=author_id, 
-                statuses=statuses, 
+                project_id=project_id,
+                author_id=author_id,
+                statuses=statuses,
                 tags=tags
             )
         )
@@ -104,8 +106,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
             if section in entities:
                 result[section] = get_search_options(project_id, **data)
         return result, 200
-
-
 
 
 class API(api_tools.APIBase):
