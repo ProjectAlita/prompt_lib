@@ -1,6 +1,6 @@
 from pylon.core.tools import module, log
 
-from tools import db, theme
+from tools import db, theme, VaultClient
 
 
 class Module(module.ModuleModel):
@@ -10,9 +10,8 @@ class Module(module.ModuleModel):
 
     def init(self):
         self.descriptor.init_all()
-
         self.init_db()
-
+        #
         try:
             theme.register_section(
                 "models",

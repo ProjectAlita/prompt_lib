@@ -27,6 +27,14 @@ class ModelSettingsBaseModel(BaseModel):
     model: Optional[ModelInfoBaseModel] = {}
     suggested_models: Optional[list] = []
 
+    @property
+    def merged(self) -> dict:
+        model_settings = self.dict()
+        model_settings.update(self.model.dict())
+        if "model_name" not in model_settings and "name" in model_settings:
+            model_settings["model_name"] = model_settings["name"]
+        return model_settings
+
 
 class PromptTagBaseModel(BaseModel):
     name: str
