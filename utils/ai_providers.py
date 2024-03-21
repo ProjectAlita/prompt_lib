@@ -11,7 +11,7 @@ class AIProvider:
 
     @classmethod
     def get_integration_settings(
-        cls, project_id: int, integration_uid: str, prompt_settings: dict
+            cls, project_id: int, integration_uid: str, prompt_settings: dict
     ) -> dict:
         if not prompt_settings:
             prompt_settings = {}
@@ -27,7 +27,7 @@ class AIProvider:
         integration = cls.rpc.integrations_get_by_uid(
             integration_uid=integration_uid,
             project_id=project_id,
-            check_all_projects=False
+            check_all_projects=True
         )
         if integration is None:
             raise IntegrationNotFound(
@@ -46,7 +46,8 @@ class AIProvider:
         rpc_func = cls._get_rpc_function(integration.name)
         settings = {**integration.settings, **request_settings}
         if integration.name == 'ai_dial':
-            result = rpc_func(project_id, settings, prompt_struct, **kwargs) # TODO: remove when we add kwargs to all rpc functions
+            result = rpc_func(project_id, settings, prompt_struct,
+                              **kwargs)  # TODO: remove when we add kwargs to all rpc functions
         else:
             if isinstance(prompt_struct, list):
                 # So, our integrations (except ai_dial) ...

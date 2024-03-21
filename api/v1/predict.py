@@ -3,18 +3,22 @@ from typing import Optional
 from flask import request, g
 from pylon.core.tools import log
 import tiktoken
+try:
+    from langchain_openai import AzureChatOpenAI
+except:
+    from langchain.chat_models import AzureChatOpenAI
 from pydantic import ValidationError
-from sqlalchemy.orm import joinedload
+from ....integrations.models.pd.integration import SecretField
 from ...models.all import PromptVersion
-from ...models.enums.all import MessageRoles
 from ...models.pd.legacy.prompts_pd import PredictPostModel
-from ...models.pd.predict import PromptVersionPredictModel, PromptMessagePredictModel
 from ...utils.ai_providers import AIProvider
 from traceback import format_exc
 
 from tools import api_tools, db, auth, config as c
 
 from ...utils.constants import PROMPT_LIB_MODE
+from ...utils.conversation import prepare_conversation, CustomTemplateError, prepare_payload
+
 
 # TODO add more models or find an API to get tokens limit
 MODEL_TOKENS_MAPPER = {
@@ -162,15 +166,6 @@ class ProjectAPI(api_tools.APIModeHandler):
         return result['response'], 200
 
 
-from jinja2 import Environment, DebugUndefined, meta
-
-
-def _resolve_variables(text, vars) -> str:
-    environment = Environment(undefined=DebugUndefined)
-    ast = environment.parse(text)
-    template = environment.from_string(text)
-    return template.render(vars)
-
 
 class PromptLibAPI(api_tools.APIModeHandler):
 
@@ -182,95 +177,73 @@ class PromptLibAPI(api_tools.APIModeHandler):
         }})
     @api_tools.endpoint_metrics
     def post(self, project_id: int, prompt_version_id: Optional[int] = None, **kwargs):
+
+        raw_data = dict(request.json)
+        raw_data['project_id'] = project_id
+        raw_data['prompt_version_id'] = prompt_version_id
+        if 'user_name' not in raw_data:
+            user = auth.current_user()
+            raw_data['user_name'] = user.get('name')
+
         try:
-            payload = PromptVersionPredictModel.parse_obj(request.json)
+            payload = prepare_payload(data=raw_data)
         except ValidationError as e:
             return e.errors(), 400
-        if prompt_version_id:
-
-            with db.with_project_schema_session(project_id) as session:
-                query_options = []
-                if not payload.variables:
-                    query_options.append(joinedload(PromptVersion.variables))
-                if not payload.messages:
-                    query_options.append(joinedload(PromptVersion.messages))
-
-                prompt_version = session.query(PromptVersion).options(*query_options).get(prompt_version_id)
-                prompt_version_pd = PromptVersionPredictModel.from_orm(prompt_version)
-                payload = prompt_version_pd.merge_update(payload)
-                # return {
-                #     'db': json.loads(prompt_version_pd.json()),
-                #     'req': json.loads(payload.json()),
-                #     'merged': json.loads(prompt_version_pd.merged_with(payload).json())
-                # }, 200
-        # elif not payload.context:
-        #     return {'error': 'Context cannot be empty'}, 400
-        log.info(f'payload {payload}')
 
         try:
-            integration = AIProvider.get_integration(
-                project_id=project_id,
-                integration_uid=payload.model_settings.model.integration_uid,
-            )
-
-            variables = {v.name: v.value for v in payload.variables}
-            messages = []
-            messages.append(PromptMessagePredictModel(
-                role=MessageRoles.system,
-                content=_resolve_variables(
-                    payload.context,
-                    variables
-                )
-            ).dict(exclude_unset=True))
-
-            for i in payload.messages:
-                message = i.dict(exclude={'content'}, exclude_none=True, exclude_unset=True)
-                message['content'] = _resolve_variables(i.content, variables)
-                messages.append(message)
-
-            if payload.chat_history:
-                for i in payload.chat_history:
-                    messages.append(i.dict(exclude_unset=True))
-
-            if payload.user_input:
-                user = auth.current_user()
-                messages.append(PromptMessagePredictModel(
-                    role=MessageRoles.user,
-                    content=payload.user_input,
-                    name=user.get('name')
-                ).dict(exclude_unset=True)
-                                )
-
+            conversation = prepare_conversation(payload=payload)
+        except CustomTemplateError as e:
+            return e.errors(), 400
         except Exception as e:
-            log.error("************* AIProvider.get_integration and self.module.prepare_prompt_struct")
-            log.error(str(e))
-            log.info(str(format_exc()))
-            log.error("*************")
-            return str(e), 400
+            log.exception("prepare_conversation")
+            return {'ok': False, 'msg': str(e), 'loc': []}, 400
 
-        model_settings = payload.model_settings.dict()
-        model_settings.update(payload.model_settings.model.dict())
+        log.info(f'{conversation=}')
+        log.info(f'{payload.merged_settings=}')
+        api_token = SecretField.parse_obj(payload.merged_settings["api_token"])
+        try:
+            api_token = api_token.unsecret(payload.integration.project_id)
+        except AttributeError:
+            api_token = api_token.unsecret(None)
 
-        if "model_name" not in model_settings and "name" in model_settings:
-            model_settings["model_name"] = model_settings["name"]
+        try:
+            chat = AzureChatOpenAI(
+                api_key=api_token,
+                azure_endpoint=payload.merged_settings['api_base'],
+                azure_deployment=payload.merged_settings['name'],
+                api_version=payload.merged_settings['api_version'],
+                streaming=False
+            )
+        except:
+            chat = AzureChatOpenAI(
+                openai_api_key=api_token,
+                openai_api_base=payload.merged_settings['api_base'],
+                deployment_name=payload.merged_settings['name'],
+                openai_api_version=payload.merged_settings['api_version'],
+                streaming=False
+            )
+            #
+            from langchain.schema import (
+                AIMessage,
+                HumanMessage,
+                SystemMessage,
+            )
+            from ..models.enums.all import MessageRoles
+            #
+            new_conversation = conversation
+            conversation = []
+            #
+            for item in new_conversation:
+                if item["role"] == MessageRoles.assistant:
+                    conversation.append(AIMessage(content=item["content"]))
+                elif item["role"] == MessageRoles.user:
+                    conversation.append(HumanMessage(content=item["content"]))
+                elif item["role"] == MessageRoles.system:
+                    conversation.append(SystemMessage(content=item["content"]))
 
-        log.info('prompt messages----')
-        log.info(messages)
-        result = AIProvider.predict(
-            project_id, integration,
-            model_settings, messages,
-            format_response=bool(request.json.get('format_response')),
-            from_legacy_api=False
-        )
-        if not result['ok']:
-            log.error("************* if not result['ok']")
-            log.error(str(result['error']))
-            log.error("*************")
-            return str(result['error']), 400
+        result = chat.invoke(input=conversation, config=payload.merged_settings)
 
-        if isinstance(result['response'], str):
-            result['response'] = {'messages': [{'type': 'text', 'content': result['response']}]}
-        return result['response'], 200
+        return {'messages': [result.dict()]}, 200
 
 
 class API(api_tools.APIBase):
