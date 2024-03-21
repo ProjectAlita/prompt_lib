@@ -6,7 +6,7 @@ from pydantic import BaseModel, root_validator, validator
 # from pylon.core.tools import log
 from tools import rpc_tools
 
-from .base import AuthorBaseModel
+from ....promptlib_shared.models.pd.base import AuthorBaseModel
 from .list import PromptListModel
 from .detail import PromptTagDetailModel
 from ..enums.all import CollectionPatchOperations

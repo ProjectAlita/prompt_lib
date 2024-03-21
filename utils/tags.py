@@ -10,8 +10,8 @@ from tools import db, rpc_tools
 from pylon.core.tools import log
 
 from .like_utils import add_likes, add_trending_likes, add_my_liked
-from ..models.all import Collection, Prompt, PromptVersion, PromptTag, PromptVersionTagAssociation
-
+from ..models.all import Collection, Prompt, PromptVersion, PromptVersionTagAssociation
+from ...promptlib_shared.models.all import Tag
 
 
 class TagListABC(ABCMeta):
@@ -111,11 +111,11 @@ class TagList(metaclass=TagListABC):
     def get_main_query_filters(self, entity_subquery):
         tag_filters = [getattr(self.Version, self.foriegn_key).in_(entity_subquery)]
         if search := self.args.get("search"):
-            tag_filters.append(PromptTag.name.ilike(f"%{search}%"))
+            tag_filters.append(Tag.name.ilike(f"%{search}%"))
         return tag_filters
 
     def execute_main_query(self, tag_filters):
-        select_list = [PromptTag.id, PromptTag.name, cast(PromptTag.data, String)]
+        select_list = [Tag.id, Tag.name, cast(Tag.data, String)]
         if self.not_all:
             select_list.append(func.count(func.distinct(getattr(self.Version, self.foriegn_key))))
 
@@ -124,11 +124,11 @@ class TagList(metaclass=TagListABC):
             .filter(*tag_filters)
         )
         if self.not_all:
-            query = query.join(self.VersionTagAssociation, self.VersionTagAssociation.c.tag_id == PromptTag.id)\
+            query = query.join(self.VersionTagAssociation, self.VersionTagAssociation.c.tag_id == Tag.id)\
                 .join(self.Version, self.Version.id == self.VersionTagAssociation.c.version_id)
 
-        query = query.group_by(PromptTag.id, PromptTag.name, cast(PromptTag.data, String))
-        order_by = PromptTag.id.desc()
+        query = query.group_by(Tag.id, Tag.name, cast(Tag.data, String))
+        order_by = Tag.id.desc()
         if self.not_all:
             order_by = func.count(func.distinct(getattr(self.Version, self.foriegn_key))).desc()
         query = query.order_by(order_by)
