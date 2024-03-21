@@ -24,7 +24,7 @@ from ..models.pd.collections import (
     CollectionModel,
     PromptIds,
     CollectionPatchModel,
-    PublishedCollectionDetailModel, CollectionListModel, 
+    PublishedCollectionDetailModel, CollectionListModel,
     CollectionShortDetailModel,
 )
 from .publish_utils import get_public_project_id
@@ -44,7 +44,7 @@ def check_prompts_addability(owner_id: int, user_id: int):
     secrets = VaultClient().get_all_secrets()
     ai_project_id = secrets.get("ai_project_id")
     return (
-        ai_project_id and int(ai_project_id) == int(owner_id)
+            ai_project_id and int(ai_project_id) == int(owner_id)
     ) or membership_check(owner_id, user_id)
 
 
@@ -146,8 +146,8 @@ def get_prompts_for_collection(collection_prompts: List[Dict[str, int]], only_pu
                 #             "prompts"
                 #         ]
                 #     )
-    
-    prompts = prompts[offset:limit+offset]
+
+    prompts = prompts[offset:limit + offset]
     return prompts
 
 
@@ -169,19 +169,17 @@ def get_prompts_for_collection(collection_prompts: List[Dict[str, int]], only_pu
 #             "id": id_[0]
 #         }
 #         prompt_filters.append(Collection.prompts.contains([prompt_value]))
-    
+
 #     session.close()
 #     return or_(*prompt_filters)
 
 
-
 def list_collections(
         project_id: int,
-        args:  MultiDict[str, str] | dict | None = None,
+        args: MultiDict[str, str] | dict | None = None,
         with_likes: bool = True,
         my_liked: bool = False
-        ):
-
+):
     if my_liked:
         my_liked = with_likes
 
@@ -229,7 +227,7 @@ def list_collections(
     # filtering
     filters = []
     if author_id := args.get('author_id'):
-        filters.append(Collection.author_id==author_id)
+        filters.append(Collection.author_id == author_id)
 
     if statuses := args.get('statuses'):
         if isinstance(statuses, str):
@@ -297,7 +295,6 @@ def list_collections(
         # Apply limit and offset for pagination
         query = query.limit(limit).offset(offset)
 
-
         q_result: Union[List[tuple[Collection, int, int]], List[Collection]] = query.all()
 
         # if with_likes:
@@ -322,6 +319,7 @@ def delete_collection(project_id: int, collection_id: int):
             fire_collection_deleted_event(collection_data)
             return True
     return False
+
 
 def fire_collection_deleted_event(collection_data: dict):
     rpc_tools.EventManagerMixin().event_manager.fire_event(
@@ -443,6 +441,7 @@ def fire_collection_created_event(collection_data: dict):
         'prompt_lib_collection_added', collection_data
     )
 
+
 def add_prompt_to_collection(collection, prompt_data: PromptIds, return_data=True):
     prompts_list: List = copy.deepcopy(collection.prompts)
     prompts_list.append(json.loads(prompt_data.json()))
@@ -454,8 +453,8 @@ def add_prompt_to_collection(collection, prompt_data: PromptIds, return_data=Tru
 def remove_prompt_from_collection(collection, prompt_data: PromptIds, return_data=True):
     prompts_list = [
         copy.deepcopy(prompt) for prompt in collection.prompts
-        if not(int(prompt['owner_id']) == prompt_data.owner_id and \
-            int(prompt['id']) == prompt_data.id)
+        if not (int(prompt['owner_id']) == prompt_data.owner_id and \
+                int(prompt['id']) == prompt_data.id)
     ]
     collection.prompts = prompts_list
     if return_data:
@@ -481,6 +480,7 @@ def fire_patch_collection_event(collection_data, operartion, prompt_data):
         }
     )
 
+
 def patch_collection(project_id, collection_id, data: CollectionPatchModel):
     op_map = {
         CollectionPatchOperations.add: add_prompt_to_collection,
@@ -495,7 +495,6 @@ def patch_collection(project_id, collection_id, data: CollectionPatchModel):
                 f"Prompt '{prompt_data.id}' in project '{prompt_data.owner_id}' doesn't exist"
             )
 
-
     with db.with_project_schema_session(project_id) as session:
         if collection := session.query(Collection).get(collection_id):
             if not check_prompts_addability(prompt_data.owner_id, collection.author_id):
@@ -507,9 +506,9 @@ def patch_collection(project_id, collection_id, data: CollectionPatchModel):
             # if collection.owner_id != prompt.owner_id:
             #
             if data.operation == CollectionPatchOperations.add and get_include_prompt_flag(
-                collection=CollectionListModel.from_orm(collection),
-                prompt_id=prompt.id,
-                prompt_owner_id=prompt.owner_id,
+                    collection=CollectionListModel.from_orm(collection),
+                    prompt_id=prompt.id,
+                    prompt_owner_id=prompt.owner_id,
             ):
                 raise PromptAlreadyInCollectionError('Already in collection')
 
@@ -525,6 +524,7 @@ def patch_collection(project_id, collection_id, data: CollectionPatchModel):
             )
             return result
         return None
+
 
 def get_collection_tags(prompts: List[dict]) -> list:
     tags = dict()
@@ -557,10 +557,11 @@ def get_collection_tags(prompts: List[dict]) -> list:
 def fire_public_collection_status_change_event(shared_owner_id, shared_id, status):
     rpc_tools.EventManagerMixin().event_manager.fire_event(
         'prompt_public_collection_status_change', {
-        'private_project_id': shared_owner_id,
-        'private_collection_id': shared_id,
-        'status': status
-    })
+            'private_project_id': shared_owner_id,
+            'private_collection_id': shared_id,
+            'status': status
+        })
+
 
 class CollectionPublishing:
     def __init__(self, project_id: int, collection_id: int):
@@ -572,8 +573,8 @@ class CollectionPublishing:
         with db.with_project_schema_session(self._public_id) as session:
             exist_query = (
                 session.query(exists().where(and_(
-                    Collection.shared_id==self._collection_id,
-                    Collection.shared_owner_id==self._project_id,
+                    Collection.shared_id == self._collection_id,
+                    Collection.shared_owner_id == self._project_id,
                 )))
             ).scalar()
             return exist_query
@@ -582,30 +583,30 @@ class CollectionPublishing:
         with db.with_project_schema_session(self._public_id) as session:
             if not private_prompt_ids:
                 raise Exception("Collection doesn't contain public prompts")
-            
-            public_prompts = filter(lambda x: x['owner_id']==self._public_id, private_prompt_ids)
-            private_prompts = filter(lambda x: x['owner_id']!=self._public_id, private_prompt_ids)
+
+            public_prompts = filter(lambda x: x['owner_id'] == self._public_id, private_prompt_ids)
+            private_prompts = filter(lambda x: x['owner_id'] != self._public_id, private_prompt_ids)
 
             prompt_ids = session.query(Prompt.id).filter(
                 or_(
                     *[
                         and_(
-                            Prompt.shared_id==data['id'],
-                            Prompt.shared_owner_id==data['owner_id']
+                            Prompt.shared_id == data['id'],
+                            Prompt.shared_owner_id == data['owner_id']
                         ) for data in private_prompts
                     ],
                     *[
                         and_(
-                            Prompt.id==data['id'],
+                            Prompt.id == data['id'],
                         ) for data in public_prompts
                     ]
                 ),
                 Prompt.versions.any(PromptVersion.status == PublishStatus.published)
             ).all()
-            
+
             if not prompt_ids:
                 raise Exception("Collection doesn't contain public prompts")
-            
+
         result = [{"id": prompt_id[0], "owner_id": self._public_id} for prompt_id in prompt_ids]
         return result
 
@@ -621,8 +622,8 @@ class CollectionPublishing:
         #
         collection.status = status
         session.commit()
-        session.close
-        
+        session.close()
+
         if session:
             return collection
 
@@ -631,7 +632,7 @@ class CollectionPublishing:
         # changing the status of collection
         with db.with_project_schema_session(project_id) as session:
             collection = CollectionPublishing.set_status(
-                    project_id, collection_id, PublishStatus.published, session
+                project_id, collection_id, PublishStatus.published, session
             )
             #
             fire_public_collection_status_change_event(
@@ -642,13 +643,12 @@ class CollectionPublishing:
             collection_model = CollectionShortDetailModel.from_orm(collection)
         return {"ok": True, "result": json.loads(collection_model.json())}
 
-
     @staticmethod
     def reject(project_id, collection_id):
         # changing the status of collection
         with db.with_project_schema_session(project_id) as session:
             collection = CollectionPublishing.set_status(
-                    project_id, collection_id, PublishStatus.rejected, session
+                project_id, collection_id, PublishStatus.rejected, session
             )
             #
             fire_public_collection_status_change_event(
@@ -722,7 +722,7 @@ def unpublish(current_user_id, project_id, collection_id):
                 "error_code": 403
             }
 
-        if collection.status  == PublishStatus.draft:
+        if collection.status == PublishStatus.draft:
             return {"ok": False, "error": "Collection is not public yet"}
 
         collection_data = collection.to_json()
@@ -731,6 +731,7 @@ def unpublish(current_user_id, project_id, collection_id):
         fire_collection_deleted_event(collection_data)
         fire_collection_prompt_unpublished(collection_data)
         return {"ok": True, "msg": "Successfully unpublished"}
+
 
 def group_by_project_id(data, data_type='dict'):
     prompts = defaultdict(set)
@@ -743,7 +744,7 @@ def group_by_project_id(data, data_type='dict'):
 
 @add_public_project_id
 def get_include_prompt_flag(collection: CollectionListModel, prompt_id: int, prompt_owner_id: int, *,
-                                 project_id: int) -> bool:
+                            project_id: int) -> bool:
     public_prompts = []
     for p in collection.prompts:
         p_owner_id = int(p['owner_id'])

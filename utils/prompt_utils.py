@@ -64,7 +64,7 @@ def _flatten_prompt_ids(project_id: int, collection_prompts: List[Dict[str, int]
     return prompt_ids
 
 
-def get_all_ranked_tags(project_id: int, args: MultiDict) -> dict:
+def get_all_ranked_tags(project_id: int, args: MultiDict, func) -> dict:
     # Args to sort prompt subquery:
     limit = args.get("limit", default=10, type=int)
     offset = args.get("offset", default=0, type=int)

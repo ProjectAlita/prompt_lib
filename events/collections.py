@@ -4,8 +4,8 @@ from ..models.all import Collection, Prompt
 from ..models.enums.all import CollectionPatchOperations
 from copy import deepcopy
 from ..utils.collections import (
-    fire_patch_collection_event, 
-    add_prompt_to_collection, 
+    fire_patch_collection_event,
+    add_prompt_to_collection,
     remove_prompt_from_collection,
     group_by_project_id,
 )
@@ -44,19 +44,19 @@ class Event:
             with db.with_project_schema_session(project_id) as session:
                 add_collection_to_prompts(prompt_ids, collection_data, session)
                 session.commit()
-        
+
         # remove collection from prompts
         grouped_removed_prompts: dict = group_by_project_id(removed_prompts, data_type="tuple")
         for project_id, prompt_ids in grouped_removed_prompts.items():
             with db.with_project_schema_session(project_id) as session:
                 delete_collection_from_prompts(prompt_ids, collection_data, session)
                 session.commit()
-        
+
         # synchronize private and public collections
         if public_id != collection_data['owner_id']:
             synchronize_collections(
-                collection_data, 
-                added_prompts, 
+                collection_data,
+                added_prompts,
                 removed_prompts
             )
 
@@ -70,7 +70,6 @@ class Event:
                 delete_collection_from_prompts(prompt_ids, collection_data, session)
                 session.commit()
 
-
     @web.event("prompt_lib_collection_added")
     def handle_collection_deleted(self, context, event, payload: dict):
         # group by prompt data        
@@ -80,7 +79,6 @@ class Event:
             with db.with_project_schema_session(owner_id) as session:
                 add_collection_to_prompts(prompt_ids, collection_data, session)
                 session.commit()
-
 
     @web.event("prune_collection_prompts")
     def prune_collection_prompts(self, context, event, payload: dict):
@@ -92,32 +90,31 @@ class Event:
             collection_ids = set(ids)
             actual_ids = set(existing_prompts[project_id])
             stale_prompts[project_id] = collection_ids - actual_ids
-        
+
         with db.with_project_schema_session(collection_data['owner_id']) as session:
             collection = session.query(Collection).get(collection_data['id'])
             clean_prompts = [
                 deepcopy(prompt) for prompt in collection.prompts
                 if not prompt['owner_id'] in stale_prompts or \
-                    not prompt['id'] in stale_prompts[prompt['owner_id']]
+                   not prompt['id'] in stale_prompts[prompt['owner_id']]
             ]
             collection.prompts = clean_prompts
             session.commit()
-
 
     @web.event('prompt_lib_prompt_published')
     def handle_prompt_publishing(self, context, event, payload: dict) -> None:
         prompt_data = payload['prompt_data']
         owner_id = prompt_data['owner_id']
         collections = payload['collections']
-        
+
         with db.with_project_schema_session(owner_id) as session:
             if not collections:
                 collections = session.query(Collection).filter(
                     or_(
                         *[
                             and_(
-                                Collection.shared_id==collection['id'],
-                                Collection.shared_owner_id==collection['owner_id']
+                                Collection.shared_id == collection['id'],
+                                Collection.shared_owner_id == collection['owner_id']
                             ) for collection in collections
                         ]
                     )
@@ -139,7 +136,6 @@ class Event:
                     collection.to_json(), CollectionPatchOperations.add, prompt_data
                 )
 
-
     @web.event('prompt_lib_collection_unpublished')
     def handle_prompt_unpublished(self, context, event, payload) -> None:
         private_id = payload.get('private_id')
@@ -159,7 +155,7 @@ def delete_collection_from_prompts(prompt_ids: list, collection_data: dict, sess
     for prompt in prompts:
         new_data = [
             deepcopy(collection) for collection in prompt.collections
-            if collection['owner_id'] != col_owner_id or collection['id'] != col_id   
+            if collection['owner_id'] != col_owner_id or collection['id'] != col_id
         ]
         prompt.collections = new_data
 
@@ -177,7 +173,9 @@ def add_collection_to_prompts(prompt_ids: list, collection_data: dict, session):
         prompt.collections = new_data
 
 
-def synchronize_collections(private_collection_data, added_prompts=[], removed_prompts=[]):
+def synchronize_collections(private_collection_data, added_prompts: list = None, removed_prompts: list = None):
+    added_prompts = added_prompts or []
+    removed_prompts = removed_prompts or []
     public_id = get_public_project_id()
     with db.with_project_schema_session(public_id) as session:
         collection = session.query(Collection).filter_by(
@@ -187,40 +185,40 @@ def synchronize_collections(private_collection_data, added_prompts=[], removed_p
 
         if not collection:
             return
-        
+
         added_prompts = find_public_prompts(added_prompts, session)
         removed_prompts = find_public_prompts(removed_prompts, session)
-        
+
         for prompt in added_prompts:
             prompt = PromptIds(id=prompt.id, owner_id=prompt.owner_id)
             add_prompt_to_collection(collection, prompt)
-        
+
         for prompt in removed_prompts:
             prompt = PromptIds(id=prompt.id, owner_id=prompt.owner_id)
             remove_prompt_from_collection(collection, prompt)
-        
+
         session.commit()
 
 
-def find_public_prompts(prompts: tuple, session):
+def find_public_prompts(prompts: list, session):
     if not prompts:
         return []
 
     public_id = get_public_project_id()
-    public_prompts = filter(lambda x: x[0]==public_id, prompts)
-    private_prompts = filter(lambda x: x[0]!=public_id, prompts)
+    public_prompts = filter(lambda x: x[0] == public_id, prompts)
+    private_prompts = filter(lambda x: x[0] != public_id, prompts)
 
     return session.query(Prompt).filter(
         or_(
             *[
                 and_(
-                    Prompt.shared_id==prompt[1],
-                    Prompt.shared_owner_id==prompt[0]
+                    Prompt.shared_id == prompt[1],
+                    Prompt.shared_owner_id == prompt[0]
                 ) for prompt in private_prompts
             ],
             *[
                 and_(
-                    Prompt.id==data[1],
+                    Prompt.id == data[1],
                 ) for data in public_prompts
             ]
         )

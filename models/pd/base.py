@@ -94,10 +94,3 @@ class PromptBaseModel(BaseModel):
 
     class Config:
         orm_mode = True
-
-
-class AuthorBaseModel(BaseModel):
-    id: int
-    email: str
-    name: Optional[str]
-    avatar: Optional[AnyUrl]

@@ -2,6 +2,7 @@ from pylon.core.tools import log, web
 
 from tools import db
 from ..models.all import SearchRequest
+from ...promptlib_shared.models.all import Tag
 
 
 class Event:

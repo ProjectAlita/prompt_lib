@@ -3,13 +3,15 @@ from typing import Optional
 from flask import request, g
 from pylon.core.tools import log
 import tiktoken
+from ...models.enums.all import MessageRoles
+
 try:
     from langchain_openai import AzureChatOpenAI
 except:
     from langchain.chat_models import AzureChatOpenAI
 from pydantic import ValidationError
 from ....integrations.models.pd.integration import SecretField
-from ...models.all import PromptVersion
+from ...models.all import PromptVersion, Prompt
 from ...models.pd.legacy.prompts_pd import PredictPostModel
 from ...utils.ai_providers import AIProvider
 from traceback import format_exc
@@ -228,7 +230,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 HumanMessage,
                 SystemMessage,
             )
-            from ..models.enums.all import MessageRoles
             #
             new_conversation = conversation
             conversation = []

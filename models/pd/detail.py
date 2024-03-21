@@ -10,12 +10,12 @@ from .base import (
     PromptTagBaseModel,
     PromptBaseModel,
     PromptVersionBaseModel,
-    AuthorBaseModel,
     PromptVariableBaseModel,
     PromptMessageBaseModel
 )
 from .list import PromptVersionListModel
 from ...utils.utils import get_authors_data
+from ....promptlib_shared.models.pd.base import AuthorBaseModel
 
 
 class PromptTagDetailModel(PromptTagBaseModel):
