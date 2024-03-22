@@ -5,7 +5,7 @@ from pylon.core.tools import web, log
 
 from ..models.pd.legacy.tag import PromptTagModel
 from ..models.all import Prompt, PromptVersion, PromptVersionTagAssociation
-from ..models.pd.model_settings import ModelInfoBaseModel, ModelSettingsBaseModel
+from ..models.pd.model_settings import ModelInfoCreateModel, ModelSettingsBaseModel
 from ..models.pd.prompt import PromptCreateModel, PromptUpdateModel
 from ..models.pd.prompt_version import PromptVersionCreateModel, PromptVersionBaseModel
 from ..models.pd.v1_structure import (
@@ -23,7 +23,7 @@ def prompts_create_prompt(project_id: int, prompt_data: dict, **kwargs) -> dict:
     prompt_old_data = PromptCreateV1Model.validate(prompt_data)
 
     if prompt_old_data.model_settings:
-        model_data = ModelInfoBaseModel(
+        model_data = ModelInfoCreateModel(
             name=prompt_old_data.model_settings.model_name,
             integration_uid=prompt_old_data.integration_uid
         )

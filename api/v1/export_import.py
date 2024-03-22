@@ -2,6 +2,7 @@ from collections import defaultdict
 from datetime import date
 import json
 from io import BytesIO
+from typing import Tuple
 
 from flask import request, send_file
 from pydantic import ValidationError
@@ -19,6 +20,81 @@ from ...utils.create_utils import create_prompt, create_version
 from ...utils.collections import create_collection
 from ...utils.export_import_utils import prompts_export, prompts_export_to_dial
 from ...utils.constants import PROMPT_LIB_MODE
+
+
+def import_dial_prompts(data: dict, project_id: int, author_id: int) -> Tuple[list, list]:
+    parsed = DialImportModel.parse_obj(data)
+    created = []
+    errors = []
+    folders = defaultdict(list)
+
+    with db.with_project_schema_session(project_id) as session:
+        for prompt_data in parsed.prompts:
+            log.info(prompt_data)
+            prompt = Prompt(
+                name=prompt_data.name,
+                description=prompt_data.description,
+                owner_id=project_id
+            )
+            log.info(prompt)
+            log.info(f'{parsed.chat_settings_ai.dict()=}')
+            ver = PromptVersionLatestCreateModel(
+                name='latest',
+                author_id=author_id,
+                context=prompt_data.content,
+                model_settings={'model': parsed.chat_settings_ai.dict()}
+            )
+            log.info(ver.dict())
+            create_version(ver, prompt=prompt, session=session)
+            session.add(prompt)
+            # session.flush()
+            session.commit()
+            session.refresh(prompt)
+            result = PromptDetailModel.from_orm(prompt)
+            if prompt_data.folderId:
+                folders[prompt_data.folderId].append(prompt.id)
+            created.append(json.loads(result.json()))
+        session.commit()
+
+    if parsed.folders:
+        created_collections = []
+        for folder_data in parsed.folders:
+            collection = create_collection(project_id, folder_data.to_collection(
+                project_id=project_id,
+                author_id=author_id,
+                prompt_ids=[
+                    PromptIds(
+                        id=i,
+                        owner_id=project_id
+                    ) for i in folders.get(folder_data.id, [])
+                ]
+            ))
+            created_collections.append(json.loads(collection.json()))
+        created.append({'collections': created_collections})
+    return created, errors
+
+
+def import_alita_prompts(data: dict, project_id: int, author_id: int) -> Tuple[list, list]:
+    created = []
+    errors = []
+
+    with db.with_project_schema_session(project_id) as session:
+        for raw in data.get('prompts'):
+            raw["owner_id"] = project_id
+            for version in raw.get("versions", []):
+                version["author_id"] = author_id
+            try:
+                prompt_data = PromptExportModel.parse_obj(raw)
+            except ValidationError as e:
+                errors.append(e.errors())
+                continue
+
+            prompt = create_prompt(prompt_data, session)
+            session.flush()
+            result = PromptDetailModel.from_orm(prompt)
+            created.append(json.loads(result.json()))
+        session.commit()
+    return created, errors
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
@@ -50,79 +126,18 @@ class PromptLibAPI(api_tools.APIModeHandler):
         }})
     @api_tools.endpoint_metrics
     def post(self, project_id: int, **kwargs):
-        created = []
-        errors = []
         author_id = auth.current_user().get("id")
         is_dial_struct = 'folders' in request.json or 'from_dial' in request.args
-
         if is_dial_struct:
             try:
-                parsed = DialImportModel.parse_obj(request.json)
+                created, errors = import_dial_prompts(dict(request.json), project_id, author_id)
             except ValidationError as e:
                 return e.errors(), 400
             except Exception as e:
-                log.exception()
+                log.exception('Import exception')
                 return {'error': str(e)}, 400
-
-            folders = defaultdict(list)
-
-            with db.with_project_schema_session(project_id) as session:
-                for prompt_data in parsed.prompts:
-                    prompt = Prompt(
-                        name=prompt_data.name,
-                        description=prompt_data.description,
-                        owner_id=project_id
-                    )
-                    ver = PromptVersionLatestCreateModel(
-                        author_id=author_id,
-                        context=prompt_data.content,
-                        model_settings={'model': parsed.chat_settings_ai}
-                    )
-                    create_version(ver, prompt=prompt, session=session)
-                    session.add(prompt)
-                    # session.flush()
-                    result = PromptDetailModel.from_orm(prompt)
-                    if prompt_data.folderId:
-                        folders[prompt_data.folderId].append(prompt.id)
-                    created.append(result)
-                session.commit()
-
-            if parsed.folders:
-                created_collections = []
-                for folder_data in parsed.folders:
-                    collection = create_collection(project_id, folder_data.to_collection(
-                        project_id=project_id,
-                        author_id=author_id,
-                        prompt_ids=[
-                            PromptIds(
-                                id=i,
-                                owner_id=project_id
-                            ) for i in folders.get(folder_data.id, [])
-                        ]
-                    ))
-                    created_collections.append(collection)
-                created.append({'collections': created_collections})
-
         else:
-            imported_data = dict(request.json)
-
-            with db.with_project_schema_session(project_id) as session:
-                for raw in imported_data.get('prompts'):
-                    raw["owner_id"] = project_id
-                    for version in raw.get("versions", []):
-                        version["author_id"] = author_id
-                    try:
-                        prompt_data = PromptExportModel.parse_obj(raw)
-                    except ValidationError as e:
-                        errors.append(e.errors())
-                        continue
-
-                    prompt = create_prompt(prompt_data, session)
-                    session.flush()
-                    result = PromptDetailModel.from_orm(prompt)
-                    created.append(json.loads(result.json()))
-                session.commit()
-
+            created, errors = import_dial_prompts(dict(request.json), project_id, author_id)
         return {'created': created, 'errors': errors}, 201
 
 

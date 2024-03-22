@@ -4,9 +4,18 @@ from pydantic import Field, BaseModel, confloat, conint, PositiveInt
 from ....promptlib_shared.models.pd.chat import IntegrationDataMixin
 
 
-class ModelInfoBaseModel(IntegrationDataMixin):
-    model_name: Optional[str] = Field(alias='name', default=None)
+class ModelInfoDetailModel(BaseModel):
     integration_name: Optional[str] = None
+    integration_uid: Optional[str] = None
+    model_name: Optional[str] = Field(alias='name', default=None)
+
+    class Config:
+        allow_population_by_field_name = True
+
+
+class ModelInfoCreateModel(IntegrationDataMixin):
+    integration_name: Optional[str] = None
+    model_name: Optional[str] = Field(alias='name', default=None)
 
     class Config:
         allow_population_by_field_name = True
@@ -18,7 +27,7 @@ class ModelSettingsBaseModel(BaseModel):
     top_p: Optional[confloat(ge=0, le=1)] = None
     max_tokens: Optional[PositiveInt] = None
     stream: bool = False
-    model: Optional[dict] = {}
+    model: Optional[ModelInfoDetailModel] = {}
     suggested_models: Optional[list] = []
 
     @property
@@ -34,4 +43,4 @@ class ModelSettingsBaseModel(BaseModel):
 
 
 class ModelSettingsCreateModel(ModelSettingsBaseModel):
-    model: Optional[ModelInfoBaseModel] = {}
+    model: Optional[ModelInfoCreateModel] = {}
