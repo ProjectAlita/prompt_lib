@@ -4,6 +4,7 @@ from pylon.core.tools import log
 
 from tools import api_tools, db, config as c, auth
 
+from ....prompt_lib.models.all import Prompt
 
 
 class ProjectAPI(api_tools.APIModeHandler):

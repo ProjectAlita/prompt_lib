@@ -1,4 +1,4 @@
-from pydantic import BaseModel, validator, constr
+from pydantic import BaseModel, constr
 
 
 class PromptTagModel(BaseModel):

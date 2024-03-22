@@ -1,8 +1,8 @@
 from json import loads
 from datetime import datetime
-from typing import List, Optional, Union, Tuple, Dict, Literal, Generator
+from typing import List, Optional, Tuple, Dict, Literal, Generator
 from werkzeug.datastructures import MultiDict
-from sqlalchemy import func, cast, String, desc, or_, asc
+from sqlalchemy import cast, String, desc, or_, asc
 from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import IntegrityError
 
@@ -13,11 +13,11 @@ from .like_utils import add_likes, add_trending_likes, add_my_liked
 from ..models.all import Collection, Prompt, PromptVersion, PromptVariable, PromptMessage, \
     PromptVersionTagAssociation
 from ..models.pd.legacy.variable import VariableModel
-from ..models.pd.update import PromptVersionUpdateModel
-from ..models.pd.detail import PromptDetailModel, PromptVersionDetailModel, PublishedPromptDetailModel
-from ..models.pd.list import PromptTagListModel
 
 from .searches import get_prompts_by_tags
+from ..models.pd.prompt import PromptDetailModel, PublishedPromptDetailModel
+from ..models.pd.prompt_version import PromptVersionDetailModel, PromptVersionUpdateModel
+from ..models.pd.tag import PromptTagListModel
 from ...promptlib_shared.models.all import Tag
 from ...promptlib_shared.models.enums.all import PublishStatus
 

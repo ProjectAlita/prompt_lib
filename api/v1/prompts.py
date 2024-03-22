@@ -5,9 +5,10 @@ from pydantic import ValidationError
 
 from pylon.core.tools import web, log
 from tools import api_tools, config as c, db, auth
-from ...models.pd.create import PromptCreateModel
-from ...models.pd.detail import PromptDetailModel, PromptVersionDetailModel
-from ...models.pd.list import MultiplePromptListModel
+
+from ...models.pd.misc import MultiplePromptListModel
+from ...models.pd.prompt import PromptDetailModel, PromptCreateModel
+from ...models.pd.prompt_version import PromptVersionDetailModel
 from ...models.pd.search import SearchDataModel
 
 from ...utils.constants import PROMPT_LIB_MODE

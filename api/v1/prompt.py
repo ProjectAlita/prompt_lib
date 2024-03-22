@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from pylon.core.tools import log
 
 
-from ...models.all import Prompt, PromptVersion
+from ...models.all import Prompt
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.prompt_utils import get_prompt_details
 from ...utils.prompt_utils_legacy import (

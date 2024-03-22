@@ -3,8 +3,6 @@ from typing import Tuple, List, Optional
 
 from flask_sqlalchemy.query import Query
 from sqlalchemy import Subquery, func, desc, asc
-from ..models.all import Prompt, Collection
-from typing_extensions import Literal
 
 from tools import rpc_tools, db, auth
 

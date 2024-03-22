@@ -17,8 +17,6 @@ from .prompt_utils import set_columns_as_attrs
 from .utils import get_author_data, get_authors_data, add_public_project_id
 from ..models.enums.all import CollectionPatchOperations
 from ..models.all import Collection, Prompt, PromptVersion
-from ..models.pd.base import PromptTagBaseModel
-from ..models.pd.list import PublishedPromptListModel, PromptListModel
 from ..models.pd.collections import (
     CollectionDetailModel,
     CollectionModel,
@@ -36,7 +34,9 @@ from .expceptions import (
 )
 
 from .searches import get_filter_collection_by_tags_condition, get_prompts_by_tags
+from ..models.pd.prompt import PublishedPromptListModel, PromptListModel
 from ...promptlib_shared.models.enums.all import PublishStatus
+from ...promptlib_shared.models.pd.base import TagBaseModel
 
 
 def check_prompts_addability(owner_id: int, user_id: int):
@@ -416,30 +416,27 @@ def get_detail_collection(collection: Collection, only_public: bool = False):
     return result
 
 
-def create_collection(project_id: int, data, fire_event=True):
-    collection: CollectionModel = CollectionModel.parse_obj(data)
-    user_id = data["author_id"]
+def create_collection(project_id: int, data: CollectionModel | dict, fire_event: bool = True):
+    if isinstance(data, dict):
+        collection: CollectionModel = CollectionModel.parse_obj(data)
+    else:
+        collection: CollectionModel = data
 
     for prompt in collection.prompts:
-        owner_id = prompt.owner_id
-        if not check_prompts_addability(owner_id, user_id):
+        if not check_prompts_addability(prompt.owner_id, collection.author_id):
             raise PromptInaccessableError(
-                f"User doesn't have access to project '{owner_id}'"
+                f"User doesn't have access to project '{prompt.owner_id}'"
             )
 
     with db.with_project_schema_session(project_id) as session:
-        collection = Collection(**collection.dict())
-        session.add(collection)
+        c = Collection(**collection.dict())
+        session.add(c)
         session.commit()
         if fire_event:
-            fire_collection_created_event(collection.to_json())
+            rpc_tools.EventManagerMixin().event_manager.fire_event(
+                'prompt_lib_collection_added', c.to_json()
+            )
         return collection
-
-
-def fire_collection_created_event(collection_data: dict):
-    rpc_tools.EventManagerMixin().event_manager.fire_event(
-        'prompt_lib_collection_added', collection_data
-    )
 
 
 def add_prompt_to_collection(collection, prompt_data: PromptIds, return_data=True):
@@ -549,7 +546,7 @@ def get_collection_tags(prompts: List[dict]) -> list:
 
                 for version in prompt.versions:
                     for tag in version.tags:
-                        tags[tag.name] = PromptTagBaseModel.from_orm(tag)
+                        tags[tag.name] = TagBaseModel.from_orm(tag)
 
     return list(tags.values())
 

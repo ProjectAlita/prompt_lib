@@ -9,7 +9,7 @@ from ..models.all import (
     PromptVersionTagAssociation,
     Collection,
 )
-from sqlalchemy import desc, asc, or_, and_, func, distinct, cast, String
+from sqlalchemy import desc, asc, or_, and_, func, distinct
 from tools import api_tools
 from flask import request
 from sqlalchemy.orm import joinedload

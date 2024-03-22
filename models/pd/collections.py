@@ -3,12 +3,12 @@ from queue import Empty
 from typing import Optional, List
 from pydantic import BaseModel, root_validator, validator
 
-# from pylon.core.tools import log
+from pylon.core.tools import log
 from tools import rpc_tools
 
+from .prompt import PromptListModel
+from .tag import PromptTagDetailModel
 from ....promptlib_shared.models.pd.base import AuthorBaseModel
-from .list import PromptListModel
-from .detail import PromptTagDetailModel
 from ..enums.all import CollectionPatchOperations
 from ...utils.publish_utils import get_public_project_id
 
@@ -43,7 +43,6 @@ class PromptBaseModel(BaseModel):
         orm_mode = True
 
 
-
 class CollectionShortDetailModel(BaseModel):
     id: int
     name: str
@@ -53,6 +52,7 @@ class CollectionShortDetailModel(BaseModel):
 
     class Config:
         orm_mode = True
+
 
 class CollectionDetailModel(BaseModel):
     id: int
@@ -111,7 +111,6 @@ class CollectionListModel(BaseModel):
         if v is None:
             return False
         return v
-    
 
     @validator('likes')
     def likes_field(cls, v):
@@ -138,7 +137,6 @@ class PublishedCollectionDetailModel(CollectionDetailModel):
     likes: Optional[int] = 0
     is_liked: Optional[bool] = False
 
-
     def get_likes(self, project_id: int) -> None:
         try:
             likes_data = rpc_tools.RpcMixin().rpc.timeout(2).social_get_likes(
@@ -156,7 +154,6 @@ class PublishedCollectionDetailModel(CollectionDetailModel):
             )
         except Empty:
             self.is_liked = False
-
 
 
 class CollectionSearchModel(BaseModel):

@@ -1,6 +1,6 @@
 from typing import Optional
 
-from flask import request, g
+from flask import request
 from pylon.core.tools import log
 import tiktoken
 from ...models.enums.all import MessageRoles

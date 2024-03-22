@@ -6,7 +6,6 @@ from tools import api_tools, auth, config as c
 
 from ...utils.utils import get_author_data, add_public_project_id
 from ...utils.constants import PROMPT_LIB_MODE
-from ...models.pd.authors import AuthorDetailModel
 from ...utils.author import get_stats
 
 

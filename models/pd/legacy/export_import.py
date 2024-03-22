@@ -1,6 +1,6 @@
 from typing import Optional, List
 
-from pydantic import root_validator, BaseModel, Field
+from pydantic import root_validator, BaseModel
 from .prompts_pd import PromptModel
 from pylon.core.tools import log
 

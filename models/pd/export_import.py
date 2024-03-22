@@ -3,8 +3,9 @@ from typing import Optional, List
 from pydantic import AnyUrl, BaseModel
 from pylon.core.tools import log
 
-from ...models.pd.base import PromptBaseModel, PromptVersionBaseModel
-from .collections import CollectionModel
+from .prompt_version import PromptVersionBaseModel
+from ....promptlib_shared.models.pd.chat import IntegrationDataMixin
+from .collections import CollectionModel, PromptIds, PromptBaseModel
 
 
 class PromptVersionExportModel(PromptVersionBaseModel):
@@ -17,6 +18,7 @@ class PromptVersionExportModel(PromptVersionBaseModel):
 
 class PromptExportModel(PromptBaseModel):
     versions: Optional[List[PromptVersionExportModel]]
+
     class Config:
         fields = {
             'shared_id': {'exclude': True},
@@ -39,6 +41,18 @@ class DialFolderImportModel(BaseModel):
     name: str
     type: str
 
+    def to_collection(self, project_id: int,
+                      author_id: int,
+                      prompt_ids: List[PromptIds] | None = None) -> CollectionModel:
+        if not prompt_ids:
+            prompt_ids = []
+        return CollectionModel(
+            name=self.name,
+            owner_id=project_id,
+            author_id=author_id,
+            prompts=prompt_ids
+        )
+
 
 class DialPromptImportModel(BaseModel):
     id: Optional[str]
@@ -49,9 +63,13 @@ class DialPromptImportModel(BaseModel):
     folderId: Optional[str]
 
 
-class DialImportModel(BaseModel):
+class DialExportModel(BaseModel):
     prompts: List[DialPromptImportModel]
     folders: List[DialFolderImportModel]
+
+
+class DialImportModel(DialExportModel):
+    chat_settings_ai: IntegrationDataMixin
 
 
 class CollectionImportModel(CollectionModel):

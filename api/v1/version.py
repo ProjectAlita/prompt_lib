@@ -1,6 +1,5 @@
 import json
-from itertools import chain
-from flask import request, g
+from flask import request
 from pydantic import ValidationError
 
 from pylon.core.tools import log
@@ -8,9 +7,7 @@ from tools import api_tools, auth, config as c, db
 
 from sqlalchemy.exc import IntegrityError
 from ...models.all import PromptVersion
-from ...models.pd.create import PromptVersionCreateModel
-from ...models.pd.detail import PromptVersionDetailModel
-from ...models.pd.update import PromptVersionUpdateModel
+from ...models.pd.prompt_version import PromptVersionDetailModel, PromptVersionCreateModel, PromptVersionUpdateModel
 from ...utils.create_utils import create_version
 from ...utils.prompt_utils import prompts_update_version
 from ...utils.publish_utils import fire_version_deleted_event

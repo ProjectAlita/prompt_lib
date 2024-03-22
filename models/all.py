@@ -4,7 +4,7 @@ from typing import List
 from tools import db_tools, db, config as c
 
 from .enums.all import PromptVersionType, MessageRoles
-from sqlalchemy import Integer, String, DateTime, func, ForeignKey, JSON, Table, Column, UniqueConstraint, MetaData
+from sqlalchemy import Integer, String, DateTime, func, ForeignKey, JSON, Table, Column, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from ...promptlib_shared.models.all import AbstractLikesMixin, Tag

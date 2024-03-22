@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import List
 from pylon.core.tools import web, log
 
 from pydantic import parse_obj_as
@@ -6,7 +6,6 @@ from sqlalchemy.orm import joinedload
 
 from ..utils.ai_providers import AIProvider
 from ..models.pd.v1_structure import PromptV1Model, TagV1Model
-from traceback import format_exc
 from tools import rpc_tools, db
 from ..models.all import (
     Prompt,

@@ -3,11 +3,11 @@ from typing import List
 from pydantic import parse_obj_as
 from pylon.core.tools import web, log
 
-from ..models.pd.base import ModelInfoBaseModel, ModelSettingsBaseModel, PromptVersionBaseModel
-from ..models.pd.create import PromptVersionCreateModel, PromptCreateModel
-from ..models.pd.update import PromptUpdateModel
 from ..models.pd.legacy.tag import PromptTagModel
 from ..models.all import Prompt, PromptVersion, PromptVersionTagAssociation
+from ..models.pd.model_settings import ModelInfoBaseModel, ModelSettingsBaseModel
+from ..models.pd.prompt import PromptCreateModel, PromptUpdateModel
+from ..models.pd.prompt_version import PromptVersionCreateModel, PromptVersionBaseModel
 from ..models.pd.v1_structure import (
     PromptCreateV1Model,
     PromptUpdateV1Model,

@@ -2,7 +2,7 @@ from flask import request
 
 from pylon.core.tools import log
 from tools import api_tools, auth, config as c
-from ...utils.prompt_utils import get_all_ranked_tags, get_prompt_tags
+from ...utils.prompt_utils import get_prompt_tags
 from ...utils.prompt_utils_legacy import get_all_tags, get_tags, update_tags
 
 from ...utils.constants import PROMPT_LIB_MODE

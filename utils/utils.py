@@ -6,7 +6,7 @@ from typing import List, Set, Callable
 from sqlalchemy import func
 
 from tools import db, VaultClient, auth, rpc_tools
-from ..models.all import Prompt, PromptVersion, Collection
+from ..models.all import Prompt, PromptVersion
 from ..models.pd.authors import AuthorDetailModel, TrendingAuthorModel
 from ...promptlib_shared.models.enums.all import PublishStatus
 

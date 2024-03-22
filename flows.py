@@ -1,6 +1,4 @@
 from pylon.core.tools import web, log
-from pydantic import ValidationError
-
 from tools import flow_tools, rpc_tools
 
 from .models.pd.legacy.prompts_pd import PredictPostModel

@@ -2,7 +2,9 @@ import uuid
 from typing import Optional, List, Any
 
 from pydantic import BaseModel, validator, Field
-from .base import PromptVariableBaseModel, PromptMessageBaseModel, ModelSettingsBaseModel
+from .model_settings import ModelSettingsBaseModel
+from .prompt_message import PromptMessageBaseModel
+from .prompt_variable import PromptVariableBaseModel
 from ..enums.all import PromptVersionType
 from pylon.core.tools import log
 import re
@@ -59,5 +61,3 @@ class PromptVersionPredictModel(BaseModel):
     @property
     def merged_settings(self) -> dict:
         return {**self.integration.settings, **self.model_settings.merged}
-
-

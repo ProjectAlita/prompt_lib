@@ -1,10 +1,13 @@
 from ..models.all import PromptVersion, PromptVariable, Prompt, PromptMessage
-from ..models.pd.base import PromptVariableBaseModel, PromptMessageBaseModel, PromptTagBaseModel
-from ..models.pd.create import PromptCreateModel, PromptVersionCreateModel, PromptVersionLatestCreateModel
 from typing import Generator, List
 from jinja2 import Environment, DebugUndefined, meta
 
+from ..models.pd.prompt import PromptCreateModel
+from ..models.pd.prompt_message import PromptMessageBaseModel
+from ..models.pd.prompt_variable import PromptVariableBaseModel
+from ..models.pd.prompt_version import PromptVersionCreateModel, PromptVersionLatestCreateModel
 from ...promptlib_shared.models.all import Tag
+from ...promptlib_shared.models.pd.base import TagBaseModel
 
 
 def create_variable(
@@ -54,7 +57,7 @@ def create_messages(
 
 
 def get_existing_tags(
-        tags: List[PromptTagBaseModel],
+        tags: List[TagBaseModel],
         session=None,
         project_id: int | None = None
 ) -> dict[str, Tag]:
@@ -73,7 +76,7 @@ def get_existing_tags(
 
 
 def generate_tags(
-        tags: List[PromptTagBaseModel],
+        tags: List[TagBaseModel],
         existing_tags_map: dict[str, Tag]
 ) -> Generator[Tag, None, None]:
     for i in tags:

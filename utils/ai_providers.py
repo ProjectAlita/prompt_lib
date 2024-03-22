@@ -1,3 +1,5 @@
+from typing import Optional
+
 from tools import rpc_tools
 from pylon.core.tools import log
 
@@ -12,7 +14,7 @@ class AIProvider:
     @classmethod
     def get_integration_settings(
             cls, project_id: int, integration_uid: str, prompt_settings: dict
-    ) -> dict:
+    ) -> Optional[dict]:
         if not prompt_settings:
             prompt_settings = {}
         try:

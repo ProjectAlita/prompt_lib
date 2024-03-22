@@ -1,6 +1,5 @@
 import json
 from typing import List
-from flask import jsonify
 from pylon.core.tools import log
 
 from tools import api_tools, auth, config as c

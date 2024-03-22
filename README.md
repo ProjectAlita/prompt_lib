@@ -1,6 +1,6 @@
 # prompts
 
-### for AI group the following sercrets are needed:
+### for AI group the following secrets are needed:
 - ai_project_id: int
 - ai_project_roles: str (comma-separated)
 - ai_project_bucket_name: str

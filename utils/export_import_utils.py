@@ -5,14 +5,11 @@ from tools import db
 from pylon.core.tools import log
 
 from ..models.all import Prompt, PromptVersion, Collection
-from ..models.pd.base import PromptVersionBaseModel
 from ..models.pd.export_import import (
-    DialImportModel,
     DialModelImportModel,
     DialPromptImportModel,
-    PromptExportModel,
+    PromptExportModel, DialExportModel,
 )
-from ..utils.create_utils import create_version
 from ..utils.collections import group_by_project_id
 
 
@@ -36,10 +33,10 @@ def prompts_export_to_dial(project_id: int, prompt_id: int = None, session=None)
                     )
         
         prompts_to_export.append(DialPromptImportModel(**export_data))
-    result = DialImportModel(prompts=prompts_to_export, folders=[])
+    result = DialExportModel(prompts=prompts_to_export, folders=[])
     session.close()
 
-    return result.dict()
+    return result.dict(exclude={'chat_settings_ai'})
 
 
 def collection_export(project_id: int, collection_id: int, to_dail=False):
@@ -95,20 +92,3 @@ def prompts_export(project_id: int, prompt_id: int = None, session=None) -> dict
     return {'prompts': prompts_to_export, 'collections': []}
 
 
-def prompts_import_from_dial(project_id: int, prompt_data: dict, session: None) -> Prompt:
-    prompt = Prompt(
-        name=prompt_data['name'],
-        description=prompt_data.get('description'),
-        owner_id=project_id
-    )
-    ver = PromptVersionBaseModel(
-        name='latest',
-        author_id=prompt_data['author_id'],
-        context=prompt_data['content'],
-        type='chat'
-    )
-    create_version(ver, prompt=prompt, session=session)
-    if session:
-        session.add(prompt)
-        session.flush()
-    return prompt

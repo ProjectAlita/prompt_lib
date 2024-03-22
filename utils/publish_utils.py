@@ -6,9 +6,8 @@ from tools import db, VaultClient, auth, rpc_tools
 from pylon.core.tools import log
 
 from ..models.all import Prompt, PromptVersion
-from ..models.pd.create import PromptVersionBaseModel
 from .create_utils import create_version
-from ..models.pd.detail import PromptVersionDetailModel
+from ..models.pd.prompt_version import PromptVersionDetailModel, PromptVersionBaseModel
 from ...promptlib_shared.models.enums.all import PublishStatus
 
 

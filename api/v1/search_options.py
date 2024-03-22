@@ -1,9 +1,9 @@
 from flask import request
 from tools import api_tools, auth, config as c
 
+from ...models.pd.misc import MultiplePromptSearchModel, MultiplePromptTagListModel
 from ....promptlib_shared.models.all import Tag
 from ...models.all import Prompt, Collection, PromptVersion
-from ...models.pd.list import MultiplePromptSearchModel, MultiplePromptTagListModel
 from ...models.pd.collections import MultipleCollectionSearchModel
 from ...utils.constants import PROMPT_LIB_MODE
 

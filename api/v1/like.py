@@ -1,10 +1,9 @@
 from queue import Empty
 
-from flask import request
 from sqlalchemy.exc import IntegrityError
 
 from pylon.core.tools import log
-from tools import api_tools, auth, config as c
+from tools import api_tools, auth
 
 from ...utils.constants import PROMPT_LIB_MODE
 
