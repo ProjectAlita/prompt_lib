@@ -21,6 +21,7 @@ class PromptExportModel(PromptBaseModel):
     description: Optional[str]
     owner_id: int
     versions: Optional[List[PromptVersionExportModel]]
+    collection_id: Optional[int] = None
 
     class Config:
         fields = {

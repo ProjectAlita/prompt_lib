@@ -94,7 +94,7 @@ class PromptListModel(BaseModel):
         tags = dict()
         version_statuses = set()
 
-        for version in values['versions']:
+        for version in values.get('versions', []):
             for tag in version.tags:
                 tags[tag.name] = tag
             values['author_ids'].add(version.author_id)

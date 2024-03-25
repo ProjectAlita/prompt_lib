@@ -37,6 +37,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
                             result = prompts_export_to_dial(project_id, prompt_id, session2)
                         else:
                             result = prompts_export(project_id, prompt_id, session2)
+                            for i in result['prompts']:
+                                i['collection_id'] = collection_id
                             del result['collections']
                         result_prompts.extend(result['prompts'])
 
@@ -49,6 +51,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 folder['type'] = "prompt"
                 result["folder"] = [folder]
             else:
+                folder['id'] = collection_id
                 result["collections"] = [folder]
         if request.args.get('as_file', False):
             file = BytesIO()

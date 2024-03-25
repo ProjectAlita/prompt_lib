@@ -128,7 +128,7 @@ def create_version(
 
 def create_prompt(prompt_data: Type['PromptCreateModel'] | Type['PromptImportModel'], session=None) -> Prompt:
     prompt = Prompt(
-        **prompt_data.dict(exclude_unset=True, exclude={"versions"})
+        **prompt_data.dict(exclude_unset=True, exclude={"versions", 'collection_id'})
     )
 
     for ver in prompt_data.versions:

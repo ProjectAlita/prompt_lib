@@ -9,11 +9,11 @@ from pydantic import ValidationError
 from pylon.core.tools import log
 
 from ...models.all import Prompt
-from ...models.pd.collections import PromptIds, CollectionDetailModel
+from ...models.pd.collections import PromptIds, CollectionModel
 from tools import api_tools, db, auth, config as c
 
-from ...models.pd.export_import import DialImportModel, PromptExportModel, PromptImportModel
-from ...models.pd.prompt import PromptDetailModel, PromptCreateModel
+from ...models.pd.export_import import DialImportModel, PromptImportModel
+from ...models.pd.prompt import PromptDetailModel
 from ...models.pd.prompt_version import PromptVersionLatestCreateModel
 
 from ...utils.create_utils import create_prompt, create_version
@@ -22,9 +22,10 @@ from ...utils.export_import_utils import prompts_export, prompts_export_to_dial
 from ...utils.constants import PROMPT_LIB_MODE
 
 
-def import_dial_prompts(data: dict, project_id: int, author_id: int) -> Tuple[list, list]:
+def import_dial_prompts(data: dict, project_id: int, author_id: int) -> Tuple[dict, list]:
     parsed = DialImportModel.parse_obj(data)
     created = []
+    created_collections = []
     errors = []
     folders = defaultdict(list)
 
@@ -56,7 +57,7 @@ def import_dial_prompts(data: dict, project_id: int, author_id: int) -> Tuple[li
         session.commit()
 
     if parsed.folders:
-        created_collections = []
+
         for folder_data in parsed.folders:
             collection = create_collection(project_id, folder_data.to_collection(
                 project_id=project_id,
@@ -68,14 +69,18 @@ def import_dial_prompts(data: dict, project_id: int, author_id: int) -> Tuple[li
                     ) for i in folders.get(folder_data.id, [])
                 ]
             ))
-            created_collections.append(json.loads(CollectionDetailModel.from_orm(collection).json()))
-        created.append({'collections': created_collections})
-    return created, errors
+            created_collections.append(collection.to_json())
+    return {
+        'prompts': created,
+        'collections': created_collections
+    }, errors
 
 
-def import_alita_prompts(data: dict, project_id: int, author_id: int) -> Tuple[list, list]:
+def import_alita_prompts(data: dict, project_id: int, author_id: int) -> Tuple[dict, list]:
     created = []
+    created_collections = []
     errors = []
+    folders = defaultdict(list)
 
     with db.with_project_schema_session(project_id) as session:
         for raw in data.get('prompts'):
@@ -88,8 +93,34 @@ def import_alita_prompts(data: dict, project_id: int, author_id: int) -> Tuple[l
                 continue
             prompt = create_prompt(prompt_data, session)
             created.append(prompt)
-        session.commit()
-        return [json.loads(PromptDetailModel.from_orm(i).json()) for i in created], errors
+            session.commit()
+            if prompt_data.collection_id:
+                folders[prompt_data.collection_id].append(prompt.id)
+
+        for folder_data in data.get('collections', []):
+            coll = CollectionModel(
+                name=folder_data.get("name"),
+                owner_id=project_id,
+                author_id=author_id,
+                description=folder_data.get("description"),
+                prompts=[]
+            )
+            if folder_data.get("id"):
+                prompts = [
+                    PromptIds(
+                        id=i,
+                        owner_id=project_id
+                    ) for i in folders.get(folder_data['id'], [])
+                ]
+                coll.prompts = prompts
+
+            collection = create_collection(project_id, coll)
+            created_collections.append(collection.to_json())
+
+        return {
+            'prompts': [json.loads(PromptDetailModel.from_orm(i).json()) for i in created],
+            'collections': created_collections
+        }, errors
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
