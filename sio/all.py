@@ -131,7 +131,7 @@ class SIO:  # pylint: disable=E1101,R0903
             chat = AzureChatOpenAI(
                 api_key=api_token,
                 azure_endpoint=payload.merged_settings['api_base'],
-                azure_deployment=payload.merged_settings['name'],
+                azure_deployment=payload.merged_settings['model_name'],
                 api_version=payload.merged_settings['api_version'],
                 streaming=True
             )
@@ -139,7 +139,7 @@ class SIO:  # pylint: disable=E1101,R0903
             chat = AzureChatOpenAI(
                 openai_api_key=api_token,
                 openai_api_base=payload.merged_settings['api_base'],
-                deployment_name=payload.merged_settings['name'],
+                deployment_name=payload.merged_settings['model_name'],
                 openai_api_version=payload.merged_settings['api_version'],
                 streaming=True
             )
