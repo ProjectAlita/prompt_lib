@@ -36,15 +36,14 @@ def import_dial_prompts(data: dict, project_id: int, author_id: int) -> Tuple[li
                 description=prompt_data.description,
                 owner_id=project_id
             )
-            log.info(prompt)
-            log.info(f'{parsed.chat_settings_ai.dict()=}')
+            # log.info(prompt)
             ver = PromptVersionLatestCreateModel(
                 name='latest',
                 author_id=author_id,
                 context=prompt_data.content,
-                model_settings={'model': parsed.chat_settings_ai.dict()}
+                model_settings={'model': prompt_data.alita_model.dict(), 'max_tokens': prompt_data.model.maxLength}
             )
-            log.info(ver.dict())
+            # log.info(ver.dict())
             create_version(ver, prompt=prompt, session=session)
             session.add(prompt)
             # session.flush()
@@ -137,7 +136,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 log.exception('Import exception')
                 return {'error': str(e)}, 400
         else:
-            created, errors = import_dial_prompts(dict(request.json), project_id, author_id)
+            created, errors = import_alita_prompts(dict(request.json), project_id, author_id)
         return {'created': created, 'errors': errors}, 201
 
 
