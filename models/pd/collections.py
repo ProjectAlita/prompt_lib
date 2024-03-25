@@ -33,14 +33,14 @@ class CollectionModel(BaseModel):
     shared_owner_id: Optional[int]
 
 
-class PromptBaseModel(BaseModel):
-    id: int
-    name: str
-    description: Optional[str]
-    owner_id: int
-
-    class Config:
-        orm_mode = True
+# class PromptBaseModel(BaseModel):
+#     id: int
+#     name: str
+#     description: Optional[str]
+#     owner_id: int
+#
+#     class Config:
+#         orm_mode = True
 
 
 class CollectionShortDetailModel(BaseModel):

@@ -12,8 +12,8 @@ from ...models.all import Prompt
 from ...models.pd.collections import PromptIds, CollectionDetailModel
 from tools import api_tools, db, auth, config as c
 
-from ...models.pd.export_import import DialImportModel, PromptExportModel
-from ...models.pd.prompt import PromptDetailModel
+from ...models.pd.export_import import DialImportModel, PromptExportModel, PromptImportModel
+from ...models.pd.prompt import PromptDetailModel, PromptCreateModel
 from ...models.pd.prompt_version import PromptVersionLatestCreateModel
 
 from ...utils.create_utils import create_prompt, create_version
@@ -79,21 +79,17 @@ def import_alita_prompts(data: dict, project_id: int, author_id: int) -> Tuple[l
 
     with db.with_project_schema_session(project_id) as session:
         for raw in data.get('prompts'):
-            raw["owner_id"] = project_id
             for version in raw.get("versions", []):
                 version["author_id"] = author_id
             try:
-                prompt_data = PromptExportModel.parse_obj(raw)
+                prompt_data = PromptImportModel.parse_obj(raw)
             except ValidationError as e:
                 errors.append(e.errors())
                 continue
-
             prompt = create_prompt(prompt_data, session)
-            session.flush()
-            result = PromptDetailModel.from_orm(prompt)
-            created.append(json.loads(result.json()))
+            created.append(prompt)
         session.commit()
-    return created, errors
+        return [json.loads(PromptDetailModel.from_orm(i).json()) for i in created], errors
 
 
 class PromptLibAPI(api_tools.APIModeHandler):

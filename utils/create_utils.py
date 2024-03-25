@@ -1,8 +1,7 @@
 from ..models.all import PromptVersion, PromptVariable, Prompt, PromptMessage
-from typing import Generator, List
+from typing import Generator, List, Type
 from jinja2 import Environment, DebugUndefined, meta
 
-from ..models.pd.prompt import PromptCreateModel
 from ..models.pd.prompt_message import PromptMessageBaseModel
 from ..models.pd.prompt_variable import PromptVariableBaseModel
 from ..models.pd.prompt_version import PromptVersionCreateModel, PromptVersionLatestCreateModel
@@ -127,7 +126,7 @@ def create_version(
     return prompt_version
 
 
-def create_prompt(prompt_data: PromptCreateModel, session=None) -> Prompt:
+def create_prompt(prompt_data: Type['PromptCreateModel'] | Type['PromptImportModel'], session=None) -> Prompt:
     prompt = Prompt(
         **prompt_data.dict(exclude_unset=True, exclude={"versions"})
     )

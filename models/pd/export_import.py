@@ -3,30 +3,20 @@ from typing import Optional, List
 from pydantic import AnyUrl, BaseModel
 from pylon.core.tools import log
 
-from .model_settings import ModelSettingsBaseModel, ModelSettingsCreateModel
-from .prompt_message import PromptMessageBaseModel
-from .prompt_variable import PromptVariableBaseModel
+from .model_settings import ModelSettingsBaseModel
+from .prompt import PromptBaseModel
 from .prompt_version import PromptVersionBaseModel
-from ..enums.all import PromptVersionType
-from ....promptlib_shared.models.pd.base import TagBaseModel
 from ....promptlib_shared.models.pd.chat import IntegrationDataMixin
-from .collections import CollectionModel, PromptIds, PromptBaseModel
+from .collections import CollectionModel, PromptIds
 
 
-class PromptVersionExportModel(BaseModel):
-    name: str
+class PromptVersionExportModel(PromptVersionBaseModel):
     commit_message: Optional[str] = None
-    author_id: int
     context: Optional[str] = ''
-    variables: Optional[List[PromptVariableBaseModel]]
-    messages: Optional[List[PromptMessageBaseModel]]
-    tags: Optional[List[TagBaseModel]]
-    model_settings: ModelSettingsCreateModel
-    type: PromptVersionType = PromptVersionType.chat
-    prompt_id: Optional[int]
+    model_settings: ModelSettingsBaseModel
 
 
-class PromptExportModel(BaseModel):
+class PromptExportModel(PromptBaseModel):
     name: str
     description: Optional[str]
     owner_id: int
@@ -37,9 +27,14 @@ class PromptExportModel(BaseModel):
             'shared_id': {'exclude': True},
             'shared_owner_id': {'exclude': True},
         }
+        orm_mode = True
 
 
-class DialModelImportModel(BaseModel):
+class PromptImportModel(PromptExportModel):
+    ...
+
+
+class DialModelExportModel(BaseModel):
     id: str
     name: Optional[str]
     iconUrl: Optional[AnyUrl]
@@ -47,6 +42,10 @@ class DialModelImportModel(BaseModel):
     maxLength: Optional[int]
     requestLimit: Optional[int]
     isDefault: Optional[bool]
+
+
+class DialModelImportModel(DialModelExportModel):
+    ...
 
 
 class DialFolderImportModel(BaseModel):
@@ -67,9 +66,21 @@ class DialFolderImportModel(BaseModel):
         )
 
 
-class DialPromptImportModel(BaseModel):
-    id: Optional[str]
+class DialFolderExportModel(DialFolderImportModel):
+    ...
+
+
+class DialPromptExportModel(BaseModel):
+    id: str
     name: str
+    description: str
+    content: str
+    model: DialModelExportModel
+    folderId: Optional[str]
+
+
+class DialPromptImportModel(DialPromptExportModel):
+    id: Optional[str]
     description: Optional[str]
     content: str = ''
     model: Optional[DialModelImportModel]
@@ -78,16 +89,10 @@ class DialPromptImportModel(BaseModel):
 
 
 class DialExportModel(BaseModel):
-    prompts: List[DialPromptImportModel]
-    folders: List[DialFolderImportModel]
+    prompts: List[DialPromptExportModel]
+    folders: List[DialFolderExportModel]
 
 
 class DialImportModel(DialExportModel):
-    # chat_settings_ai: IntegrationDataMixin
-    ...
-
-class CollectionImportModel(CollectionModel):
-    prompts: List[dict]
-
-    class Config:
-        orm_mode = True
+    prompts: List[DialPromptImportModel]
+    folders: List[DialFolderImportModel]

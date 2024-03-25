@@ -4,13 +4,11 @@ from sqlalchemy.orm import joinedload
 from tools import db
 from pylon.core.tools import log
 
-from ..models.all import Prompt, PromptVersion, Collection
+from ..models.all import Prompt, PromptVersion
 from ..models.pd.export_import import (
-    DialModelImportModel,
-    DialPromptImportModel,
     PromptExportModel, DialExportModel,
+    DialPromptExportModel, DialModelExportModel,
 )
-from ..utils.collections import group_by_project_id
 
 
 def prompts_export_to_dial(project_id: int, prompt_id: int = None, session=None) -> dict:
@@ -23,46 +21,27 @@ def prompts_export_to_dial(project_id: int, prompt_id: int = None, session=None)
 
     prompts_to_export = []
     for prompt in prompts:
-        prompt_data = prompt.to_json()
-        export_data = {**prompt_data}
+        # prompt_data = prompt.to_json()
+        # export_data = {**prompt_data}
+        export_data = DialPromptExportModel(
+            id=prompt.id,
+            name=prompt.name,
+            description=prompt.description,
+            content='',
+            model={}
+        )
         for version in prompt.versions:
-            export_data['content'] = version.context or ''
+            export_data.content = version.context or export_data.content
             if version.model_settings:
-                export_data['model'] = DialModelImportModel(
+                export_data.model = DialModelExportModel(
                     id=version.model_settings.get('model', {}).get('name', '')
-                    )
-        
-        prompts_to_export.append(DialPromptImportModel(**export_data))
+                )
+        prompts_to_export.append(export_data.dict())
     result = DialExportModel(prompts=prompts_to_export, folders=[])
     session.close()
 
-    return result.dict(exclude={'chat_settings_ai'})
+    return result.dict()
 
-
-def collection_export(project_id: int, collection_id: int, to_dail=False):
-    with db.with_project_schema_session(project_id) as session:
-        collection = session.query(Collection).get(collection_id)
-        if not collection:
-            raise Exception(f"Collection with id '{collection_id}' not found")
-        grouped_prompts = group_by_project_id(collection.prompts)
-        result_prompts = []
-        for project_id, prompts in grouped_prompts.items():
-            with db.with_project_schema_session(project_id) as session2:
-                for prompt_id in prompts:
-                    if to_dail:
-                        result = prompts_export_to_dial(project_id, prompt_id, session2)
-                    else:
-                        result = prompts_export(project_id, prompt_id, session2)
-                        del result['collections']
-                    result_prompts.extend(result['prompts'])    
-
-        folder = {
-            "name": collection.name,
-            "description": collection.description,
-        }
-        if to_dail:
-             folder['type'] = "prompt"
-        return {"prompts": result_prompts, "folders": [folder]}
 
 
 def prompts_export(project_id: int, prompt_id: int = None, session=None) -> dict:
@@ -90,5 +69,3 @@ def prompts_export(project_id: int, prompt_id: int = None, session=None) -> dict
 
     session.close()
     return {'prompts': prompts_to_export, 'collections': []}
-
-
