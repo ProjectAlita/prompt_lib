@@ -416,7 +416,7 @@ def get_detail_collection(collection: Collection, only_public: bool = False):
     return result
 
 
-def create_collection(project_id: int, data: CollectionModel | dict, fire_event: bool = True):
+def create_collection(project_id: int, data: CollectionModel | dict, fire_event: bool = True) -> Collection:
     if isinstance(data, dict):
         collection: CollectionModel = CollectionModel.parse_obj(data)
     else:
@@ -436,7 +436,7 @@ def create_collection(project_id: int, data: CollectionModel | dict, fire_event:
             rpc_tools.EventManagerMixin().event_manager.fire_event(
                 'prompt_lib_collection_added', c.to_json()
             )
-        return collection
+        return c
 
 
 def add_prompt_to_collection(collection, prompt_data: PromptIds, return_data=True):

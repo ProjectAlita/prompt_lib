@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from pylon.core.tools import log
 
 from ...models.all import Prompt
-from ...models.pd.collections import PromptIds
+from ...models.pd.collections import PromptIds, CollectionDetailModel
 from tools import api_tools, db, auth, config as c
 
 from ...models.pd.export_import import DialImportModel, PromptExportModel
@@ -68,7 +68,7 @@ def import_dial_prompts(data: dict, project_id: int, author_id: int) -> Tuple[li
                     ) for i in folders.get(folder_data.id, [])
                 ]
             ))
-            created_collections.append(json.loads(collection.json()))
+            created_collections.append(json.loads(CollectionDetailModel.from_orm(collection).json()))
         created.append({'collections': created_collections})
     return created, errors
 
