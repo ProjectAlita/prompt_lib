@@ -57,7 +57,6 @@ def import_dial_prompts(data: dict, project_id: int, author_id: int) -> Tuple[di
         session.commit()
 
     if parsed.folders:
-
         for folder_data in parsed.folders:
             collection = create_collection(project_id, folder_data.to_collection(
                 project_id=project_id,

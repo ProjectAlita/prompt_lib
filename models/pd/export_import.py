@@ -76,7 +76,7 @@ class DialPromptExportModel(BaseModel):
     name: str
     description: str
     content: str
-    model: DialModelExportModel
+    model: Optional[DialModelExportModel]
     folderId: Optional[str]
 
 

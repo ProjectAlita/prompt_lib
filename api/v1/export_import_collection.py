@@ -9,6 +9,7 @@ from pylon.core.tools import log
 from tools import api_tools, db, auth, config as c
 
 from ...models.all import Collection
+from ...models.pd.export_import import DialFolderExportModel
 from ...utils.collections import group_by_project_id
 from ...utils.export_import_utils import prompts_export_to_dial, prompts_export
 from ...utils.constants import PROMPT_LIB_MODE
@@ -37,21 +38,24 @@ class PromptLibAPI(api_tools.APIModeHandler):
                             result = prompts_export_to_dial(project_id, prompt_id, session2)
                         else:
                             result = prompts_export(project_id, prompt_id, session2)
-                            for i in result['prompts']:
-                                i['collection_id'] = collection_id
                             del result['collections']
                         result_prompts.extend(result['prompts'])
 
-            folder = {
-                "name": collection.name,
-                "description": collection.description,
-            }
             result = {"prompts": result_prompts}
             if to_dial:
-                folder['type'] = "prompt"
-                result["folder"] = [folder]
+                folder_id = f'alita_{project_id}_{collection_id}'
+                folder = DialFolderExportModel(
+                    id=folder_id,
+                    name=collection.name,
+                    type='prompt'
+                )
+                for i in result['prompts']:
+                    i['folderId'] = folder_id
+                result["folders"] = [folder.dict()]
             else:
-                folder['id'] = collection_id
+                folder = {"name": collection.name, "description": collection.description, 'id': collection_id}
+                for i in result['prompts']:
+                    i['collection_id'] = collection_id
                 result["collections"] = [folder]
         if request.args.get('as_file', False):
             file = BytesIO()

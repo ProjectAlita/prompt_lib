@@ -9,6 +9,7 @@ from ..models.pd.export_import import (
     PromptExportModel, DialExportModel,
     DialPromptExportModel, DialModelExportModel,
 )
+from ..models.pd.model_settings import ModelSettingsBaseModel
 
 
 def prompts_export_to_dial(project_id: int, prompt_id: int = None, session=None) -> dict:
@@ -21,25 +22,22 @@ def prompts_export_to_dial(project_id: int, prompt_id: int = None, session=None)
 
     prompts_to_export = []
     for prompt in prompts:
-        # prompt_data = prompt.to_json()
-        # export_data = {**prompt_data}
-        export_data = DialPromptExportModel(
-            id=prompt.id,
-            name=prompt.name,
-            description=prompt.description,
-            content='',
-            model={}
-        )
         for version in prompt.versions:
-            export_data.content = version.context or export_data.content
+            export_data = DialPromptExportModel(
+                id=prompt.id,
+                name=prompt.name,
+                description=prompt.description,
+                content=version.context,
+            )
             if version.model_settings:
+                parsed = ModelSettingsBaseModel.parse_obj(version.model_settings)
                 export_data.model = DialModelExportModel(
-                    id=version.model_settings.get('model', {}).get('name', '')
+                    id=parsed.model.model_name,
+                    maxLength=parsed.max_tokens,
                 )
-        prompts_to_export.append(export_data.dict())
+            prompts_to_export.append(export_data.dict())
     result = DialExportModel(prompts=prompts_to_export, folders=[])
     session.close()
-
     return result.dict()
 
 
