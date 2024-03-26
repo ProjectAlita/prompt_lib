@@ -13,7 +13,7 @@ from .collections import CollectionModel, PromptIds
 class PromptVersionExportModel(PromptVersionBaseModel):
     commit_message: Optional[str] = None
     context: Optional[str] = ''
-    model_settings: ModelSettingsBaseModel
+    model_settings: Optional[ModelSettingsBaseModel]
 
 
 class PromptExportModel(PromptBaseModel):
