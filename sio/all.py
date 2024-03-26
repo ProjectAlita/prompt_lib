@@ -34,6 +34,7 @@ except:
 
 class SioEvents(str, Enum):
     promptlib_predict = 'promptlib_predict'
+    leave_rooms = 'leave_rooms'
 
 
 class SioValidationError(Exception):
@@ -187,3 +188,12 @@ class SIO:  # pylint: disable=E1101,R0903
                 data=data,
                 room=room,
             )
+
+    @web.sio(SioEvents.leave_rooms)
+    def leave_rooms(self, sid, data):
+        for room_id in data:
+            room = get_event_room(
+                event_name=SioEvents.promptlib_predict,
+                room_id=room_id
+            )
+            self.context.sio.leave_room(sid, room)

@@ -4,35 +4,41 @@ from pydantic import AnyUrl, BaseModel
 from pylon.core.tools import log
 
 from .model_settings import ModelSettingsBaseModel
-from .prompt import PromptBaseModel
-from .prompt_version import PromptVersionBaseModel
+from .prompt_message import PromptMessageBaseModel
+from .prompt_variable import PromptVariableBaseModel
+from ..enums.all import PromptVersionType
+from ....promptlib_shared.models.pd.base import TagBaseModel
 from ....promptlib_shared.models.pd.chat import IntegrationDataMixin
 from .collections import CollectionModel, PromptIds
 
 
-class PromptVersionExportModel(PromptVersionBaseModel):
+class PromptVersionExportModel(BaseModel):
+    name: str
     commit_message: Optional[str] = None
     context: Optional[str] = ''
+    variables: Optional[List[PromptVariableBaseModel]]
+    messages: Optional[List[PromptMessageBaseModel]]
+    tags: Optional[List[TagBaseModel]]
     model_settings: Optional[ModelSettingsBaseModel]
+    type: PromptVersionType
+    author_id: int
+
+    class Config:
+        orm_mode = True
 
 
-class PromptExportModel(PromptBaseModel):
+class PromptExportModel(BaseModel):
     name: str
     description: Optional[str]
-    owner_id: int
     versions: Optional[List[PromptVersionExportModel]]
     collection_id: Optional[int] = None
 
     class Config:
-        fields = {
-            'shared_id': {'exclude': True},
-            'shared_owner_id': {'exclude': True},
-        }
         orm_mode = True
 
 
 class PromptImportModel(PromptExportModel):
-    ...
+    owner_id: Optional[int]
 
 
 class DialModelExportModel(BaseModel):

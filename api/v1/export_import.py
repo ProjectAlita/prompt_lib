@@ -86,6 +86,7 @@ def import_alita_prompts(data: dict, project_id: int, author_id: int) -> Tuple[d
 
     with db.with_project_schema_session(project_id) as session:
         for raw in data.get('prompts'):
+            raw['owner_id'] = project_id
             for version in raw.get("versions", []):
                 version["author_id"] = author_id
             try:
