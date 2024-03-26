@@ -38,11 +38,14 @@ def import_dial_prompts(data: dict, project_id: int, author_id: int) -> Tuple[di
                 owner_id=project_id
             )
             # log.info(prompt)
+            model_settings = {'model': prompt_data.alita_model.dict()}
+            if prompt_data.model:
+                model_settings['max_tokens'] = prompt_data.model.maxLength
             ver = PromptVersionLatestCreateModel(
                 name='latest',
                 author_id=author_id,
                 context=prompt_data.content,
-                model_settings={'model': prompt_data.alita_model.dict(), 'max_tokens': prompt_data.model.maxLength}
+                model_settings=model_settings
             )
             # log.info(ver.dict())
             create_version(ver, prompt=prompt, session=session)
