@@ -3,6 +3,7 @@ from ...utils.publish_utils import Publishing
 from pylon.core.tools import log
 from tools import api_tools, auth, config as c
 
+# class
 
 class PromptLibAPI(api_tools.APIModeHandler):
     @auth.decorators.check_api({
@@ -13,6 +14,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         }})
     @api_tools.endpoint_metrics
     def post(self, project_id: int, version_id: int, **kwargs):
+        # publish_model =
         try:
             result = Publishing(project_id, version_id).publish()
         except Exception as e:

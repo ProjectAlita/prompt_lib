@@ -34,7 +34,7 @@ except:
 
 class SioEvents(str, Enum):
     promptlib_predict = 'promptlib_predict'
-    leave_rooms = 'leave_rooms'
+    promptlib_leave_rooms = 'promptlib_leave_rooms'
 
 
 class SioValidationError(Exception):
@@ -189,11 +189,26 @@ class SIO:  # pylint: disable=E1101,R0903
                 room=room,
             )
 
-    @web.sio(SioEvents.leave_rooms)
-    def leave_rooms(self, sid, data):
+    @web.sio(SioEvents.promptlib_leave_rooms)
+    def leave_room_prompt_lib(self, sid, data):
         for room_id in data:
             room = get_event_room(
                 event_name=SioEvents.promptlib_predict,
                 room_id=room_id
             )
             self.context.sio.leave_room(sid, room)
+
+
+# s = useSocket('leave_room')
+# s.emit([123,456,678])
+#
+#
+# s = useSocket('leave_room')
+# s.emit({'event_name': 'promptlib_predict', 'stream_ids': [123,456,678]})
+#
+#
+#
+# s = useSocket('leave_room_prompts')
+# s.emit([123,456,678])
+# s = useSocket('leave_room_datasources')
+# s.emit([123,456,678])
