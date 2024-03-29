@@ -1,3 +1,5 @@
+import json
+
 from pylon.core.tools import log, web
 from tools import VaultClient
 
@@ -87,6 +89,11 @@ class Event:
                 "ai_project_roles": "prompt_lib_public",  # change to viewer after redo
                 "ai_public_admin_role": "public_admin",  # change to editor after redo
                 "ai_project_api_url": "",
+                "ai_storage_quota": json.dumps({
+                    "default": self.descriptor.config.get(
+                        "ai_storage_default_quota", None
+                    ),
+                }),
             }
             # Check and create secrets
             vault_client = VaultClient()
