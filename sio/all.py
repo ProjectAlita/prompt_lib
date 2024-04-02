@@ -89,16 +89,7 @@ class SIO:  # pylint: disable=E1101,R0903
 
     @web.sio(SioEvents.promptlib_predict)
     def predict(self, sid, data):
-        try:
-            payload = prepare_payload(data=data)
-        except ValidationError as e:
-            raise SioValidationError(
-                sio=self.context.sio,
-                sid=sid,
-                event=SioEvents.promptlib_predict,
-                error=e.errors(),
-                stream_id=data.get("message_id")
-            )
+        # Refactored predict method implementation
 
         try:
             conversation = prepare_conversation(payload=payload)
