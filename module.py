@@ -75,7 +75,7 @@ class Module(module.ModuleModel):
             PromptVersionTagAssociation,
             SearchRequest,
         )
-        project_list = self.context.rpc_manager.call.project_list()
+        project_list = self.context.rpc_manager.call.project_list(filter_={'create_success': True})
         for i in project_list:
             with db.with_project_schema_session(i['id']) as tenant_db:
                 db.get_all_metadata().create_all(bind=tenant_db.connection())
