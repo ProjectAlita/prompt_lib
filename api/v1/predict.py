@@ -242,7 +242,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 elif item["role"] == MessageRoles.system:
                     conversation.append(SystemMessage(content=item["content"]))
 
-        result = chat.invoke(input=conversation, config=payload.merged_settings)
+        try:
+            result = chat.invoke(input=conversation, config=payload.merged_settings)
+        except Exception as e:
+            return {'error': str(e)}, 400
 
         return {'messages': [result.dict()]}, 200
 
