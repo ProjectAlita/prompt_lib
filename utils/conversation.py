@@ -46,7 +46,7 @@ class CustomTemplateError(Exception):
         return [{'ok': False, 'msg': self.msg, 'type': self.type, 'loc': self.loc}]
 
 
-def prepare_conversation(payload: PromptVersionPredictModel) -> List[dict]:
+def prepare_conversation(payload: PromptVersionPredictModel, skip_validation_error: bool = True) -> List[dict]:
     variables = {v.name: v.value for v in payload.variables}
     messages = []
 
@@ -62,14 +62,25 @@ def prepare_conversation(payload: PromptVersionPredictModel) -> List[dict]:
                 ).dict(exclude_unset=True)
             )
         except TemplateSyntaxError:
-            raise CustomTemplateError(msg='Context template error', loc=['context'])
+            if skip_validation_error:
+                messages.append(
+                    PromptMessagePredictModel(
+                        role=MessageRoles.system,
+                        content=payload.context,
+                    ).dict(exclude_unset=True)
+                )
+            else:
+                raise CustomTemplateError(msg='Context template error', loc=['context'])
 
     for idx, i in enumerate(payload.messages):
         message = i.dict(exclude={'content'}, exclude_none=True, exclude_unset=True)
         try:
             message['content'] = _resolve_variables(i.content, variables)
         except TemplateSyntaxError:
-            raise CustomTemplateError(msg='Message template error', loc=['messages', idx])
+            if skip_validation_error:
+                message['content'] = i.content
+            else:
+                raise CustomTemplateError(msg='Message template error', loc=['messages', idx])
         messages.append(message)
 
     if payload.chat_history:
