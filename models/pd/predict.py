@@ -61,4 +61,7 @@ class PromptVersionPredictModel(BaseModel):
 
     @property
     def merged_settings(self) -> dict:
-        return {**self.integration.settings, **self.model_settings.merged}
+        try:
+            return {**self.integration.settings, **self.model_settings.merged}
+        except AttributeError:
+            return self.model_settings.merged
