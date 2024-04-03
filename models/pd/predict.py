@@ -48,15 +48,16 @@ class PromptVersionPredictModel(BaseModel):
 
     @validator('integration', always=True)
     def set_integration(cls, value, values):
-        log.info(f'{value=} {values=}')
-        integration_uid = values['model_settings'].model.integration_uid
-        try:
-            return AIProvider.get_integration(
-                project_id=values['project_id'],
-                integration_uid=integration_uid,
-            )
-        except IntegrationNotFound:
-            raise ValueError(f'Integration not found with uid {integration_uid}')
+        if value is None:
+            log.info(f'{value=} {values=}')
+            integration_uid = values['model_settings'].model.integration_uid
+            try:
+                return AIProvider.get_integration(
+                    project_id=values['project_id'],
+                    integration_uid=integration_uid,
+                )
+            except IntegrationNotFound:
+                raise ValueError(f'Integration not found with uid {integration_uid}')
 
     @property
     def merged_settings(self) -> dict:

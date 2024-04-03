@@ -18,6 +18,7 @@ def _resolve_variables(text, vars) -> str:
 
 
 def prepare_payload(data: dict) -> PromptVersionPredictModel:
+    data['integration'] = {}
     payload = PromptVersionPredictModel.parse_obj(data)
     if payload.prompt_version_id:
         with db.with_project_schema_session(payload.project_id) as session:

@@ -27,7 +27,7 @@ class ModelSettingsBaseModel(BaseModel):
     top_p: Optional[confloat(ge=0, le=1)] = None
     max_tokens: Optional[PositiveInt] = None
     stream: bool = False
-    model: Optional[ModelInfoDetailModel] = {}
+    model: Optional[ModelInfoDetailModel] = ModelInfoDetailModel()
     suggested_models: Optional[list] = []
 
     @property
