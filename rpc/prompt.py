@@ -1,16 +1,28 @@
+"""
+This module handles RPC calls for the prompt library within Project Alita.
+
+Classes:
+    RPC: Provides methods to interact with the prompt library via RPC.
+"""
+
 from typing import List
 from pylon.core.tools import web, log
-
 from pydantic import parse_obj_as
 from sqlalchemy.orm import joinedload
 
 from ..utils.ai_providers import AIProvider
 from ..models.pd.v1_structure import PromptV1Model, TagV1Model
 from tools import rpc_tools, db
-from ..models.all import (
-    Prompt,
-    PromptVersion,
-)
+from ..models.all import Prompt, PromptVersion
+
+class RPC:
+    """
+    Handles RPC calls for the prompt library.
+
+    Methods:
+        prompt_lib_get_all: Retrieves all prompts.
+        prompts_get_by_id: Retrieves a specific prompt by ID.
+    """
 
 class RPC:
     @web.rpc(f'prompt_lib_get_all', "get_all")
