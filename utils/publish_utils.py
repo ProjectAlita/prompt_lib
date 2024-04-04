@@ -256,7 +256,8 @@ def delete_public_version(shared_owner_id, shared_id, session):
         shared_id=shared_id,
         shared_owner_id=shared_owner_id
     ).first()
-    session.delete(version)
+    if version:
+        session.delete(version)
 
 
 def delete_public_prompt(prompt_owner_id, prompt_id, session):
