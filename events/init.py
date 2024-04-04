@@ -54,7 +54,8 @@ class Event:
                     "models.prompt_lib.trending_authors.list",
                     "models.prompt_lib.version.details",
                     "models.prompts",
-                    "projects.projects.project.view"
+                    "projects.projects.project.view",
+                    "models.prompt_lib.feedbacks.create"
                 ],
                 "public_admin": [
                     "models.datasource",
