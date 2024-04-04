@@ -7,13 +7,16 @@ Classes:
 
 from typing import List
 from pylon.core.tools import web, log
-from pydantic import parse_obj_as
+from pydantic import parse_obj_as, ValidationError
 from sqlalchemy.orm import joinedload
+from sqlalchemy.exc import SQLAlchemyError
 
 from ..utils.ai_providers import AIProvider
 from ..models.pd.v1_structure import PromptV1Model, TagV1Model
 from tools import rpc_tools, db
 from ..models.all import Prompt, PromptVersion
+
+import traceback
 
 class RPC:
     """
