@@ -9,17 +9,34 @@ import requests
 # Base URL of the API
 BASE_URL = 'http://example.com/api/v1'
 
-# Example of a GET request to fetch prompt details
-# TODO: Implement GET example
+# GET request example to fetch prompt details
 
-# Example of a PUT request to update prompt details
-# TODO: Implement PUT example
+# Example:
+# response = requests.get(f'{BASE_URL}/prompts/{prompt_id}')
+# print(response.json())
 
-# Example of a PATCH request to update a prompt's name
-# TODO: Implement PATCH example
+# PUT request example to update prompt details
 
-# Example of a DELETE request to remove a prompt
-# TODO: Implement DELETE example
+# Example:
+# updated_prompt = {"name": "Updated Name", "description": "Updated Description"}
+# response = requests.put(f'{BASE_URL}/prompts/{prompt_id}', json=updated_prompt)
+# print(response.json())
+
+# PATCH request example to update a prompt's name
+
+# Example:
+# new_name = {"name": "New Prompt Name"}
+# response = requests.patch(f'{BASE_URL}/prompts/{prompt_id}', json=new_name)
+# print(response.json())
+
+# DELETE request example to remove a prompt
+
+# Example:
+# response = requests.delete(f'{BASE_URL}/prompts/{prompt_id}')
+# if response.status_code == 204:
+#     print("Prompt successfully deleted.")
+
+# Remember to handle errors and validate inputs appropriately in your implementations.
 
 # Note: Replace 'http://example.com' with the actual base URL of Project Alita's API.
 # Remember to handle errors and validate inputs appropriately in your implementations.
