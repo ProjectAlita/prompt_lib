@@ -32,6 +32,7 @@ class TagList(metaclass=TagListABC):
         # trending period
         self._set_trending_info()
         self.session = db.get_project_schema_session(project_id)
+        self._is_collection = False
 
     def _set_general_query_info(self):
         self.limit = self.args.get("limit", default=10, type=int)
@@ -111,6 +112,12 @@ class TagList(metaclass=TagListABC):
         tag_filters = [getattr(self.Version, self.foriegn_key).in_(entity_subquery)]
         if search := self.args.get("search"):
             tag_filters.append(Tag.name.ilike(f"%{search}%"))
+        if self._is_collection:
+            all_prompt_ids = [
+                prompt['id'] for collection in self.session.query(Collection.prompts).all()
+                for prompt in next(iter(collection))
+            ]
+            tag_filters.append(getattr(self.Version, self.foriegn_key).in_(all_prompt_ids))
         return tag_filters
 
     def execute_main_query(self, tag_filters):
@@ -252,6 +259,16 @@ class ApplicationTagList(TagList):
         self.VersionTagAssociation = self.rpc.applications_get_version_association_model()
         self.foriegn_key = 'application_id'
         self.count_name = "application_count"
+
+
+class CollectionTagList(TagList):
+    def set_related_entity_info(self):
+        self._is_collection = True
+        self.Entity = Prompt
+        self.Version = PromptVersion
+        self.VersionTagAssociation = PromptVersionTagAssociation
+        self.foriegn_key = 'prompt_id'
+        self.count_name = "prompt_count"
 
 
 class AllTagList(TagList):
