@@ -241,6 +241,19 @@ class DatasourceTagList(TagList):
         self.count_name = "datasource_count"
 
 
+class ApplicationTagList(TagList):
+    def __init__(self, project_id, args):
+        super().__init__(project_id, args)
+        self.rpc = rpc_tools.RpcMixin().rpc.call
+
+    def set_related_entity_info(self):
+        self.Entity = self.rpc.applications_get_application_model()
+        self.Version = self.rpc.applications_get_version_model()
+        self.VersionTagAssociation = self.rpc.applications_get_version_association_model()
+        self.foriegn_key = 'application_id'
+        self.count_name = "application_count"
+
+
 class AllTagList(TagList):
     def set_related_entity_info(self):
         pass
