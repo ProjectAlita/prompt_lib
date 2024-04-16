@@ -279,5 +279,10 @@ class AllTagList(TagList):
 def list_tags(project_id, args):
     entity_coverage = args.get("entity_coverage", default="all")
     TagClass: TagList = TagListABC.meta_registry.get(entity_coverage)
+    if not TagClass:
+        return {
+            "total": 0,
+            "rows": list()
+        }
     return TagClass(project_id, args).get_tags()
     
