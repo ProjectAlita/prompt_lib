@@ -209,21 +209,50 @@ class PromptLibAPI(api_tools.APIModeHandler):
             api_token = api_token.unsecret(None)
 
         try:
-            chat = AzureChatOpenAI(
-                api_key=api_token,
-                azure_endpoint=payload.merged_settings['api_base'],
-                azure_deployment=payload.merged_settings['model_name'],
-                api_version=payload.merged_settings['api_version'],
-                streaming=False
-            )
+            from tools import context
+            module = context.module_manager.module.open_ai_azure
+            #
+            if module.ad_token_provider is None:
+                raise RuntimeError("No AD provider, using token")
+            #
+            ad_token_provider = module.ad_token_provider
         except:
-            chat = AzureChatOpenAI(
-                openai_api_key=api_token,
-                openai_api_base=payload.merged_settings['api_base'],
-                deployment_name=payload.merged_settings['model_name'],
-                openai_api_version=payload.merged_settings['api_version'],
-                streaming=False
-            )
+            ad_token_provider = None
+
+        try:
+            if ad_token_provider is None:
+                chat = AzureChatOpenAI(
+                    api_key=api_token,
+                    azure_endpoint=payload.merged_settings['api_base'],
+                    azure_deployment=payload.merged_settings['model_name'],
+                    api_version=payload.merged_settings['api_version'],
+                    streaming=False
+                )
+            else:
+                chat = AzureChatOpenAI(
+                    azure_ad_token_provider=ad_token_provider,
+                    azure_endpoint=payload.merged_settings['api_base'],
+                    azure_deployment=payload.merged_settings['model_name'],
+                    api_version=payload.merged_settings['api_version'],
+                    streaming=False
+                )
+        except:
+            if ad_token_provider is None:
+                chat = AzureChatOpenAI(
+                    openai_api_key=api_token,
+                    openai_api_base=payload.merged_settings['api_base'],
+                    deployment_name=payload.merged_settings['model_name'],
+                    openai_api_version=payload.merged_settings['api_version'],
+                    streaming=False
+                )
+            else:
+                chat = AzureChatOpenAI(
+                    azure_ad_token_provider=ad_token_provider,
+                    openai_api_base=payload.merged_settings['api_base'],
+                    deployment_name=payload.merged_settings['model_name'],
+                    openai_api_version=payload.merged_settings['api_version'],
+                    streaming=False
+                )
             #
             from langchain.schema import (
                 AIMessage,
