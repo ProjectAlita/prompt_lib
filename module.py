@@ -9,6 +9,8 @@ class Module(module.ModuleModel):
         self.descriptor = descriptor
 
     def init(self):
+        log.info("Initializing")
+        #
         self.descriptor.init_all()
         self.init_db()
         #
@@ -67,6 +69,7 @@ class Module(module.ModuleModel):
         log.info('De-initializing')
 
     def init_db(self):
+        log.info("DB init")
         from .models.all import (
             Prompt,
             PromptVersion,
@@ -77,6 +80,7 @@ class Module(module.ModuleModel):
         )
         project_list = self.context.rpc_manager.call.project_list(filter_={'create_success': True})
         for i in project_list:
+            log.info("Creating missing tables in project %s", i['id'])
             with db.with_project_schema_session(i['id']) as tenant_db:
                 db.get_all_metadata().create_all(bind=tenant_db.connection())
                 tenant_db.commit()
