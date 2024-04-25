@@ -17,59 +17,18 @@
 
 """ SIO """
 
-import uuid
-from enum import Enum
-
 from pylon.core.tools import log, web  # pylint: disable=E0611,E0401,W0611
 
 from pydantic import ValidationError
 from ..models.enums.all import PromptVersionType
 from ..utils.conversation import prepare_payload, prepare_conversation, CustomTemplateError
 from ...integrations.models.pd.integration import SecretField
+from ...promptlib_shared.utils.sio_utils import SioValidationError, SioEvents, get_event_room
+
 try:
     from langchain_openai import AzureChatOpenAI
 except:
     from langchain.chat_models import AzureChatOpenAI
-
-
-class SioEvents(str, Enum):
-    promptlib_predict = 'promptlib_predict'
-    promptlib_leave_rooms = 'promptlib_leave_rooms'
-
-
-class SioValidationError(Exception):
-    def __init__(self, sio, sid, event: SioEvents, error, stream_id: str):
-        self.sio = sio
-        self.type = 'error'
-        self.event = event
-        self.error = error
-        self.stream_id = stream_id
-        self.sid = sid
-        self.room = get_event_room(
-            event_name=SioEvents.promptlib_predict,
-            room_id=stream_id
-        )
-        self.enter_room()
-        self.emit_error()
-        super().__init__(error)
-
-    def enter_room(self) -> None:
-        self.sio.enter_room(self.sid, self.room)
-
-    def emit_error(self) -> None:
-        self.sio.emit(
-            event=self.event,
-            data={
-                'content': self.error,
-                'type': self.type,
-                'stream_id': self.stream_id
-            },
-            room=self.room,
-        )
-
-
-def get_event_room(event_name: SioEvents, room_id: uuid) -> str:
-    return f'room_{event_name.value}_{room_id}'
 
 
 class SIO:  # pylint: disable=E1101,R0903
