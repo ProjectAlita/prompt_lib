@@ -14,7 +14,7 @@ from ..models.all import (
     PromptVersion,
 )
 from ..utils.conversation import prepare_payload, prepare_conversation, CustomTemplateError
-from ...promptlib_shared.utils.sio_utils import SioValidationError, get_event_room
+from ...promptlib_shared.utils.sio_utils import SioValidationError, get_event_room, SioEvents
 from ...integrations.models.pd.integration import SecretField
 
 
@@ -95,7 +95,7 @@ class RPC:
             return result
 
     @web.rpc("prompt_lib_predict")
-    def predict(self, sid, data, sio_event):
+    def predict(self, sid, data, sio_event: str = SioEvents.promptlib_predict):
         try:
             payload = prepare_payload(data=data)
         except ValidationError as e:
