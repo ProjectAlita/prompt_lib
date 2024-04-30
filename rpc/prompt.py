@@ -94,8 +94,8 @@ class RPC:
 
             return result
 
-    @web.rpc("prompt_lib_predict")
-    def predict(self, sid, data, sio_event: str = SioEvents.promptlib_predict):
+    @web.rpc("prompt_lib_predict_sio", "predict_sio")
+    def predict_sio(self, sid, data, sio_event: str = SioEvents.promptlib_predict):
         try:
             payload = prepare_payload(data=data)
         except ValidationError as e:

@@ -16,6 +16,7 @@
 #   limitations under the License.
 
 """ SIO """
+from queue import Empty
 
 from pylon.core.tools import log, web  # pylint: disable=E0611,E0401,W0611
 
@@ -44,9 +45,12 @@ class SIO:  # pylint: disable=E1101,R0903
 
     @web.sio(SioEvents.promptlib_predict)
     def predict(self, sid, data):
-        self.context.rpc_manager.timeout(2).prompt_lib_predict(
-            sid, data, SioEvents.promptlib_predict
-        )
+        try:
+            self.predict_sio(
+                sid, data, SioEvents.promptlib_predict
+            )
+        except Empty as e:
+            log.error(e)
 
     @web.sio(SioEvents.promptlib_leave_rooms)
     def leave_room_prompt_lib(self, sid, data):
