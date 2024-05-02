@@ -45,12 +45,9 @@ class SIO:  # pylint: disable=E1101,R0903
 
     @web.sio(SioEvents.promptlib_predict)
     def predict(self, sid, data):
-        try:
-            self.predict_sio(
-                sid, data, SioEvents.promptlib_predict
-            )
-        except Empty as e:
-            log.error(e)
+        self.predict_sio(
+            sid, data, SioEvents.promptlib_predict
+        )
 
     @web.sio(SioEvents.promptlib_leave_rooms)
     def leave_room_prompt_lib(self, sid, data):
