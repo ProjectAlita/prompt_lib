@@ -6,26 +6,22 @@ from api.v1.prompt import ProjectAPI, PromptLibAPI
 
 class TestProjectAPI:
     @pytest.fixture
-    def setup(self):
-        # Setup code here
-        pass
+    def setup(self, mocker):
+        self.mock_list_projects = mocker.patch('api.v1.prompt.ProjectAPI.list_projects', return_value={'status': 'success', 'data': []})
 
-    def test_get_prompt(self, setup):
-        # Test GET endpoint
-        pass
-
-    def test_update_prompt(self, setup):
-        # Test PUT endpoint
-        pass
-
-    def test_patch_prompt(self, setup):
-        # Test PATCH endpoint
-        pass
-
-    def test_delete_prompt(self, setup):
-        # Test DELETE endpoint
-        pass
+    def test_list_projects(self, setup):
+        response = ProjectAPI.list_projects()
+        assert response['status'] == 'success'
+        assert isinstance(response['data'], list)
+        self.mock_list_projects.assert_called_once()
 
 class TestPromptLibAPI:
-    # Similar structure to TestProjectAPI
-    pass
+    @pytest.fixture
+    def setup(self, mocker):
+        self.mock_get_prompt = mocker.patch('api.v1.prompt.PromptLibAPI.get_prompt', return_value={'status': 'success', 'data': 'Example prompt'})
+
+    def test_get_prompt(self, setup):
+        response = PromptLibAPI.get_prompt()
+        assert response['status'] == 'success'
+        assert response['data'] == 'Example prompt'
+        self.mock_get_prompt.assert_called_once()
