@@ -19,4 +19,22 @@ async def test_get_prompt(client, prompt_data):
     assert get_response.status_code == 200
     assert get_response.json == prompt_data
 
+@pytest.mark.asyncio
+async def test_update_prompt(client, prompt_data):
+    # Assuming a prompt has been created
+    update_data = {'name': 'Updated Test Prompt', 'description': 'An updated test prompt'}
+    post_response = await client.post(url_for('prompt.create'), json=prompt_data)
+    prompt_id = post_response.json['id']
+    update_response = await client.put(url_for('prompt.update', prompt_id=prompt_id), json=update_data)
+    assert update_response.status_code == 200
+    assert update_response.json == update_data
+
+@pytest.mark.asyncio
+async def test_delete_prompt(client, prompt_data):
+    # Assuming a prompt has been created
+    post_response = await client.post(url_for('prompt.create'), json=prompt_data)
+    prompt_id = post_response.json['id']
+    delete_response = await client.delete(url_for('prompt.delete', prompt_id=prompt_id))
+    assert delete_response.status_code == 204
+
 # Additional tests for update and delete operations
