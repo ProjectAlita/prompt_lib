@@ -1,8 +1,10 @@
 from typing import List
 from pylon.core.tools import web, log
 
-from pydantic import parse_obj_as
+from langchain_openai import AzureChatOpenAI
+from pydantic import parse_obj_as, ValidationError
 from sqlalchemy.orm import joinedload
+from ..models.enums.all import PromptVersionType
 
 from ..utils.ai_providers import AIProvider
 from ..models.pd.v1_structure import PromptV1Model, TagV1Model
@@ -11,6 +13,10 @@ from ..models.all import (
     Prompt,
     PromptVersion,
 )
+from ..utils.conversation import prepare_payload, prepare_conversation, CustomTemplateError
+from ...promptlib_shared.utils.sio_utils import SioValidationError, get_event_room, SioEvents
+from ...integrations.models.pd.integration import SecretField
+
 
 class RPC:
     @web.rpc(f'prompt_lib_get_all', "get_all")
@@ -88,6 +94,136 @@ class RPC:
 
             return result
 
+    @web.rpc("prompt_lib_predict_sio", "predict_sio")
+    def predict_sio(self, sid, data, sio_event: str = SioEvents.promptlib_predict):
+        try:
+            payload = prepare_payload(data=data)
+        except ValidationError as e:
+            raise SioValidationError(
+                sio=self.context.sio,
+                sid=sid,
+                event=sio_event,
+                error=e.errors(),
+                stream_id=data.get("message_id")
+            )
+
+        try:
+            conversation = prepare_conversation(payload=payload)
+        except CustomTemplateError as e:
+            raise SioValidationError(
+                sio=self.context.sio,
+                sid=sid,
+                event=sio_event,
+                error=e.errors(),
+                stream_id=payload.message_id
+            )
+        except Exception as e:
+            log.exception("prepare_conversation")
+            raise SioValidationError(
+                sio=self.context.sio,
+                sid=sid,
+                event=sio_event,
+                error={'ok': False, 'msg': str(e), 'loc': []},
+                stream_id=payload.message_id
+            )
+
+        log.info(f'{conversation=}')
+        log.info(f'{payload.merged_settings=}')
+        api_token = SecretField.parse_obj(payload.merged_settings["api_token"])
+        try:
+            api_token = api_token.unsecret(payload.integration.project_id)
+        except AttributeError:
+            api_token = api_token.unsecret(None)
+
+        try:
+            from tools import context
+            module = context.module_manager.module.open_ai_azure
+            #
+            if module.ad_token_provider is None:
+                raise RuntimeError("No AD provider, using token")
+            #
+            ad_token_provider = module.ad_token_provider
+        except:
+            ad_token_provider = None
+
+        try:
+            if ad_token_provider is None:
+                chat = AzureChatOpenAI(
+                    api_key=api_token,
+                    azure_endpoint=payload.merged_settings['api_base'],
+                    azure_deployment=payload.merged_settings['model_name'],
+                    api_version=payload.merged_settings['api_version'],
+                    streaming=True
+                )
+            else:
+                chat = AzureChatOpenAI(
+                    azure_ad_token_provider=ad_token_provider,
+                    azure_endpoint=payload.merged_settings['api_base'],
+                    azure_deployment=payload.merged_settings['model_name'],
+                    api_version=payload.merged_settings['api_version'],
+                    streaming=True
+                )
+        except:
+            if ad_token_provider is None:
+                chat = AzureChatOpenAI(
+                    openai_api_key=api_token,
+                    openai_api_base=payload.merged_settings['api_base'],
+                    deployment_name=payload.merged_settings['model_name'],
+                    openai_api_version=payload.merged_settings['api_version'],
+                    streaming=True
+                )
+            else:
+                chat = AzureChatOpenAI(
+                    azure_ad_token_provider=ad_token_provider,
+                    openai_api_base=payload.merged_settings['api_base'],
+                    deployment_name=payload.merged_settings['model_name'],
+                    openai_api_version=payload.merged_settings['api_version'],
+                    streaming=True
+                )
+            #
+            from langchain.schema import (
+                AIMessage,
+                HumanMessage,
+                SystemMessage,
+            )
+            from ..models.enums.all import MessageRoles
+            #
+            new_conversation = conversation
+            conversation = []
+            #
+            for item in new_conversation:
+                if item["role"] == MessageRoles.assistant:
+                    conversation.append(AIMessage(content=item["content"]))
+                elif item["role"] == MessageRoles.user:
+                    conversation.append(HumanMessage(content=item["content"]))
+                elif item["role"] == MessageRoles.system:
+                    conversation.append(SystemMessage(content=item["content"]))
+
+        stream_id = payload.message_id
+        room = get_event_room(
+            event_name=sio_event,
+            room_id=stream_id
+        )
+        self.context.sio.enter_room(sid, room)
+        self.context.sio.emit(
+            event=sio_event,
+            data={
+                "stream_id": stream_id,
+                "type": "start_task",
+                "message_type": payload.type
+            },
+            room=room,
+        )
+        for chunk in chat.stream(input=conversation, config=payload.merged_settings):
+            data = chunk.dict()
+            data['stream_id'] = stream_id
+            if payload.type == PromptVersionType.freeform:
+                data['message_type'] = PromptVersionType.freeform
+            self.context.sio.emit(
+                event=sio_event,
+                data=data,
+                room=room,
+            )
 
 #     @web.rpc("prompts_get_examples_by_prompt_id", "get_examples_by_prompt_id")
 #     def prompts_get_examples_by_prompt_id(
