@@ -5,6 +5,7 @@ from langchain_openai import AzureChatOpenAI
 from pydantic import parse_obj_as, ValidationError
 from sqlalchemy.orm import joinedload
 from ..models.enums.all import PromptVersionType
+from ..models.pd.predict import PromptVersionPredictModel
 
 from ..utils.ai_providers import AIProvider
 from ..models.pd.v1_structure import PromptV1Model, TagV1Model
@@ -95,16 +96,18 @@ class RPC:
             return result
 
     @web.rpc("prompt_lib_predict_sio", "predict_sio")
-    def predict_sio(self, sid, data, sio_event: str = SioEvents.promptlib_predict):
+    def predict_sio(self, sid: str, data: dict, sio_event: str = SioEvents.promptlib_predict):
+        data['stream_id'] = data.get('stream_id', data.get('message_id'))
         try:
-            payload = prepare_payload(data=data)
+            payload: PromptVersionPredictModel = prepare_payload(data=data)
         except ValidationError as e:
             raise SioValidationError(
                 sio=self.context.sio,
                 sid=sid,
                 event=sio_event,
                 error=e.errors(),
-                stream_id=data.get("message_id")
+                stream_id=data.get("stream_id"),
+                message_id=data.get("message_id")
             )
 
         try:
@@ -115,7 +118,8 @@ class RPC:
                 sid=sid,
                 event=sio_event,
                 error=e.errors(),
-                stream_id=payload.message_id
+                stream_id=payload.stream_id,
+                message_id=payload.message_id,
             )
         except Exception as e:
             log.exception("prepare_conversation")
@@ -124,7 +128,8 @@ class RPC:
                 sid=sid,
                 event=sio_event,
                 error={'ok': False, 'msg': str(e), 'loc': []},
-                stream_id=payload.message_id
+                stream_id=payload.stream_id,
+                message_id=payload.message_id
             )
 
         log.info(f'{conversation=}')
@@ -199,7 +204,7 @@ class RPC:
                 elif item["role"] == MessageRoles.system:
                     conversation.append(SystemMessage(content=item["content"]))
 
-        stream_id = payload.message_id
+        stream_id = payload.stream_id
         room = get_event_room(
             event_name=sio_event,
             room_id=stream_id
@@ -209,6 +214,7 @@ class RPC:
             event=sio_event,
             data={
                 "stream_id": stream_id,
+                "message_id": payload.message_id,
                 "type": "start_task",
                 "message_type": payload.type
             },
@@ -217,6 +223,7 @@ class RPC:
         for chunk in chat.stream(input=conversation, config=payload.merged_settings):
             data = chunk.dict()
             data['stream_id'] = stream_id
+            data['message_id'] = payload.message_id
             if payload.type == PromptVersionType.freeform:
                 data['message_type'] = PromptVersionType.freeform
             self.context.sio.emit(
