@@ -1,4 +1,6 @@
 from typing import List
+from uuid import uuid4
+
 from pylon.core.tools import web, log
 
 from langchain_openai import AzureChatOpenAI
@@ -97,7 +99,7 @@ class RPC:
 
     @web.rpc("prompt_lib_predict_sio", "predict_sio")
     def predict_sio(self, sid: str, data: dict, sio_event: str = SioEvents.promptlib_predict):
-        data['stream_id'] = data.get('stream_id', data.get('message_id'))
+        data['stream_id'] = data.get('stream_id', data.get('message_id', str(uuid4())))
         try:
             payload: PromptVersionPredictModel = prepare_payload(data=data)
         except ValidationError as e:
