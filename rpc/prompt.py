@@ -222,17 +222,80 @@ class RPC:
             },
             room=room,
         )
+
+        full_result = ""
+
         for chunk in chat.stream(input=conversation, config=payload.merged_settings):
-            data = chunk.dict()
-            data['stream_id'] = stream_id
-            data['message_id'] = payload.message_id
+            chunk_data = chunk.dict()
+            full_result += chunk_data["content"]
+            #
+            chunk_data['stream_id'] = stream_id
+            chunk_data['message_id'] = payload.message_id
+            #
             if payload.type == PromptVersionType.freeform:
-                data['message_type'] = PromptVersionType.freeform
+                chunk_data['message_type'] = PromptVersionType.freeform
+            #
             self.context.sio.emit(
                 event=sio_event,
-                data=data,
+                data=chunk_data,
                 room=room,
             )
+
+        try:
+            from tools import auth, monitoring
+            #
+            count_conversation = []
+            #
+            from langchain_core.messages import (
+                AIMessage,
+                HumanMessage,
+                SystemMessage,
+            )
+            from ..models.enums.all import MessageRoles
+            #
+            for item in conversation:
+                if item["role"] == MessageRoles.assistant:
+                    count_conversation.append(AIMessage(
+                        content=item["content"],
+                        name=item.get("name", None),
+                    ))
+                elif item["role"] == MessageRoles.user:
+                    count_conversation.append(HumanMessage(
+                        content=item["content"],
+                        name=item.get("name", None),
+                    ))
+                elif item["role"] == MessageRoles.system:
+                    count_conversation.append(SystemMessage(
+                        content=item["content"],
+                        name=item.get("name", None),
+                    ))
+            #
+            tokens_out = chat.get_num_tokens(full_result)
+            tokens_in = chat.get_num_tokens_from_messages(count_conversation)
+            #
+            current_user = auth.current_user(
+                auth_data=auth.sio_users[sid]
+            )
+            #
+            project_id = payload.project_id
+            #
+            entity_type = "prompt"
+            entity_id = data.get("prompt_id", None)
+            entity_version = data.get("prompt_version_id", None)
+            #
+            monitoring.prompt_complete(
+                user_id=current_user["id"],
+                project_id=project_id,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                entity_version=entity_version,
+                conversation=conversation,
+                predict_result=full_result,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+            )
+        except:
+            log.exception("Ignoring monitoring error")
 
 #     @web.rpc("prompts_get_examples_by_prompt_id", "get_examples_by_prompt_id")
 #     def prompts_get_examples_by_prompt_id(

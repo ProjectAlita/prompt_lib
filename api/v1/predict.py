@@ -276,7 +276,21 @@ class PromptLibAPI(api_tools.APIModeHandler):
         except Exception as e:
             return {'error': str(e)}, 400
 
-        return {'messages': [result.dict()]}, 200
+        result = result.dict()
+
+        # try:
+        #     from tools import monitoring
+        #     #
+        #     current_user = auth.current_user()
+        #     monitoring.prompt_complete(
+        #         user_id=current_user["id"],
+        #         conversation=conversation,
+        #         predict_result=result.get("content", ""),
+        #     )
+        # except:
+        #     log.exception("Ignoring monitoring error")
+
+        return {'messages': [result]}, 200
 
 
 class API(api_tools.APIBase):
