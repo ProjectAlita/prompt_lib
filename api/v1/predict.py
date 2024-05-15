@@ -279,7 +279,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         result = result.dict()
 
         try:
-            from tools import auth, monitoring
+            from tools import monitoring
             #
             full_result = result["content"]
             #
