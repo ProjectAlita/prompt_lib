@@ -278,17 +278,59 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         result = result.dict()
 
-        # try:
-        #     from tools import monitoring
-        #     #
-        #     current_user = auth.current_user()
-        #     monitoring.prompt_complete(
-        #         user_id=current_user["id"],
-        #         conversation=conversation,
-        #         predict_result=result.get("content", ""),
-        #     )
-        # except:
-        #     log.exception("Ignoring monitoring error")
+        try:
+            from tools import auth, monitoring
+            #
+            full_result = result["content"]
+            #
+            count_conversation = []
+            #
+            from langchain_core.messages import (
+                AIMessage,
+                HumanMessage,
+                SystemMessage,
+            )
+            from ..models.enums.all import MessageRoles
+            #
+            for item in conversation:
+                if item["role"] == MessageRoles.assistant:
+                    count_conversation.append(AIMessage(
+                        content=item["content"],
+                        name=item.get("name", None),
+                    ))
+                elif item["role"] == MessageRoles.user:
+                    count_conversation.append(HumanMessage(
+                        content=item["content"],
+                        name=item.get("name", None),
+                    ))
+                elif item["role"] == MessageRoles.system:
+                    count_conversation.append(SystemMessage(
+                        content=item["content"],
+                        name=item.get("name", None),
+                    ))
+            #
+            tokens_out = chat.get_num_tokens(full_result)
+            tokens_in = chat.get_num_tokens_from_messages(count_conversation)
+            #
+            current_user = auth.current_user()
+            #
+            entity_type = "prompt"
+            entity_id = raw_data.get("prompt_id", None)
+            entity_version = raw_data.get("prompt_version_id", None)
+            #
+            monitoring.prompt_complete(
+                user_id=current_user["id"],
+                project_id=project_id,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                entity_version=entity_version,
+                conversation=conversation,
+                predict_result=full_result,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+            )
+        except:
+            log.exception("Ignoring monitoring error")
 
         return {'messages': [result]}, 200
 
