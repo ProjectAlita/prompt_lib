@@ -290,7 +290,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 HumanMessage,
                 SystemMessage,
             )
-            from ..models.enums.all import MessageRoles
+            from ...models.enums.all import MessageRoles
             #
             for item in conversation:
                 if item["role"] == MessageRoles.assistant:
