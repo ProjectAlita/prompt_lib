@@ -99,7 +99,8 @@ class RPC:
 
     @web.rpc("prompt_lib_predict_sio", "predict_sio")
     def predict_sio(self, sid: str, data: dict, sio_event: str = SioEvents.promptlib_predict):
-        data['stream_id'] = data.get('stream_id', data.get('message_id', str(uuid4())))
+        data['message_id'] = data.get('message_id', str(uuid4()))
+        data['stream_id'] = data.get('stream_id', data['message_id'])
         try:
             payload: PromptVersionPredictModel = prepare_payload(data=data)
         except ValidationError as e:
@@ -206,16 +207,15 @@ class RPC:
                 elif item["role"] == MessageRoles.system:
                     conversation.append(SystemMessage(content=item["content"]))
 
-        stream_id = payload.stream_id
         room = get_event_room(
             event_name=sio_event,
-            room_id=stream_id
+            room_id=payload.stream_id
         )
         self.context.sio.enter_room(sid, room)
         self.context.sio.emit(
             event=sio_event,
             data={
-                "stream_id": stream_id,
+                "stream_id": payload.stream_id,
                 "message_id": payload.message_id,
                 "type": "start_task",
                 "message_type": payload.type
@@ -229,7 +229,7 @@ class RPC:
             chunk_data = chunk.dict()
             full_result += chunk_data["content"]
             #
-            chunk_data['stream_id'] = stream_id
+            chunk_data['stream_id'] = payload.stream_id
             chunk_data['message_id'] = payload.message_id
             #
             if payload.type == PromptVersionType.freeform:
