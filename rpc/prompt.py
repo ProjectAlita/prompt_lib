@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from pylon.core.tools import web, log
 
 from langchain_openai import AzureChatOpenAI
@@ -95,7 +95,11 @@ class RPC:
             return result
 
     @web.rpc("prompt_lib_predict_sio", "predict_sio")
-    def predict_sio(self, sid, data, sio_event: str = SioEvents.promptlib_predict):
+    def predict_sio(self, sid, data, sio_event: str = SioEvents.promptlib_predict,
+                    start_event_content: Optional[dict] = None
+                    ):
+        if start_event_content is None:
+            start_event_content = {}
         try:
             payload = prepare_payload(data=data)
         except ValidationError as e:
@@ -210,7 +214,8 @@ class RPC:
             data={
                 "stream_id": stream_id,
                 "type": "start_task",
-                "message_type": payload.type
+                "message_type": payload.type,
+                "content": {**start_event_content}
             },
             room=room,
         )
