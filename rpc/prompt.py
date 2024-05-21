@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from uuid import uuid4
 
 from pylon.core.tools import web, log
@@ -98,7 +98,11 @@ class RPC:
             return result
 
     @web.rpc("prompt_lib_predict_sio", "predict_sio")
-    def predict_sio(self, sid: str, data: dict, sio_event: str = SioEvents.promptlib_predict):
+    def predict_sio(self, sid: str, data: dict, sio_event: str = SioEvents.promptlib_predict,
+                    start_event_content: Optional[dict] = None
+                    ):
+        if start_event_content is None:
+            start_event_content = {}
         data['message_id'] = data.get('message_id', str(uuid4()))
         data['stream_id'] = data.get('stream_id', data['message_id'])
         try:
@@ -218,7 +222,8 @@ class RPC:
                 "stream_id": payload.stream_id,
                 "message_id": payload.message_id,
                 "type": "start_task",
-                "message_type": payload.type
+                "message_type": payload.type,
+                "content": {**start_event_content}
             },
             room=room,
         )
