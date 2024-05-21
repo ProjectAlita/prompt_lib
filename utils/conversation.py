@@ -20,6 +20,7 @@ def _resolve_variables(text, vars) -> str:
 def prepare_payload(data: dict) -> PromptVersionPredictModel:
     data['integration'] = {}
     payload = PromptVersionPredictModel.parse_obj(data)
+    #
     if payload.prompt_version_id:
         with db.with_project_schema_session(payload.project_id) as session:
             query_options = []
@@ -27,11 +28,16 @@ def prepare_payload(data: dict) -> PromptVersionPredictModel:
                 query_options.append(joinedload(PromptVersion.variables))
             if not payload.messages:
                 query_options.append(joinedload(PromptVersion.messages))
-
+            #
             prompt_version = session.query(PromptVersion).options(*query_options).get(payload.prompt_version_id)
             prompt_version.project_id = payload.project_id
             prompt_version_pd = PromptVersionPredictModel.from_orm(prompt_version)
             payload = prompt_version_pd.merge_update(payload)
+            #
+            data["prompt_id"] = prompt_version.prompt_id
+    else:
+        data["prompt_id"] = None
+    #
     log.info(f'{payload=}')
     return payload
 

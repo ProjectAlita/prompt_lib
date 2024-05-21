@@ -115,7 +115,6 @@ class Event:
                 system_user_id = None
             #
             if "ai_project_id" not in secrets and system_user_id is not None:
-                #
                 public_project_name = self.descriptor.config.get(
                     "public_project_name",
                     "promptlib_public",
@@ -130,8 +129,22 @@ class Event:
                 )
                 #
                 if public_project_id is not None:
-                    # Apply correct permissions
-                    for role, permissions in setup_roles.items():
+                    # Save ID to secrets
+                    secrets["ai_project_id"] = public_project_id
+                    secrets_changed = True
+            # Apply/add correct permissions (keep extra manually added for now)
+            if "ai_project_id" in secrets:
+                public_project_id = int(secrets["ai_project_id"])
+                #
+                for role, permissions in setup_roles.items():
+                    role_item = self.context.rpc_manager.call.admin_get_role(
+                        project_id=public_project_id,
+                        role_name=role,
+                    )
+                    #
+                    if not role_item:
+                        log.info("Adding role: %s", role)
+                        #
                         self.context.rpc_manager.call.admin_add_role(
                             project_id=public_project_id,
                             role_names=[role],
@@ -142,9 +155,20 @@ class Event:
                             role_name=role,
                             permissions=permissions,
                         )
-                    # Save ID to secrets
-                    secrets["ai_project_id"] = public_project_id
-                    secrets_changed = True
+                    else:
+                        role_perms = self.context.rpc_manager.call.admin_get_permissions_for_role(
+                            project_id=public_project_id,
+                            role_name=role,
+                        )
+                        missing_permissions = list(set(permissions) - set(role_perms))
+                        #
+                        log.info("Adding new/missing permissions for role: %s -> %s", role, missing_permissions)
+                        #
+                        self.context.rpc_manager.call.admin_add_permissions_for_role(
+                            project_id=public_project_id,
+                            role_name=role,
+                            permissions=missing_permissions,
+                        )
             # Save secrets if changes are made
             if secrets_changed:
                 vault_client.set_secrets(secrets)

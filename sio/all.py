@@ -44,10 +44,13 @@ class SIO:  # pylint: disable=E1101,R0903
     """
 
     @web.sio(SioEvents.promptlib_predict)
-    def predict(self, sid, data):
-        self.predict_sio(
-            sid, data, SioEvents.promptlib_predict
-        )
+    def predict(self, sid: str, data: dict) -> None:
+        try:
+            self.predict_sio(
+                sid, data, SioEvents.promptlib_predict
+            )
+        except Empty as e:
+            log.error(e)
 
     @web.sio(SioEvents.promptlib_leave_rooms)
     def leave_room_prompt_lib(self, sid, data):
@@ -57,18 +60,3 @@ class SIO:  # pylint: disable=E1101,R0903
                 room_id=room_id
             )
             self.context.sio.leave_room(sid, room)
-
-
-# s = useSocket('leave_room')
-# s.emit([123,456,678])
-#
-#
-# s = useSocket('leave_room')
-# s.emit({'event_name': 'promptlib_predict', 'stream_ids': [123,456,678]})
-#
-#
-#
-# s = useSocket('leave_room_prompts')
-# s.emit([123,456,678])
-# s = useSocket('leave_room_datasources')
-# s.emit([123,456,678])

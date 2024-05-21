@@ -1,10 +1,13 @@
 from typing import List, Optional
+from uuid import uuid4
+
 from pylon.core.tools import web, log
 
 from langchain_openai import AzureChatOpenAI
 from pydantic import parse_obj_as, ValidationError
 from sqlalchemy.orm import joinedload
 from ..models.enums.all import PromptVersionType
+from ..models.pd.predict import PromptVersionPredictModel
 
 from ..utils.ai_providers import AIProvider
 from ..models.pd.v1_structure import PromptV1Model, TagV1Model
@@ -95,20 +98,23 @@ class RPC:
             return result
 
     @web.rpc("prompt_lib_predict_sio", "predict_sio")
-    def predict_sio(self, sid, data, sio_event: str = SioEvents.promptlib_predict,
+    def predict_sio(self, sid: str, data: dict, sio_event: str = SioEvents.promptlib_predict,
                     start_event_content: Optional[dict] = None
                     ):
         if start_event_content is None:
             start_event_content = {}
+        data['message_id'] = data.get('message_id', str(uuid4()))
+        data['stream_id'] = data.get('stream_id', data['message_id'])
         try:
-            payload = prepare_payload(data=data)
+            payload: PromptVersionPredictModel = prepare_payload(data=data)
         except ValidationError as e:
             raise SioValidationError(
                 sio=self.context.sio,
                 sid=sid,
                 event=sio_event,
                 error=e.errors(),
-                stream_id=data.get("message_id")
+                stream_id=data.get("stream_id"),
+                message_id=data.get("message_id")
             )
 
         try:
@@ -119,7 +125,8 @@ class RPC:
                 sid=sid,
                 event=sio_event,
                 error=e.errors(),
-                stream_id=payload.message_id
+                stream_id=payload.stream_id,
+                message_id=payload.message_id,
             )
         except Exception as e:
             log.exception("prepare_conversation")
@@ -128,7 +135,8 @@ class RPC:
                 sid=sid,
                 event=sio_event,
                 error={'ok': False, 'msg': str(e), 'loc': []},
-                stream_id=payload.message_id
+                stream_id=payload.stream_id,
+                message_id=payload.message_id
             )
 
         log.info(f'{conversation=}')
@@ -203,32 +211,96 @@ class RPC:
                 elif item["role"] == MessageRoles.system:
                     conversation.append(SystemMessage(content=item["content"]))
 
-        stream_id = payload.message_id
         room = get_event_room(
             event_name=sio_event,
-            room_id=stream_id
+            room_id=payload.stream_id
         )
         self.context.sio.enter_room(sid, room)
         self.context.sio.emit(
             event=sio_event,
             data={
-                "stream_id": stream_id,
+                "stream_id": payload.stream_id,
+                "message_id": payload.message_id,
                 "type": "start_task",
                 "message_type": payload.type,
                 "content": {**start_event_content}
             },
             room=room,
         )
+
+        full_result = ""
+
         for chunk in chat.stream(input=conversation, config=payload.merged_settings):
-            data = chunk.dict()
-            data['stream_id'] = stream_id
+            chunk_data = chunk.dict()
+            full_result += chunk_data["content"]
+            #
+            chunk_data['stream_id'] = payload.stream_id
+            chunk_data['message_id'] = payload.message_id
+            #
             if payload.type == PromptVersionType.freeform:
-                data['message_type'] = PromptVersionType.freeform
+                chunk_data['message_type'] = PromptVersionType.freeform
+            #
             self.context.sio.emit(
                 event=sio_event,
-                data=data,
+                data=chunk_data,
                 room=room,
             )
+
+        try:
+            from tools import auth, monitoring
+            #
+            count_conversation = []
+            #
+            from langchain_core.messages import (
+                AIMessage,
+                HumanMessage,
+                SystemMessage,
+            )
+            from ..models.enums.all import MessageRoles
+            #
+            for item in conversation:
+                if item["role"] == MessageRoles.assistant:
+                    count_conversation.append(AIMessage(
+                        content=item["content"],
+                        name=item.get("name", None),
+                    ))
+                elif item["role"] == MessageRoles.user:
+                    count_conversation.append(HumanMessage(
+                        content=item["content"],
+                        name=item.get("name", None),
+                    ))
+                elif item["role"] == MessageRoles.system:
+                    count_conversation.append(SystemMessage(
+                        content=item["content"],
+                        name=item.get("name", None),
+                    ))
+            #
+            tokens_out = chat.get_num_tokens(full_result)
+            tokens_in = chat.get_num_tokens_from_messages(count_conversation)
+            #
+            current_user = auth.current_user(
+                auth_data=auth.sio_users[sid]
+            )
+            #
+            project_id = payload.project_id
+            #
+            entity_type = "prompt"
+            entity_id = data.get("prompt_id", None)
+            entity_version = data.get("prompt_version_id", None)
+            #
+            monitoring.prompt_complete(
+                user_id=current_user["id"],
+                project_id=project_id,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                entity_version=entity_version,
+                conversation=conversation,
+                predict_result=full_result,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+            )
+        except:
+            log.exception("Ignoring monitoring error")
 
 #     @web.rpc("prompts_get_examples_by_prompt_id", "get_examples_by_prompt_id")
 #     def prompts_get_examples_by_prompt_id(
