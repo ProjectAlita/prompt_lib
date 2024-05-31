@@ -3,6 +3,27 @@ import json
 from pylon.core.tools import log, web
 from tools import VaultClient
 
+applications_roles = [
+    "models.applications.applications.list",
+    "models.applications.applications.create",
+    "models.applications.version.details",
+    "models.applications.version.update",
+    "models.applications.version.delete",
+    "models.applications.application.details",
+    "models.applications.application.delete",
+    "models.applications.application.update",
+    "models.applications.predict.post",
+    "models.applications.task.get",
+    "models.applications.task.delete",
+    "models.applications.tool.details",
+    "models.applications.tool.delete",
+    "models.applications.tool.update",
+    "models.applications.tools.list",
+    "models.applications.tools.create",
+    "models.applications.versions.get",
+    "models.applications.versions.create"
+]
+
 
 class Event:
 
@@ -79,7 +100,8 @@ class Event:
                     "models.datasources.version.details",
                     "models.datasources.version.update",
                     "models.datasources.versions.create",
-                    "models.datasources.versions.get"
+                    "models.datasources.versions.get",
+                    *applications_roles
                 ]
             }
             #
