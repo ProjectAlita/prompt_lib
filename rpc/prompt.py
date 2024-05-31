@@ -246,6 +246,16 @@ class RPC:
                 room=room,
             )
 
+        if sio_event == SioEvents.chat_predict:
+            chat_payload = {
+                'message_id': payload.message_id,
+                'response_metadata': {
+                    'project_id': payload.project_id
+                },
+                'content': full_result,
+            }
+            self.context.event_manager.fire_event('chat_message_stream_end', chat_payload)
+
         try:
             from tools import auth, monitoring
             #
