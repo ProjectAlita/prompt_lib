@@ -37,6 +37,7 @@ from .searches import get_filter_collection_by_tags_condition, get_prompts_by_ta
 from ..models.pd.prompt import PublishedPromptListModel, PromptListModel
 from ...promptlib_shared.models.enums.all import PublishStatus
 from ...promptlib_shared.models.pd.base import TagBaseModel
+from ...promptlib_shared.utils.utils import add_public_project_id
 
 
 def check_prompts_addability(owner_id: int, user_id: int):
