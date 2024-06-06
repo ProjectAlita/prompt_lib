@@ -25,22 +25,6 @@ def determine_prompt_status(version_statuses: Set[PublishStatus]) -> PublishStat
             return status
 
 
-def add_public_project_id(f: Callable) -> Callable:
-    wraps(f)
-
-    def wrapper(*args, **kwargs):
-        secrets = VaultClient().get_all_secrets()
-        try:
-            public_project_id = int(secrets['ai_project_id'])
-        except KeyError:
-            return {'error': "'ai_project_id' not set"}, 400
-        except ValueError:
-            return {'error': f"'ai_project_id' must be int, got {type(secrets['ai_project_id'])}"}, 400
-
-        kwargs.update({'project_id': public_project_id})
-        return f(*args, **kwargs)
-
-    return wrapper
 
 
 def get_authors_data(author_ids: List[int]) -> List[dict]:

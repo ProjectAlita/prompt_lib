@@ -14,7 +14,7 @@ from tools import db, VaultClient, rpc_tools
 
 from .like_utils import add_likes, add_my_liked, add_trending_likes
 from .prompt_utils import set_columns_as_attrs
-from .utils import get_author_data, get_authors_data, add_public_project_id
+from .utils import get_author_data, get_authors_data
 from ..models.enums.all import CollectionPatchOperations
 from ..models.all import Collection, Prompt, PromptVersion
 from ..models.pd.collections import (

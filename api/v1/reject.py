@@ -3,8 +3,7 @@ from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.publish_utils import set_public_version_status
 from pylon.core.tools import log
 from tools import api_tools, auth, config as c
-
-from ...utils.utils import add_public_project_id
+from ....promptlib_shared.utils.utils import add_public_project_id
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
@@ -22,7 +21,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         except Exception as e:
             log.error(e)
             return {"ok": False, "error": str(e)}, 400
-        
+
         if not result['ok']:
             code = result.pop('error_code', 400)
             return result, code

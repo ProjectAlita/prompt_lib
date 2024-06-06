@@ -80,7 +80,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             tags=request.args.get('tags'),
             author_id=request.args.get('author_id'),
             q=request.args.get('query'),
-            limit=request.args.get("limit", default=10, type=int),
+            limit=request.args.get("limit", default=None,),
             offset=request.args.get("offset", default=0, type=int),
             sort_by=request.args.get("sort_by", default="created_at"),
             sort_order=request.args.get("sort_order", default='desc'),

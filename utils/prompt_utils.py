@@ -294,7 +294,8 @@ def set_columns_as_attrs(q_result, extra_columns: list) -> Generator:
         yield entity
 
 def list_prompts(project_id: int,
-                 limit: int | None = 10, offset: int | None = 0,
+                 limit: int | None = None,
+                 offset: int | None = 0,
                  sort_by: str = 'created_at',
                  sort_order: Literal['asc', 'desc'] = 'desc',
                  filters: Optional[list] = None,
@@ -468,7 +469,7 @@ def list_prompts_api(
         author_id: int | None = None,
         statuses: str | list | None = None,
         q: str | None = None,
-        limit: int = 10,
+        limit: int | None = None,
         offset: int = 0,
         sort_by: str = 'created_at',
         sort_order: Literal['asc', 'desc'] = 'desc',

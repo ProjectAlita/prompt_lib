@@ -6,7 +6,8 @@ from pylon.core.tools import log
 from tools import api_tools, auth, config as c
 from pathlib import Path
 
-from ...utils.utils import add_public_project_id, get_authors_data
+from ...utils.utils import get_authors_data
+from ....promptlib_shared.utils.utils import add_public_project_id
 
 
 class PromptLibAPI(api_tools.APIModeHandler):

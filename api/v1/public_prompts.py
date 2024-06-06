@@ -10,7 +10,7 @@ from ...models.pd.search import SearchDataModel
 
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.prompt_utils import list_prompts_api
-from ...utils.utils import add_public_project_id
+from ....promptlib_shared.utils.utils import add_public_project_id
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
@@ -32,7 +32,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             SearchDataModel.validate(search_data)
         except Exception:
             search_data = None
-        
+
         some_result = list_prompts_api(
             project_id=project_id,
             tags=request.args.get('tags'),

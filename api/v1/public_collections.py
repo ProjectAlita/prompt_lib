@@ -12,7 +12,9 @@ from ...utils.collections import (
 
 import json
 
-from ...utils.utils import add_public_project_id, get_authors_data
+from ...utils.utils import get_authors_data
+from ....promptlib_shared.utils.utils import add_public_project_id
+
 
 # THIS API IS NOT USED NOW
 # A CANDIDATE FOR REMOVAL
