@@ -215,7 +215,8 @@ class RPC:
             event_name=sio_event,
             room_id=payload.stream_id
         )
-        self.context.sio.enter_room(sid, room)
+        if sid:
+            self.context.sio.enter_room(sid, room)
         self.context.sio.emit(
             event=sio_event,
             data={
