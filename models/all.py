@@ -64,6 +64,8 @@ class PromptVersion(db_tools.AbstractBaseMixin, db.Base):
     # reference fields to origin 
     shared_owner_id: Mapped[int] = mapped_column(Integer, nullable=True)
     shared_id: Mapped[int] = mapped_column(Integer, nullable=True)
+    conversation_starters: Mapped[dict] = mapped_column(JSON, default=list)
+    welcome_message: Mapped[str] = mapped_column(String, default='')
 
 
 class PromptVariable(db_tools.AbstractBaseMixin, db.Base):
