@@ -42,6 +42,35 @@ class RPC:
             results = parse_obj_as(List[PromptV1Model], prompts)
             return [prompt.dict() for prompt in results]
 
+    @web.rpc("prompt_lib_get_by_version_id", "get_by_version_id")
+    def prompts_get_by_version_id(self, project_id: int, prompt_id: int, version_id: int = None, **kwargs) -> dict | None:
+
+        if version_id is None:
+            version_name = "latest"
+        else:
+            with db.with_project_schema_session(project_id) as session:
+                prompt_version = session.query(PromptVersion).filter(
+                    PromptVersion.id == version_id
+                ).one_or_none()
+
+                if not prompt_version:
+                    return None
+
+                version_name = prompt_version.name
+
+        result = self.get_by_id(project_id, prompt_id, version_name)
+
+        result['version_id'] = version_id
+        if version_id is None:
+            for v in result['versions']:
+                if version_name == v['version']:
+                    result['version_id'] = v['id']
+                    break
+            else:
+                raise RuntimeError(f"No version_id found for prompt {version_name}")
+
+        return result
+
     @web.rpc("prompt_lib_get_by_id", "get_by_id")
     def prompts_get_by_id(self, project_id: int, prompt_id: int, version: str = 'latest', **kwargs) -> dict | None:
         with db.with_project_schema_session(project_id) as session:
