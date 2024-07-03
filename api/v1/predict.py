@@ -1,9 +1,11 @@
+import json
+
 from typing import Optional
 
 from flask import request
 from pylon.core.tools import log
 import tiktoken
-from ...models.enums.all import MessageRoles
+from ....promptlib_shared.utils.constants import PredictionEvents
 
 try:
     from langchain_openai import AzureChatOpenAI
@@ -19,8 +21,8 @@ from traceback import format_exc
 from tools import api_tools, db, auth, config as c
 
 from ...utils.constants import PROMPT_LIB_MODE
-from ...utils.conversation import prepare_conversation, CustomTemplateError, prepare_payload
-
+from ...utils.conversation import prepare_conversation, CustomTemplateError, prepare_payload, \
+    convert_messages_to_langchain
 
 # TODO add more models or find an API to get tokens limit
 MODEL_TOKENS_MAPPER = {
@@ -168,7 +170,6 @@ class ProjectAPI(api_tools.APIModeHandler):
         return result['response'], 200
 
 
-
 class PromptLibAPI(api_tools.APIModeHandler):
 
     @auth.decorators.check_api({
@@ -253,23 +254,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
                     openai_api_version=payload.merged_settings['api_version'],
                     streaming=False
                 )
-            #
-            from langchain.schema import (
-                AIMessage,
-                HumanMessage,
-                SystemMessage,
-            )
-            #
-            new_conversation = conversation
-            conversation = []
-            #
-            for item in new_conversation:
-                if item["role"] == MessageRoles.assistant:
-                    conversation.append(AIMessage(content=item["content"]))
-                elif item["role"] == MessageRoles.user:
-                    conversation.append(HumanMessage(content=item["content"]))
-                elif item["role"] == MessageRoles.system:
-                    conversation.append(SystemMessage(content=item["content"]))
+
+        conversation = convert_messages_to_langchain(conversation)
 
         try:
             result = chat.invoke(input=conversation, config=payload.merged_settings)
@@ -278,59 +264,27 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         result = result.dict()
 
-        try:
-            from tools import monitoring
-            #
-            full_result = result["content"]
-            #
-            count_conversation = []
-            #
-            from langchain_core.messages import (
-                AIMessage,
-                HumanMessage,
-                SystemMessage,
-            )
-            from ...models.enums.all import MessageRoles
-            #
-            for item in conversation:
-                if item["role"] == MessageRoles.assistant:
-                    count_conversation.append(AIMessage(
-                        content=item["content"],
-                        name=item.get("name", None),
-                    ))
-                elif item["role"] == MessageRoles.user:
-                    count_conversation.append(HumanMessage(
-                        content=item["content"],
-                        name=item.get("name", None),
-                    ))
-                elif item["role"] == MessageRoles.system:
-                    count_conversation.append(SystemMessage(
-                        content=item["content"],
-                        name=item.get("name", None),
-                    ))
-            #
-            tokens_out = chat.get_num_tokens(full_result)
-            tokens_in = chat.get_num_tokens_from_messages(count_conversation)
-            #
-            current_user = auth.current_user()
-            #
-            entity_type = "prompt"
-            entity_id = raw_data.get("prompt_id", None)
-            entity_version = raw_data.get("prompt_version_id", None)
-            #
-            monitoring.prompt_complete(
-                user_id=current_user["id"],
-                project_id=project_id,
-                entity_type=entity_type,
-                entity_id=entity_id,
-                entity_version=entity_version,
-                conversation=conversation,
-                predict_result=full_result,
-                tokens_in=tokens_in,
-                tokens_out=tokens_out,
-            )
-        except:
-            log.exception("Ignoring monitoring error")
+        current_user = auth.current_user()
+        tokens_in = chat.get_num_tokens(result['content'])
+        tokens_out = chat.get_num_tokens_from_messages(conversation)
+        event_payload = {
+            'pylon': str(self.module.context.id),
+            'project_id': payload.project_id,
+            'user_id': current_user["id"],
+            'predict_source': 'api',
+            'entity_type': 'prompt',
+            'entity_id': payload.prompt_id,
+            'entity_meta': {'version_id': payload.prompt_version_id, 'prediction_type': payload.type},
+            'chat_history': [i.dict() for i in conversation],
+            'predict_response': result['content'],
+            'model_settings': payload.merged_settings,
+            'tokens_in': tokens_in,
+            'tokens_out': tokens_out,
+        }
+        self.module.context.event_manager.fire_event(
+            PredictionEvents.prediction_done,
+            json.loads(json.dumps(event_payload))
+        )
 
         return {'messages': [result]}, 200
 
