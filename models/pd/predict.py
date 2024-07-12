@@ -23,6 +23,7 @@ class PromptMessagePredictModel(PromptMessageBaseModel):
 
 class PromptVersionPredictModel(BaseModel):
     project_id: int
+    prompt_id: Optional[int] = None
     prompt_version_id: Optional[int] = None
     message_id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()))
     stream_id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()))

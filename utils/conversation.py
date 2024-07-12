@@ -34,9 +34,7 @@ def prepare_payload(data: dict) -> PromptVersionPredictModel:
             prompt_version_pd = PromptVersionPredictModel.from_orm(prompt_version)
             payload = prompt_version_pd.merge_update(payload)
             #
-            data["prompt_id"] = prompt_version.prompt_id
-    else:
-        data["prompt_id"] = None
+            payload.prompt_id = prompt_version.prompt_id
     #
     log.info(f'{payload=}')
     return payload
@@ -103,3 +101,30 @@ def prepare_conversation(payload: PromptVersionPredictModel, skip_validation_err
             ).dict(exclude_unset=True, exclude_none=True)
         )
     return messages
+
+
+def convert_messages_to_langchain(messages: list) -> list:
+    from langchain_core.messages import (
+        AIMessage,
+        HumanMessage,
+        SystemMessage,
+    )
+
+    new_conversation = []
+    for item in messages:
+        if item["role"] == MessageRoles.assistant:
+            new_conversation.append(AIMessage(
+                content=item["content"],
+                name=item.get("name", None),
+            ))
+        elif item["role"] == MessageRoles.user:
+            new_conversation.append(HumanMessage(
+                content=item["content"],
+                name=item.get("name", None),
+            ))
+        elif item["role"] == MessageRoles.system:
+            new_conversation.append(SystemMessage(
+                content=item["content"],
+                name=item.get("name", None),
+            ))
+    return new_conversation
