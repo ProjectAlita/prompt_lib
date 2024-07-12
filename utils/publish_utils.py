@@ -228,7 +228,6 @@ class Publishing(rpc_tools.EventManagerMixin):
             return {"ok": True, "prompt_version": json.loads(version_details.json())}
 
 
-
 def close_private_version(shared_owner_id, shared_id, session):
     version = session.query(PromptVersion).filter_by(id=shared_id).first()
     if not version:
@@ -251,6 +250,7 @@ def close_private_versions(shared_owner_id, shared_id):
 
         session.commit()
 
+
 def delete_public_version(shared_owner_id, shared_id, session):
     version = session.query(PromptVersion).filter_by(
         shared_id=shared_id,
@@ -271,7 +271,6 @@ def delete_public_prompt(prompt_owner_id, prompt_id, session):
     
     session.delete(prompt)
     
-
 
 def delete_public_prompt_versions(prompt_owner_id, prompt_id, session):
     prompt = session.query(Prompt).filter_by(
@@ -304,7 +303,7 @@ def fire_version_deleted_event(project_id, version: dict, prompt: dict):
         log.error("No public project is not set and post prompt deletion event is skipped")
         return
     payload = {
-        'prompt_data':prompt,
+        'prompt_data': prompt,
         'version_data': version,
         'project_id': project_id,
         'public_id': public_id,
@@ -337,6 +336,7 @@ def fire_prompt_deleted_event(project_id, prompt: dict):
     rpc_tools.EventManagerMixin().event_manager.fire_event(
         "prompt_deleted", prompt
     )
+
 
 def is_public_project(project_id: int = None):
     ai_project_id = get_public_project_id()
@@ -383,17 +383,21 @@ def unpublish(current_user_id, project_id, version_id):
         return {"ok": True, "msg": "Successfully unpublished"}
 
 
-
-def fire_public_version_status_change_event(shared_owner_id, shared_id, status):
+def fire_public_version_status_change_event(
+        shared_owner_id, shared_id, status, notification_data
+):
     rpc_tools.EventManagerMixin().event_manager.fire_event(
         'prompt_public_version_status_change', {
-        'private_project_id': shared_owner_id,
-        'private_version_id': shared_id,
-        'status': status
-    })
+            'private_project_id': shared_owner_id,
+            'private_version_id': shared_id,
+            'status': status
+        })
+    rpc_tools.EventManagerMixin().event_manager.fire_event(
+        'notifications_stream', notification_data
+    )
 
 
-def set_public_version_status(version_id: int, status):
+def set_public_version_status(version_id: int, status, event_type: str, reject_details: str = None):
     public_id = get_public_project_id()
     result = set_status(
         project_id=public_id,
@@ -401,10 +405,24 @@ def set_public_version_status(version_id: int, status):
         status=status,
         return_data=True
     )
+    log.info(f'Result: {result["result"]}')
     if result['ok']:
+        notification_data = {
+            'project_id': result['result']['shared_owner_id'] or public_id,
+            'user_id': result['result']['author']['id'],
+            'meta': {
+                'prompt_version_id': version_id,
+                'prompt_name': result['result']['name'],
+            },
+            'event_type': event_type
+        }
+        if reject_details:
+            notification_data['meta']['reject_details'] = reject_details
+
         fire_public_version_status_change_event(
             shared_owner_id=result['result']['shared_owner_id'],
             shared_id=result['result']['shared_id'],
-            status=status
+            status=status,
+            notification_data=notification_data,
         )
     return result
