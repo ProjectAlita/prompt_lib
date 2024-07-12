@@ -22,13 +22,13 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def post(self, version_id: int, **kwargs):
         raw = dict(request.json)
 
-        prompt_reject = RejectPromptInput.parse_obj(raw)
+        # prompt_reject = RejectPromptInput.parse_obj(raw).reject_details
 
         try:
             result = set_public_version_status(
                 version_id, PublishStatus.rejected,
                 NotificationEventTypes.prompt_moderation_reject,
-                prompt_reject.reject_details
+                None
             )
         except Exception as e:
             log.error(e)
