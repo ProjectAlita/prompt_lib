@@ -93,6 +93,7 @@ class RPC:
                 return None
 
             result = prompt_version.to_json()
+            result['version_id'] = prompt_version.id
             result['id'] = prompt_version.prompt.id
             result['version'] = result['name']
             result['name'] = prompt_version.prompt.name
