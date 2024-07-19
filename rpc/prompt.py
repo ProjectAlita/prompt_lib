@@ -7,6 +7,7 @@ from pylon.core.tools import web, log
 
 from langchain_openai import AzureChatOpenAI
 from pydantic import parse_obj_as, ValidationError
+from sqlalchemy import desc
 from sqlalchemy.orm import joinedload
 from ..models.enums.all import PromptVersionType
 from ..models.pd.predict import PromptVersionPredictModel
@@ -77,8 +78,8 @@ class RPC:
         return result
 
     @web.rpc("prompt_lib_get_by_id", "get_by_id")
-    def prompts_get_by_id(self, project_id: int, prompt_id: int, version: str = 'latest', **kwargs) -> dict | None:
-        with db.with_project_schema_session(project_id) as session:
+    def prompts_get_by_id(self, project_id: int, prompt_id: int, version: str = 'latest', first_existing_version: bool = False, **kwargs) -> dict | None:
+        with db.get_session(project_id) as session:
             prompt_version = session.query(PromptVersion).options(
                 joinedload(PromptVersion.prompt)
             ).options(
@@ -90,7 +91,20 @@ class RPC:
                 PromptVersion.name == version
             ).one_or_none()
             if not prompt_version:
-                return None
+                if not first_existing_version:
+                    return None
+                prompt_version = session.query(PromptVersion).options(
+                    joinedload(PromptVersion.prompt)
+                ).options(
+                    joinedload(PromptVersion.variables)
+                ).options(
+                    joinedload(PromptVersion.messages)
+                ).filter(
+                    PromptVersion.prompt_id == prompt_id,
+                ).order_by(
+                    desc(PromptVersion.created_at)
+                ).first()
+
 
             result = prompt_version.to_json()
             result['version_id'] = prompt_version.id
