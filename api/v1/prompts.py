@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from pylon.core.tools import web, log
 from tools import api_tools, config as c, db, auth
 
+from ...models.enums.events import PromptEvents
 from ...models.pd.misc import MultiplePromptListModel
 from ...models.pd.prompt import PromptDetailModel, PromptCreateModel
 from ...models.pd.prompt_version import PromptVersionDetailModel
@@ -111,6 +112,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
     )
     @api_tools.endpoint_metrics
     def post(self, project_id: int | None = None, **kwargs):
+        # create prompt
         raw = dict(request.json)
         raw["owner_id"] = project_id
         author_id = auth.current_user().get("id")
@@ -121,7 +123,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         except ValidationError as e:
             return e.errors(), 400
 
-        with db.with_project_schema_session(project_id) as session:
+        with db.get_session(project_id) as session:
             prompt = create_prompt(prompt_data, session)
             session.commit()
 
@@ -130,7 +132,12 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 prompt.versions[0]
             )
 
-            return json.loads(result.json()), 201
+            result = json.loads(result.json())
+            self.module.context.event_manager.fire_event(
+                PromptEvents.prompt_change, result
+            )
+
+            return result, 201
 
 
 class API(api_tools.APIBase):

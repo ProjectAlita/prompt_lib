@@ -7,6 +7,7 @@ from tools import api_tools, auth, config as c, db
 
 from sqlalchemy.exc import IntegrityError
 from ...models.all import PromptVersion
+from ...models.enums.events import PromptEvents
 from ...models.pd.prompt_version import PromptVersionDetailModel, PromptVersionCreateModel, PromptVersionUpdateModel
 from ...utils.create_utils import create_version
 from ...utils.prompt_utils import prompts_update_version
@@ -57,6 +58,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 return {'error': f'Version with name {version_data.name} already exists'}, 400
 
             version_details = PromptVersionDetailModel.from_orm(prompt_version)
+            self.module.context.event_manager.fire_event(
+                PromptEvents.prompt_version_change, json.loads(version_details.json())
+            )
             return json.loads(version_details.json()), 201
 
     @auth.decorators.check_api({
@@ -78,6 +82,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
         res = prompts_update_version(project_id, version_data)
         if not res['updated']:
             return res['msg'], 400
+        self.module.context.event_manager.fire_event(
+            PromptEvents.prompt_change, res['data']
+        )
         return res['data'], 200
 
     @auth.decorators.check_api({

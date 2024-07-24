@@ -32,7 +32,7 @@ class PromptVersionPredictModel(BaseModel):
     context: Optional[str] = ''
     variables: Optional[List[PromptVariableBaseModel]] = []
     messages: Optional[List[PromptMessagePredictModel]] = []
-    model_settings: Optional[ModelSettingsBaseModel] = ModelSettingsBaseModel()
+    model_settings: Optional[ModelSettingsBaseModel] = Field(default_factory=ModelSettingsBaseModel)
     embedding_settings: Optional[dict] = {}  # todo: create model for this field
     type: PromptVersionType = PromptVersionType.chat
     user_input: Optional[str]
@@ -45,25 +45,41 @@ class PromptVersionPredictModel(BaseModel):
     def merge_update(self, other: 'PromptVersionPredictModel') -> 'PromptVersionPredictModel':
         this = self.dict(exclude_unset=True, exclude_none=True, exclude_defaults=True)
         updater = other.dict(exclude_unset=True, exclude_none=True, )
-        this.update(updater)
-        return self.__class__.parse_obj(this)
+        # log.info(f'merge_update 1:\n{this=}\n{updater=}')
+        result = deep_merge(this, updater)
+        # log.info(f'merge_update 2:\n{result=}')
+        return self.__class__.parse_obj(result)
 
     @validator('integration', always=True)
     def set_integration(cls, value, values):
-        log.info(f'{value=} {values=}')
+        # log.info(f'{value=} {values=}')
         integration_uid = values['model_settings'].model.integration_uid
-        try:
-            return AIProvider.get_integration(
-                project_id=values['project_id'],
-                integration_uid=integration_uid,
-            )
-        except IntegrationNotFound:
-            if value is None:
-                raise ValueError(f'Integration not found with uid {integration_uid}')
+        if integration_uid is not None:
+            try:
+                return AIProvider.get_integration(
+                    project_id=values['project_id'],
+                    integration_uid=integration_uid,
+                )
+            except IntegrationNotFound:
+                if value is None:
+                    raise ValueError(f'Integration not found with uid {integration_uid}')
 
     @property
     def merged_settings(self) -> dict:
         try:
-            return {**self.integration.settings, **self.model_settings.merged}
+            # log.info(f'merged_settings 1:\n{self.integration.settings=}\n{self.model_settings.merged=}')
+            result = {**self.integration.settings, **self.model_settings.merged}
+            # log.info(f'merged_settings 2:\n{result=}')
+            return result
         except AttributeError:
             return self.model_settings.merged
+
+
+def deep_merge(dict1: dict, dict2: dict) -> dict:
+    result = dict1.copy()
+    for key, value in dict2.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
