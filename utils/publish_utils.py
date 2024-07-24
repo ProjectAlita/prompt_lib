@@ -238,18 +238,6 @@ def close_private_version(shared_owner_id, shared_id, session):
     version.status = PublishStatus.draft
 
 
-def close_private_versions(shared_owner_id, shared_id):
-    with db.with_project_schema_session(shared_owner_id) as session:
-        prompt = session.query(Prompt).get(shared_id)
-        
-        if not prompt:
-            return
-        
-        session.query(PromptVersion).filter_by(prompt_id=prompt.id).update({
-            PromptVersion.status: PublishStatus.draft
-        })
-
-        session.commit()
 
 def delete_public_version(shared_owner_id, shared_id, session):
     version = session.query(PromptVersion).filter_by(
@@ -260,17 +248,7 @@ def delete_public_version(shared_owner_id, shared_id, session):
         session.delete(version)
 
 
-def delete_public_prompt(prompt_owner_id, prompt_id, session):
-    prompt = session.query(Prompt).filter_by(
-        shared_owner_id=prompt_owner_id,
-        shared_id=prompt_id
-    ).first()
 
-    if not prompt:
-        return
-    
-    session.delete(prompt)
-    
 
 
 def delete_public_prompt_versions(prompt_owner_id, prompt_id, session):
@@ -298,6 +276,7 @@ def fire_public_prompt_created(prompt_data, collections):
 
 
 def fire_version_deleted_event(project_id, version: dict, prompt: dict):
+    # todo: refactor!
     try:
         public, public_id = is_public_project(project_id)
     except Exception:
@@ -315,28 +294,6 @@ def fire_version_deleted_event(project_id, version: dict, prompt: dict):
         f'{prefix}_prompt_version_deleted', payload
     )
 
-
-def fire_prompt_deleted_event(project_id, prompt: dict):
-    try:
-        public, public_id = is_public_project(project_id)
-    except Exception:
-        log.error("No public project is not set and post prompt deletion event is skipped")
-        return
-    
-    payload = {
-        'prompt_data': prompt,
-        'public_id': public_id,
-    }
-
-    prefix = "private" if not public else "public"
-
-    rpc_tools.EventManagerMixin().event_manager.fire_event(
-        f'{prefix}_prompt_deleted', payload
-    )
-
-    rpc_tools.EventManagerMixin().event_manager.fire_event(
-        "prompt_deleted", prompt
-    )
 
 def is_public_project(project_id: int = None):
     ai_project_id = get_public_project_id()

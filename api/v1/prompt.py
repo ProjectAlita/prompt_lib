@@ -6,14 +6,16 @@ from pylon.core.tools import log
 
 
 from ...models.all import Prompt
+from ...models.enums.events import PromptEvents
+from ...models.pd.prompt import PromptDetailModel
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.prompt_utils import get_prompt_details
 from ...utils.prompt_utils_legacy import (
-    prompts_delete_prompt,
     prompts_update_name,
-    prompts_update_prompt
+    prompts_update_prompt,
+    prompts_delete_prompt
 )
-from ...utils.publish_utils import fire_prompt_deleted_event, is_public_project
+from ...utils.publish_utils import is_public_project
 
 from tools import api_tools, auth, config as c, db
 
@@ -40,10 +42,10 @@ class ProjectAPI(api_tools.APIModeHandler):
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
     @api_tools.endpoint_metrics
-    def put(self, project_id):
+    def put(self, project_id: int):
         try:
             prompt = prompts_update_prompt(project_id, dict(request.json))
-            return prompt, 201
+            return prompt, 200
         except ValidationError as e:
             return e.errors(), 400
 
@@ -95,21 +97,32 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
     @api_tools.endpoint_metrics
-    def delete(self, project_id, prompt_id):
-        with db.with_project_schema_session(project_id) as session:
+    def delete(self, project_id: int, prompt_id: int, **kwargs):
+        with db.get_session(project_id) as session:
+            is_public, public_id = False, None
             try:
-                is_public, _ = is_public_project(project_id)
+                is_public, public_id = is_public_project(project_id)
                 if is_public:
-                    return {"ok": False, "error": "Deleting from public project is prohibited"}, 403
+                    return {"ok": False, "error": "Deleting from public project is prohibited"}, 400
             except Exception:
                 log.warning('Public project is not set so any prompt can be deleted')
                 pass
 
             if prompt := session.query(Prompt).get(prompt_id):
-                prompt_data = prompt.to_json()
-                fire_prompt_deleted_event(project_id, prompt_data)
+                prompt_details = PromptDetailModel.from_orm(prompt)
                 session.delete(prompt)
                 session.commit()
+                # fire_prompt_deleted_event(project_id, prompt)
+
+                payload = {
+                    'prompt_data': prompt_details.dict(),
+                    'public_id': public_id,
+                    'is_public': is_public
+                }
+
+                self.module.context.event_manager.fire_event(
+                    PromptEvents.prompt_deleted, payload
+                )
                 return '', 204
             return {"ok": False, "error": "Prompt is not found"}, 404
 
