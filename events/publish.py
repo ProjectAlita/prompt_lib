@@ -9,7 +9,9 @@ from ..utils.publish_utils import (
     delete_public_version,
     set_status
 )
-from ..utils.collections import group_by_project_id
+
+from ..utils.collections import group_by_project_id, remove_entity_from_collections
+from ..utils.collection_registry import get_entity_info_by_name
 from ...promptlib_shared.models.enums.all import PublishStatus
 
 
@@ -105,12 +107,6 @@ class Event:
 
 
 def delete_prompt_from_collections(collection_ids: list, prompt_data: dict, session):
-    col_owner_id = prompt_data['owner_id']
-    col_id = prompt_data['id']
-    collections = session.query(Collection).filter(Collection.id.in_(collection_ids)).all()
-    for collection in collections:
-        new_data = [
-            deepcopy(prompt) for prompt in collection.prompts
-            if prompt['owner_id'] != col_owner_id or prompt['id'] != col_id
-        ]
-        collection.prompts = new_data
+    prompts_field_name = get_entity_info_by_name('prompt').entities_name
+    remove_entity_from_collections(collection_ids, prompts_field_name, prompt_data, session)
+

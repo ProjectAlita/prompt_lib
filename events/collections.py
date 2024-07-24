@@ -1,19 +1,24 @@
+from copy import deepcopy
+
+from sqlalchemy import and_, or_
+
 from pylon.core.tools import log, web
 from tools import db
-from ..models.all import Collection, Prompt
+from ..models.all import Collection
 from ..models.enums.all import CollectionPatchOperations
-from copy import deepcopy
+from ..models.pd.collections import CollectionItem
+from ..utils.collection_registry import (
+    ENTITY_REG,
+    get_entity_info_by_name
+)
 from ..utils.collections import (
+    CollectionPublishing,
+    add_entity_to_collection,
     fire_patch_collection_event,
-    add_prompt_to_collection,
-    remove_prompt_from_collection,
     group_by_project_id,
+    remove_entity_from_collection,
 )
 from ..utils.publish_utils import get_public_project_id
-from ..utils.collections import CollectionPublishing
-from sqlalchemy import or_, and_
-
-from ..models.pd.collections import PromptIds
 from ...promptlib_shared.models.enums.all import PublishStatus
 
 
@@ -33,79 +38,65 @@ class Event:
 
     @web.event("prompt_lib_collection_updated")
     def handle_collection_updated(self, context, event, payload: dict):
-        added_prompts = payload['added_prompts']
-        removed_prompts = payload['removed_prompts']
+        added_entities = payload['added_entities']
+        removed_entities = payload['removed_entities']
         collection_data = payload['collection_data']
         public_id = get_public_project_id()
 
-        # add collection to prompts:
-        grouped_added_prompts: dict = group_by_project_id(added_prompts, data_type="tuple")
-        for project_id, prompt_ids in grouped_added_prompts.items():
-            with db.with_project_schema_session(project_id) as session:
-                add_collection_to_prompts(prompt_ids, collection_data, session)
-                session.commit()
+        entity_info = get_entity_info_by_name(payload['entity_name'])
+        Entity = entity_info.get_entity_type()
 
-        # remove collection from prompts
-        grouped_removed_prompts: dict = group_by_project_id(removed_prompts, data_type="tuple")
-        for project_id, prompt_ids in grouped_removed_prompts.items():
-            with db.with_project_schema_session(project_id) as session:
-                delete_collection_from_prompts(prompt_ids, collection_data, session)
-                session.commit()
+        # add collection to entities
+        grouped_added_entities: dict = group_by_project_id(added_entities, data_type="tuple")
+        for owner_id, ids in grouped_added_entities.items():
+            add_collection_to_entities(Entity, owner_id, ids, collection_data, context)
+
+        # remove collection from entities
+        grouped_removed_entities: dict = group_by_project_id(removed_entities, data_type="tuple")
+        for owner_id, ids in grouped_removed_entities.items():
+            delete_collection_from_entities(Entity, owner_id, ids, collection_data, context)
 
         # synchronize private and public collections
         if public_id != collection_data['owner_id']:
             synchronize_collections(
                 collection_data,
-                added_prompts,
-                removed_prompts
+                entity_info.entities_name,
+                Entity,
+                added_entities,
+                removed_entities
             )
 
     @web.event("prompt_lib_collection_deleted")
     def handle_collection_deleted(self, context, event, payload: dict):
         collection_data = payload
-        # group by prompt data        
-        prompts = group_by_project_id(collection_data['prompts'])
-        for owner_id, prompt_ids in prompts.items():
-            with db.with_project_schema_session(owner_id) as session:
-                delete_collection_from_prompts(prompt_ids, collection_data, session)
-                session.commit()
+
+        for ent in ENTITY_REG:
+            entities = group_by_project_id(collection_data[ent.entities_name])
+            for owner_id, ids in entities.items():
+                delete_collection_from_entities(
+                    ent.get_entity_type(),
+                    owner_id,
+                    ids,
+                    collection_data,
+                    context
+                )
 
     @web.event("prompt_lib_collection_added")
-    def handle_collection_deleted(self, context, event, payload: dict):
-        # group by prompt data        
+    def handle_collection_added(self, context, event, payload: dict):
         collection_data = payload
-        prompts = group_by_project_id(collection_data['prompts'])
-        for owner_id, prompt_ids in prompts.items():
-            with db.with_project_schema_session(owner_id) as session:
-                add_collection_to_prompts(prompt_ids, collection_data, session)
-                session.commit()
 
-    @web.event("prune_collection_prompts")
-    def prune_collection_prompts(self, context, event, payload: dict):
-        existing_prompts = payload.get('existing_prompts')
-        all_prompts = payload.get('all_prompts')
-        collection_data = payload.get('collection_data')
-        stale_prompts = {}
-        for project_id, ids in all_prompts.items():
-            collection_ids = set(ids)
-            actual_ids = set(existing_prompts[project_id])
-            stale_prompts[project_id] = collection_ids - actual_ids
+        for ent in ENTITY_REG:
+            entities = group_by_project_id(collection_data[ent.entities_name])
+            for owner_id, ids in entities.items():
+                add_collection_to_entities(ent.get_entity_type(), owner_id, ids, collection_data, context)
 
-        with db.with_project_schema_session(collection_data['owner_id']) as session:
-            collection = session.query(Collection).get(collection_data['id'])
-            clean_prompts = [
-                deepcopy(prompt) for prompt in collection.prompts
-                if not prompt['owner_id'] in stale_prompts or \
-                   not prompt['id'] in stale_prompts[prompt['owner_id']]
-            ]
-            collection.prompts = clean_prompts
-            session.commit()
-
-    @web.event('prompt_lib_prompt_published')
-    def handle_prompt_publishing(self, context, event, payload: dict) -> None:
-        prompt_data = payload['prompt_data']
-        owner_id = prompt_data['owner_id']
+    @web.event('prompt_lib_entity_published')
+    def handle_entity_publishing(self, context, event, payload: dict) -> None:
+        entity_data = payload['entity_data']
+        owner_id = entity_data['owner_id']
         collections = payload['collections']
+        entity_name = payload['entity_name']
+        entity_info = get_entity_info_by_name(entity_name)
 
         with db.with_project_schema_session(owner_id) as session:
             if not collections:
@@ -123,21 +114,24 @@ class Event:
                 collections = []
 
             for collection in collections:
-                prompts = deepcopy(collection.prompts)
-                prompts.append({
+                entities = deepcopy(entity_info.get_entities_field(collection))
+                entities.append({
                     "owner_id": owner_id,
-                    "id": prompt_data['id']
+                    "id": entity_data['id']
                 })
-                collection.prompts = prompts
+                setattr(collection, entity_info.entities_name, entities)
             session.commit()
 
             for collection in collections:
                 fire_patch_collection_event(
-                    collection.to_json(), CollectionPatchOperations.add, prompt_data
+                    collection.to_json(),
+                    CollectionPatchOperations.add,
+                    entity_data,
+                    entity_name
                 )
 
     @web.event('prompt_lib_collection_unpublished')
-    def handle_prompt_unpublished(self, context, event, payload) -> None:
+    def handle_collection_unpublished(self, context, event, payload) -> None:
         private_id = payload.get('private_id')
         private_owner_id = payload.get('private_owner_id')
         with db.with_project_schema_session(private_owner_id) as session:
@@ -148,34 +142,38 @@ class Event:
             session.commit()
 
 
-def delete_collection_from_prompts(prompt_ids: list, collection_data: dict, session):
-    col_owner_id = collection_data['owner_id']
-    col_id = collection_data['id']
-    prompts = session.query(Prompt).filter(Prompt.id.in_(prompt_ids)).all()
-    for prompt in prompts:
-        new_data = [
-            deepcopy(collection) for collection in prompt.collections
-            if collection['owner_id'] != col_owner_id or collection['id'] != col_id
-        ]
-        prompt.collections = new_data
+def delete_collection_from_entities(entity_type, owner_id: int, ids: list, collection_data: dict, context):
+    with db.get_session(owner_id) as session:
+        for entity in session.query(entity_type).filter(entity_type.id.in_(ids)).all():
+            new_data = [
+                deepcopy(collection) for collection in entity.collections
+                if (collection['owner_id'] != collection_data['owner_id'] or
+                    collection['id'] != collection_data['id'])
+            ]
+            entity.collections = new_data
+
+        session.commit()
 
 
-def add_collection_to_prompts(prompt_ids: list, collection_data: dict, session):
-    col_owner_id = collection_data['owner_id']
-    col_id = collection_data['id']
-    prompts = session.query(Prompt).filter(Prompt.id.in_(prompt_ids)).all()
-    for prompt in prompts:
-        new_data: list = deepcopy(prompt.collections)
-        new_data.append({
-            "owner_id": col_owner_id,
-            "id": col_id
-        })
-        prompt.collections = new_data
+def add_collection_to_entities(entity_type, owner_id: int, ids: list, collection_data: dict, context):
+    with db.get_session(owner_id) as session:
+        for entity in session.query(entity_type).filter(entity_type.id.in_(ids)).all():
+            new_data: list = deepcopy(entity.collections)
+            new_data.append({
+                "owner_id": collection_data['owner_id'],
+                "id": collection_data['id']
+            })
+            entity.collections = new_data
+
+        session.commit()
 
 
-def synchronize_collections(private_collection_data, added_prompts: list = None, removed_prompts: list = None):
-    added_prompts = added_prompts or []
-    removed_prompts = removed_prompts or []
+def synchronize_collections(
+    private_collection_data, entities_name, entity_type,
+    added_entities: list = None, removed_entities: list = None
+):
+    added_entities = added_entities or []
+    removed_entities = removed_entities or []
     public_id = get_public_project_id()
     with db.with_project_schema_session(public_id) as session:
         collection = session.query(Collection).filter_by(
@@ -186,40 +184,40 @@ def synchronize_collections(private_collection_data, added_prompts: list = None,
         if not collection:
             return
 
-        added_prompts = find_public_prompts(added_prompts, session)
-        removed_prompts = find_public_prompts(removed_prompts, session)
+        added_entities = find_public_entities(entity_type, added_entities, session)
+        removed_entities = find_public_entities(entity_type, removed_entities, session)
 
-        for prompt in added_prompts:
-            prompt = PromptIds(id=prompt.id, owner_id=prompt.owner_id)
-            add_prompt_to_collection(collection, prompt)
+        for entity in added_entities:
+            entity = CollectionItem(id=entity.id, owner_id=entity.owner_id)
+            add_entity_to_collection(collection, entities_name, entity, return_data=False)
 
-        for prompt in removed_prompts:
-            prompt = PromptIds(id=prompt.id, owner_id=prompt.owner_id)
-            remove_prompt_from_collection(collection, prompt)
+        for entity in removed_entities:
+            entity = CollectionItem(id=entity.id, owner_id=entity.owner_id)
+            remove_entity_from_collection(collection, entities_name, entity, return_data=False)
 
         session.commit()
 
 
-def find_public_prompts(prompts: list, session):
-    if not prompts:
+def find_public_entities(entity_type, entities: list, session):
+    if not entities:
         return []
 
     public_id = get_public_project_id()
-    public_prompts = filter(lambda x: x[0] == public_id, prompts)
-    private_prompts = filter(lambda x: x[0] != public_id, prompts)
+    public_entities = filter(lambda x: x[0] == public_id, entities)
+    private_entities = filter(lambda x: x[0] != public_id, entities)
 
-    return session.query(Prompt).filter(
+    return session.query(entity_type).filter(
         or_(
             *[
                 and_(
-                    Prompt.shared_id == prompt[1],
-                    Prompt.shared_owner_id == prompt[0]
-                ) for prompt in private_prompts
+                    entity_type.shared_id == entity[1],
+                    entity_type.shared_owner_id == entity[0]
+                ) for entity in private_entities
             ],
             *[
                 and_(
-                    Prompt.id == data[1],
-                ) for data in public_prompts
+                    entity_type.id == data[1],
+                ) for data in public_entities
             ]
         )
     ).all()

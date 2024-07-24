@@ -14,12 +14,12 @@ from ..models.all import Collection, Prompt, PromptVersion, PromptVariable, Prom
     PromptVersionTagAssociation
 from ..models.pd.legacy.variable import VariableModel
 
-from .searches import get_prompts_by_tags
 from ..models.pd.prompt import PromptDetailModel, PublishedPromptDetailModel
 from ..models.pd.prompt_version import PromptVersionDetailModel, PromptVersionUpdateModel
 from ..models.pd.tag import PromptTagListModel
 from ...promptlib_shared.models.all import Tag
 from ...promptlib_shared.models.enums.all import PublishStatus
+from ...promptlib_shared.utils.utils import get_entities_by_tags
 
 
 def create_variables_bulk(project_id: int, variables: List[dict], **kwargs) -> List[dict]:
@@ -52,151 +52,6 @@ def get_prompt_tags(project_id: int, prompt_id: int) -> List[dict]:
             .order_by(PromptVersion.id)
         )
         return [PromptTagListModel.from_orm(tag).dict() for tag in query.all()]
-
-
-def _flatten_prompt_ids(project_id: int, collection_prompts: List[Dict[str, int]]):
-    prompt_ids = []
-    for collection_prompt in collection_prompts:
-        prompts = collection_prompt[0]
-        for prompt in prompts:
-            if prompt['owner_id'] == project_id:
-                prompt_ids.append(prompt['id'])
-    return prompt_ids
-
-
-def get_all_ranked_tags(project_id: int, args: MultiDict, func) -> dict:
-    # Args to sort prompt subquery:
-    limit = args.get("limit", default=10, type=int)
-    offset = args.get("offset", default=0, type=int)
-    my_liked_collections = args.get("my_liked_collections", default=False, type=bool)
-    my_liked_prompts = args.get("my_liked_prompts", default=False, type=bool)
-
-    # trending period
-    trend_start_period = args.get('trend_start_period')
-    trend_end_period = args.get('trend_end_period')
-    trend_period = None
-    if trend_start_period:
-        trend_end_period = datetime.utcnow() if not trend_end_period else datetime.strptime(trend_end_period, "%Y-%m-%dT%H:%M:%S")
-        trend_start_period = datetime.strptime(trend_start_period, "%Y-%m-%dT%H:%M:%S")
-        trend_period = (trend_start_period, trend_end_period)
-
-    # Filters to sort prompt subquery:
-    filters = []
-    if author_id := args.get('author_id'):
-        filters.append(Prompt.versions.any(PromptVersion.author_id == author_id))
-    if statuses := args.get('statuses'):
-        statuses = statuses.split(',')
-        filters.append(Prompt.versions.any(PromptVersion.status.in_(statuses)))
-    if query := args.get('query'):
-        filters.append(
-            or_(
-                Prompt.name.ilike(f"%{query}%"),
-                Prompt.description.ilike(f"%{query}%")
-            )
-        )
-
-    with db.with_project_schema_session(project_id) as session:
-        if collection_phrase := args.get('collection_phrase'):
-            collection_prompts = session.query(Collection.prompts).filter(
-                or_(
-                    Collection.name.ilike(f"%{collection_phrase}%"),
-                    Collection.description.ilike(f"%{collection_phrase}%")
-                )
-            ).all()
-            prompt_ids = prompt_ids = _flatten_prompt_ids(project_id, collection_prompts)
-            filters.append(Prompt.id.in_(prompt_ids))
-
-        if my_liked_collections:
-            query = session.query(Collection.prompts)
-            extra_columns = []
-
-            query, new_columns = add_likes(
-                original_query=query,
-                project_id=project_id,
-                entity=Collection,
-            )
-            extra_columns.extend(new_columns)
-
-            query, new_columns = add_my_liked(
-                original_query=query,
-                project_id=project_id,
-                entity=Collection,
-                filter_results=True
-            )
-            extra_columns.extend(new_columns)
-            q_result = query.all()
-            prompt_ids = _flatten_prompt_ids(project_id, q_result)
-            filters.append(Prompt.id.in_(prompt_ids))
-
-        # Prompt subquery
-        prompt_query = (
-            session.query(Prompt)
-            .options(joinedload(Prompt.versions))
-        )
-        extra_columns = []
-        prompt_query, new_columns = add_likes(
-            original_query=prompt_query,
-            project_id=project_id,
-            entity=Prompt,
-        )
-        extra_columns.extend(new_columns)
-        if trend_period:
-            prompt_query, new_columns = add_trending_likes(
-                original_query=prompt_query,
-                project_id=project_id,
-                entity=Prompt,
-                trend_period=trend_period,
-                filter_results=True
-            )
-            extra_columns.extend(new_columns)
-        if my_liked_prompts:
-            prompt_query, new_columns = add_my_liked(
-                original_query=prompt_query,
-                project_id=project_id,
-                entity=Prompt,
-                filter_results=True
-            )
-            extra_columns.extend(new_columns)
-        if filters:
-            prompt_query = prompt_query.filter(*filters)
-
-        prompt_query = prompt_query.with_entities(Prompt.id)
-        prompt_subquery = prompt_query.subquery()
-
-        # Main query
-        tag_filters = [PromptVersion.prompt_id.in_(prompt_subquery)]
-        if search := args.get("search"):
-            tag_filters.append(Tag.name.ilike(f"%{search}%"))
-
-        query = (
-            session.query(
-                Tag.id,
-                Tag.name,
-                cast(Tag.data, String),
-                func.count(func.distinct(PromptVersion.prompt_id))
-            )
-            .filter(*tag_filters)
-            .join(PromptVersionTagAssociation, PromptVersionTagAssociation.c.tag_id == Tag.id)
-            .join(PromptVersion, PromptVersion.id == PromptVersionTagAssociation.c.version_id)
-            .group_by(Tag.id, Tag.name, cast(Tag.data, String))
-            .order_by(func.count(func.distinct(PromptVersion.prompt_id)).desc())
-        )
-        total = query.count()
-
-        # if sort_order.lower() == "asc":
-        #     query = query.order_by(getattr(Tag, sort_by, sort_by))
-        # else:
-        #     query = query.order_by(desc(getattr(Tag, sort_by, sort_by)))
-        if limit:
-            query = query.limit(limit)
-        if offset:
-            query = query.offset(offset)
-
-        as_dict = lambda x: {'id': x[0], 'name': x[1], 'data': loads(x[2]), 'prompt_count': x[3]}
-        return {
-            "total": total,
-            "rows": [as_dict(tag) for tag in query.all()]
-        }
 
 
 def _update_related_table(session, version, version_data, db_model):
@@ -484,7 +339,7 @@ def list_prompts_api(
     if tags:
         if isinstance(tags, str):
             tags = [int(tag) for tag in tags.split(',')]
-        prompts_subq = get_prompts_by_tags(project_id, tags)
+        prompts_subq = get_entities_by_tags(project_id, tags, Prompt, PromptVersion)
         filters.append(Prompt.id.in_(prompts_subq))
         # filters.append(Prompt.versions.any(PromptVersion.tags.any(Tag.id.in_(tags))))
 
@@ -514,7 +369,7 @@ def list_prompts_api(
     #             )
     #         )
     #     if tag_ids := search_data.get('tag_ids'):
-    #         prompt_ids = get_prompts_by_tags(project_id, tag_ids)
+    #         prompt_ids = get_entities_by_tags(project_id, tag_ids, Prompt, PromptVersion)
     #         filters.append(Prompt.id.in_(prompt_ids))
 
 

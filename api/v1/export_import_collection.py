@@ -24,6 +24,17 @@ class PromptLibAPI(api_tools.APIModeHandler):
         }})
     @api_tools.endpoint_metrics
     def get(self, project_id: int, collection_id: int = None, **kwargs):
+        # TODO: rewrite to be something like:
+        #result = {}
+        #for ent in ENTITY_REG:
+        #    entities = ent.get_entities_fields(collection)
+        #    if not entities:
+        #        continue
+        #    result_entities = []
+        #    for project_id, entities in group_by_project_id(entities).items():
+        #        for entity_id in entities:
+        #            result_entities.append(ent.entity_export_rpc(project_id, entity_id))
+        #    result[ent.entity_name] = result_entities
         to_dial = request.args.get('to_dial', False)
         with db.with_project_schema_session(project_id) as session:
             collection = session.query(Collection).get(collection_id)

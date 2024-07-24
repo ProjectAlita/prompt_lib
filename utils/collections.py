@@ -1,46 +1,50 @@
-import json
 import copy
-from datetime import datetime
+import json
 from collections import defaultdict
-from typing import List, Union, Dict
-from werkzeug.datastructures import MultiDict
+from datetime import datetime
+from itertools import chain
+from typing import Dict, List, Union
+
 from flask import request
-from sqlalchemy import or_, and_, desc
+from sqlalchemy import and_, desc, or_
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import exists
+from werkzeug.datastructures import MultiDict
 
-from tools import db, VaultClient, rpc_tools
-# from pylon.core.tools import log
+from tools import VaultClient, db, rpc_tools
 
+from .collection_registry import (
+    ENTITY_REG,
+    get_entity_info_by_name,
+)
+from .expceptions import NotFound
 from .like_utils import add_likes, add_my_liked, add_trending_likes
 from .prompt_utils import set_columns_as_attrs
+from .publish_utils import get_public_project_id
 from .utils import get_author_data, get_authors_data
+from ..models.all import Collection
 from ..models.enums.all import CollectionPatchOperations
-from ..models.all import Collection, Prompt, PromptVersion
 from ..models.pd.collections import (
     CollectionDetailModel,
+    CollectionItem,
+    CollectionListModel,
     CollectionModel,
-    PromptIds,
     CollectionPatchModel,
-    PublishedCollectionDetailModel, CollectionListModel,
     CollectionShortDetailModel,
+    PublishedCollectionDetailModel,
 )
-from .publish_utils import get_public_project_id
-from .expceptions import (
-    PromptInaccessableError,
-    PromptDoesntExist,
-    PromptAlreadyInCollectionError,
-    NotFound
-)
-
-from .searches import get_filter_collection_by_tags_condition, get_prompts_by_tags
-from ..models.pd.prompt import PublishedPromptListModel, PromptListModel
 from ...promptlib_shared.models.enums.all import PublishStatus
 from ...promptlib_shared.models.pd.base import TagBaseModel
-from ...promptlib_shared.utils.utils import add_public_project_id
+from ...promptlib_shared.models.pd.entity import EntityListModel, PublishedEntityListModel
+from ...promptlib_shared.utils.exceptions import (
+    EntityAlreadyInCollectionError,
+    EntityDoesntExist,
+    EntityInaccessableError,
+)
+from ...promptlib_shared.utils.utils import add_public_project_id, get_entities_by_tags
 
 
-def check_prompts_addability(owner_id: int, user_id: int):
+def check_addability(owner_id: int, user_id: int):
     membership_check = rpc_tools.RpcMixin().rpc.call.admin_check_user_in_project
     secrets = VaultClient().get_all_secrets()
     ai_project_id = secrets.get("ai_project_id")
@@ -49,8 +53,16 @@ def check_prompts_addability(owner_id: int, user_id: int):
     ) or membership_check(owner_id, user_id)
 
 
-def get_prompts_for_collection(collection_prompts: List[Dict[str, int]], only_public: bool = False) -> list:
-    prompts = []
+def get_entities_for_collection(
+        entity_type,
+        entity_version_type,
+        collection_entities: List[Dict[int, int]],
+        only_public: bool = False) -> list:
+
+    Entity = entity_type
+    EntityVersion = entity_version_type
+
+    entities = []
     filters = []
     offset = request.args.get("offset", 0, type=int)
     limit = request.args.get("limit", 10, type=int)
@@ -58,121 +70,137 @@ def get_prompts_for_collection(collection_prompts: List[Dict[str, int]], only_pu
     my_liked = request.args.get('my_liked', False)
 
     if author_id := request.args.get('author_id'):
-        filters.append(Prompt.versions.any(PromptVersion.author_id == author_id))
+        filters.append(Entity.versions.any(EntityVersion.author_id == author_id))
 
     if statuses := request.args.get('statuses'):
         statuses = statuses.split(',')
-        filters.append(Prompt.versions.any(PromptVersion.status.in_(statuses)))
+        filters.append(Entity.versions.any(EntityVersion.status.in_(statuses)))
 
     # Search parameters
     if search := request.args.get('query'):
         filters.append(
             or_(
-                Prompt.name.ilike(f"%{search}%"),
-                Prompt.description.ilike(f"%{search}%")
+                Entity.name.ilike(f"%{search}%"),
+                Entity.description.ilike(f"%{search}%")
             )
         )
 
     if only_public:
         filters.append(
-            Prompt.versions.any(PromptVersion.status == PublishStatus.published)
+            Entity.versions.any(EntityVersion.status == PublishStatus.published)
         )
 
-    grouped_prompts = group_by_project_id(collection_prompts)
-    for project_id, ids in grouped_prompts.items():
+    grouped_entities = group_by_project_id(collection_entities)
+    for project_id, ids in grouped_entities.items():
         with db.with_project_schema_session(project_id) as session:
 
             if tags := request.args.get('tags'):
                 # Filtering parameters
                 if isinstance(tags, str):
                     tags = [int(tag) for tag in tags.split(',')]
-                prompts_subq = get_prompts_by_tags(project_id, tags)
-                filters.append(Prompt.id.in_(prompts_subq))
+                entities_subq = get_entities_by_tags(project_id, tags, Entity, EntityVersion)
+                filters.append(Entity.id.in_(entities_subq))
 
-            prompt_query = session.query(Prompt).filter(Prompt.id.in_(ids), *filters)
+            entity_query = session.query(Entity).filter(Entity.id.in_(ids), *filters)
             extra_columns = []
 
             if only_public:
-                prompt_query, new_columns = add_likes(
-                    original_query=prompt_query,
+                entity_query, new_columns = add_likes(
+                    original_query=entity_query,
                     project_id=project_id,
-                    entity=Prompt,
+                    entity=Entity,
                 )
                 extra_columns.extend(new_columns)
 
                 if trend_period:
-                    prompt_query, new_columns = add_trending_likes(
-                        original_query=prompt_query,
+                    entity_query, new_columns = add_trending_likes(
+                        original_query=entity_query,
                         project_id=project_id,
-                        entity=Prompt,
+                        entity=Entity,
                         trend_period=trend_period,
                         filter_results=True
                     )
                     extra_columns.extend(new_columns)
 
-                prompt_query, new_columns = add_my_liked(
-                    original_query=prompt_query,
+                entity_query, new_columns = add_my_liked(
+                    original_query=entity_query,
                     project_id=project_id,
-                    entity=Prompt,
+                    entity=Entity,
                     filter_results=my_liked
                 )
                 extra_columns.extend(new_columns)
 
-                # prompt_query = add_likes(prompt_query, project_id, 'prompt')
-            q_result = prompt_query.all()
-            project_prompts = list(set_columns_as_attrs(q_result, extra_columns))
+            q_result = entity_query.all()
+            project_entities = list(set_columns_as_attrs(q_result, extra_columns))
 
             # user_map
             author_ids = set()
-            for prompt in project_prompts:
-                # prompt = prompt[0] if only_public else prompt
-                for version in prompt.versions:
+            for entity in project_entities:
+                # entity = entity[0] if only_public else entity
+                for version in entity.versions:
                     author_ids.add(version.author_id)
             users = get_authors_data(list(author_ids))
             user_map = {user['id']: user for user in users}
 
-            for prompt in project_prompts:
+            for entity in project_entities:
                 if only_public:
-                    prompt = PublishedPromptListModel.from_orm(prompt)
+                    entity = PublishedEntityListModel.from_orm(entity)
                 else:
-                    prompt = PromptListModel.from_orm(prompt)
-                prompt.set_authors(user_map)
-                prompts.append(json.loads(prompt.json()))
-                # if only_public:
-                #     prompts.append(json.loads(prompt.json()))
-                # else:
-                #     prompts.append()
-                #     prompts.extend(
-                #         json.loads(MultiplePromptListModel(prompts=project_prompts).json())[
-                #             "prompts"
-                #         ]
-                #     )
+                    entity = EntityListModel.from_orm(entity)
+                entity.set_authors(user_map)
+                entities.append(json.loads(entity.json()))
 
-    prompts = prompts[offset:limit + offset]
-    return prompts
+    entities = entities[offset:limit + offset]
+    return entities
 
 
-# def get_filter_collection_by_tags_condition(project_id: int, tags: List[int], session=None):
-#     if session is None:
-#         session = db.get_project_schema_session(project_id)
+def get_filter_collection_by_tags_condition(project_id: int, tags: List[int], session=None):
+    entity_filters = []
+    for entity_info in ENTITY_REG:
+        entity_filters.extend(
+            get_filter_collection_by_entity_tags_condition(
+                project_id=project_id,
+                tags=tags,
+                entity_name=entity_info.entity_name,
+                session=session
+            )
+        )
 
-#     prompt_ids = session.query(Prompt.id).filter(
-#         Prompt.versions.any(PromptVersion.tags.any(Tag.id.in_(tags)))
-#     ).all()
+    return or_(*entity_filters)
 
-#     if not prompt_ids:
-#         raise NotFound("No prompt with given tags found")
 
-#     prompt_filters = []
-#     for id_ in prompt_ids:
-#         prompt_value = {
-#             "owner_id": project_id,
-#             "id": id_[0]
-#         }
-#         prompt_filters.append(Collection.prompts.contains([prompt_value]))
+def get_filter_collection_by_entity_tags_condition(project_id: int, tags: List[int], entity_name, session=None):
+    session_created = False
+    if session is None:
+        session = db.get_project_schema_session(project_id)
+        session_created = True
 
-#     session.close()
-#     return or_(*prompt_filters)
+    entity_info = get_entity_info_by_name(entity_name)
+
+    entity_filters = []
+    kwargs = {
+        'entity_type': entity_info.get_entity_type(),
+        'entity_version_type': entity_info.get_entity_version_type()
+    }
+    kwargs['session'] = session
+    kwargs['subquery'] = False
+
+    entity_ids = get_entities_by_tags(project_id, tags, **kwargs)
+
+    if not entity_ids:
+        raise NotFound(f"No {entity_name} with given tags found")
+
+    for id_ in entity_ids:
+        entity_value = {
+            "owner_id": project_id,
+            "id": id_
+        }
+        entity_filters.append(entity_info.get_entities_field(Collection).contains([entity_value]))
+
+    if session_created:
+        session.close()
+
+    return entity_filters
 
 
 def list_collections(
@@ -328,63 +356,11 @@ def fire_collection_deleted_event(collection_data: dict):
     )
 
 
-def fire_collection_prompt_unpublished(collection_data):
+def fire_collection_unpublished(collection_data):
     rpc_tools.EventManagerMixin().event_manager.fire_event(
         "prompt_lib_collection_unpublished", {
             "private_id": collection_data['shared_id'],
             "private_owner_id": collection_data['shared_owner_id']
-        }
-    )
-
-
-def update_collection(project_id: int, collection_id: int, data: dict):
-    with db.with_project_schema_session(project_id) as session:
-        if collection := session.query(Collection).get(collection_id):
-            for prompt in data.get("prompts", []):
-                owner_id = prompt["owner_id"]
-                if not check_prompts_addability(owner_id, collection.author_id):
-                    raise PromptInaccessableError(
-                        f"User doesn't have access to project '{owner_id}'"
-                    )
-
-            # snapshoting old state
-            old_state = collection.to_json()
-
-            for field, value in data.items():
-                if hasattr(collection, field):
-                    setattr(collection, field, value)
-            session.commit()
-
-            fire_collection_updated_event(old_state, data)
-            return get_detail_collection(collection)
-        return None
-
-
-def fire_collection_updated_event(old_state: dict, collection_payload: dict):
-    if 'prompts' not in collection_payload:
-        return
-
-    # old state map
-    old_state_tuple_set = set()
-    for prompt in old_state['prompts']:
-        old_state_tuple_set.add((prompt['owner_id'], prompt['id']))
-
-    # new state map
-    new_state_tuple_set = set()
-    for prompt in collection_payload['prompts']:
-        new_state_tuple_set.add((prompt['owner_id'], prompt['id']))
-
-    removed_prompts = old_state_tuple_set - new_state_tuple_set
-    added_prompts = new_state_tuple_set - old_state_tuple_set
-
-    rpc_tools.EventManagerMixin().event_manager.fire_event(
-        'prompt_lib_collection_updated', {
-            "removed_prompts": removed_prompts,
-            "added_prompts": added_prompts,
-            "collection_data": {
-                "owner_id": old_state['owner_id'],
-                "id": old_state['id']
-            }
         }
     )
 
@@ -399,8 +375,9 @@ def get_collection(project_id: int, collection_id: int, only_public: bool = Fals
 def get_detail_collection(collection: Collection, only_public: bool = False):
     data = collection.to_json()
     project_id = data['owner_id']
-    data.pop('prompts')
-
+    collection_items = [
+        (e, data.pop(e.entities_name, [])) for e in ENTITY_REG
+    ]
     collection_model = PublishedCollectionDetailModel if only_public \
         else CollectionDetailModel
 
@@ -412,8 +389,19 @@ def get_detail_collection(collection: Collection, only_public: bool = False):
         collection_data.check_is_liked(project_id)
 
     result = json.loads(collection_data.json(exclude={"author_id"}))
-    prompts = get_prompts_for_collection(collection.prompts, only_public=only_public)
-    result["prompts"] = {"total": len(collection.prompts), "rows": prompts}
+
+    for entity_info, entities in collection_items:
+        if entities:
+            kwargs = {
+                'entity_type': entity_info.get_entity_type(),
+                'entity_version_type': entity_info.get_entity_version_type()
+            }
+            kwargs['collection_entities'] = entities
+            kwargs['only_public'] = only_public
+
+            entity_rows = get_entities_for_collection(**kwargs)
+            result[entity_info.entities_name] = {"total": len(entities), "rows": entity_rows}
+
     return result
 
 
@@ -423,11 +411,12 @@ def create_collection(project_id: int, data: CollectionModel | dict, fire_event:
     else:
         collection: CollectionModel = data
 
-    for prompt in collection.prompts:
-        if not check_prompts_addability(prompt.owner_id, collection.author_id):
-            raise PromptInaccessableError(
-                f"User doesn't have access to project '{prompt.owner_id}'"
-            )
+    for entities in chain(e.get_entities_field(collection) for e in ENTITY_REG):
+        for entity in entities:
+            if not check_addability(entity.owner_id, collection.author_id):
+                raise EntityInaccessableError(
+                    f"User doesn't have access to project '{entity.owner_id}'"
+                )
 
     with db.with_project_schema_session(project_id) as session:
         c = Collection(**collection.dict())
@@ -440,37 +429,47 @@ def create_collection(project_id: int, data: CollectionModel | dict, fire_event:
         return c
 
 
-def add_prompt_to_collection(collection, prompt_data: PromptIds, return_data=True):
-    prompts_list: List = copy.deepcopy(collection.prompts)
-    prompts_list.append(json.loads(prompt_data.json()))
-    collection.prompts = prompts_list
+def add_entity_to_collection(collection, entities_name, entity_data: CollectionItem, return_data=True):
+    entities_list: List = copy.deepcopy(getattr(collection, entities_name))
+    entities_list.append(json.loads(entity_data.json()))
+    setattr(collection, entities_name, entities_list)
     if return_data:
         return get_detail_collection(collection)
 
 
-def remove_prompt_from_collection(collection, prompt_data: PromptIds, return_data=True):
-    prompts_list = [
-        copy.deepcopy(prompt) for prompt in collection.prompts
-        if not (int(prompt['owner_id']) == prompt_data.owner_id and \
-                int(prompt['id']) == prompt_data.id)
+def remove_entity_from_collection(collection, entities_name, entity_data: CollectionItem, return_data=True):
+    entities_list = [
+        copy.deepcopy(entity) for entity in getattr(collection, entities_name)
+        if not (int(entity['owner_id']) == entity_data.owner_id and
+                int(entity['id']) == entity_data.id)
     ]
-    collection.prompts = prompts_list
+    setattr(collection, entities_name, entities_list)
     if return_data:
         return get_detail_collection(collection)
 
 
-def fire_patch_collection_event(collection_data, operartion, prompt_data):
+def remove_entity_from_collections(collection_ids: list, entities_name, entity_data: dict, session):
+    for collection in session.query(Collection).filter(Collection.id.in_(collection_ids)).all():
+        new_data = [
+            copy.deepcopy(entity) for entity in getattr(collection, entities_name)
+            if entity['owner_id'] != entity_data['owner_id'] or entity['id'] != entity_data['id']
+        ]
+        setattr(collection, entities_name, new_data)
+
+
+def fire_patch_collection_event(collection_data, operartion, entity_data, entity_name):
     if operartion == CollectionPatchOperations.add:
-        removed_prompts = tuple()
-        added_prompts = [(prompt_data['owner_id'], prompt_data['id'])]
+        removed_entities = tuple()
+        added_entities = [(entity_data['owner_id'], entity_data['id'])]
     else:
-        added_prompts = tuple()
-        removed_prompts = [(prompt_data['owner_id'], prompt_data['id'])]
+        added_entities = tuple()
+        removed_entities = [(entity_data['owner_id'], entity_data['id'])]
 
     rpc_tools.EventManagerMixin().event_manager.fire_event(
         'prompt_lib_collection_updated', {
-            "removed_prompts": removed_prompts,
-            "added_prompts": added_prompts,
+            "removed_entities": removed_entities,
+            "added_entities": added_entities,
+            "entity_name": entity_name,
             "collection_data": {
                 "owner_id": collection_data['owner_id'],
                 "id": collection_data['id']
@@ -479,75 +478,89 @@ def fire_patch_collection_event(collection_data, operartion, prompt_data):
     )
 
 
-def patch_collection(project_id, collection_id, data: CollectionPatchModel):
+def patch_collection_with_entities(project_id, collection_id, data: CollectionPatchModel):
     op_map = {
-        CollectionPatchOperations.add: add_prompt_to_collection,
-        CollectionPatchOperations.remove: remove_prompt_from_collection
+        CollectionPatchOperations.add: add_entity_to_collection,
+        CollectionPatchOperations.remove: remove_entity_from_collection
     }
-    prompt_data = data.prompt
 
-    with db.with_project_schema_session(prompt_data.owner_id) as prompt_session:
-        prompt = prompt_session.query(Prompt).filter_by(id=prompt_data.id).first()
-        if not prompt:
-            raise PromptDoesntExist(
-                f"Prompt '{prompt_data.id}' in project '{prompt_data.owner_id}' doesn't exist"
+    for entity_info in ENTITY_REG:
+        if entity_data := entity_info.get_entity_field(data):
+            Entity = entity_info.get_entity_type()
+            break
+    else:
+        raise RuntimeError("empty input patched collection items, nothing to patch")
+
+    with db.with_project_schema_session(entity_data.owner_id) as entity_session:
+        entity = entity_session.query(Entity).filter_by(id=entity_data.id).first()
+        if not entity:
+            raise EntityDoesntExist(
+                f"{entity_info.entity_name} '{entity_data.id}' in project '{entity_data.owner_id}' doesn't exist"
             )
 
     with db.with_project_schema_session(project_id) as session:
         if collection := session.query(Collection).get(collection_id):
-            if not check_prompts_addability(prompt_data.owner_id, collection.author_id):
-                raise PromptInaccessableError(
-                    f"User doesn't have access to project '{prompt_data.owner_id}'"
+            if not check_addability(entity_data.owner_id, collection.author_id):
+                raise EntityInaccessableError(
+                    f"User doesn't have access to project '{entity_data.owner_id}'"
                 )
 
             # todo: check target collection id is not equal to public project id
-            # if collection.owner_id != prompt.owner_id:
+            # if collection.owner_id != entity.owner_id:
             #
-            if data.operation == CollectionPatchOperations.add and get_include_prompt_flag(
+            if data.operation == CollectionPatchOperations.add and get_include_entity_flag(
+                    entity_name=entity_info.entity_name,
                     collection=CollectionListModel.from_orm(collection),
-                    prompt_id=prompt.id,
-                    prompt_owner_id=prompt.owner_id,
+                    entity_id=entity.id,
+                    entity_owner_id=entity.owner_id,
             ):
-                raise PromptAlreadyInCollectionError('Already in collection')
+                raise EntityAlreadyInCollectionError('Already in collection')
 
             # with db.with_project_schema_session(project_id) as session:
-            #     q = session.query(Prompt).filter(
-            #     ) todo: add personal prompt if public replica is being added
+            #     q = session.query(Entity).filter(
+            #     ) todo: add personal entity if public replica is being added
 
-            result = op_map[data.operation](collection, prompt_data)
+            result = op_map[data.operation](collection, entity_info.entities_name, entity_data)
             collection_data = collection.to_json()
             session.commit()
             fire_patch_collection_event(
-                collection_data, data.operation, prompt_data.dict()
+                collection_data, data.operation, entity_data.dict(), entity_info.entity_name
             )
             return result
         return None
 
 
-def get_collection_tags(prompts: List[dict]) -> list:
+def get_collection_tags(collection) -> list:
     tags = dict()
 
-    prompts_data = defaultdict(list)
-    for prompt_data in prompts:
-        prompts_data[prompt_data['owner_id']].append(prompt_data['id'])
+    for ent in ENTITY_REG:
+        entities = ent.get_entities_field(collection)
+        if not entities:
+            continue
+        Entity = ent.get_entity_type()
+        EntityVersion = ent.get_entity_version_type()
 
-    for project_id, prompt_ids in prompts_data.items():
-        with db.with_project_schema_session(project_id) as session:
-            for prompt_id in prompt_ids:
-                query = (
-                    session.query(Prompt)
-                    .options(
-                        joinedload(Prompt.versions).joinedload(PromptVersion.tags)
+        entities_data = defaultdict(list)
+        for entity_data in entities:
+            entities_data[entity_data['owner_id']].append(entity_data['id'])
+
+        for project_id, entity_ids in entities_data.items():
+            with db.with_project_schema_session(project_id) as session:
+                for entity_id in entity_ids:
+                    query = (
+                        session.query(Entity)
+                        .options(
+                            joinedload(Entity.versions).joinedload(EntityVersion.tags)
+                        )
                     )
-                )
-                prompt = query.get(prompt_id)
+                    entity = query.get(entity_id)
 
-                if not prompt:
-                    continue
+                    if not entity:
+                        continue
 
-                for version in prompt.versions:
-                    for tag in version.tags:
-                        tags[tag.name] = TagBaseModel.from_orm(tag)
+                    for version in entity.versions:
+                        for tag in version.tags:
+                            tags[tag.name] = TagBaseModel.from_orm(tag)
 
     return list(tags.values())
 
@@ -577,52 +590,53 @@ class CollectionPublishing:
             ).scalar()
             return exist_query
 
-    def get_public_prompts_of_collection(self, private_prompt_ids: List[dict]):
+    def get_public_entities_of_collection(
+        self,
+        private_entity_ids: List[dict],
+        entity_type,
+        entity_version_type
+    ):
         with db.with_project_schema_session(self._public_id) as session:
-            if not private_prompt_ids:
-                raise Exception("Collection doesn't contain public prompts")
+            public_entities = filter(lambda x: x['owner_id'] == self._public_id, private_entity_ids)
+            private_entities = filter(lambda x: x['owner_id'] != self._public_id, private_entity_ids)
 
-            public_prompts = filter(lambda x: x['owner_id'] == self._public_id, private_prompt_ids)
-            private_prompts = filter(lambda x: x['owner_id'] != self._public_id, private_prompt_ids)
-
-            prompt_ids = session.query(Prompt.id).filter(
+            entity_ids = session.query(entity_type.id).filter(
                 or_(
                     *[
                         and_(
-                            Prompt.shared_id == data['id'],
-                            Prompt.shared_owner_id == data['owner_id']
-                        ) for data in private_prompts
+                            entity_type.shared_id == data['id'],
+                            entity_type.shared_owner_id == data['owner_id']
+                        ) for data in private_entities
                     ],
                     *[
                         and_(
-                            Prompt.id == data['id'],
-                        ) for data in public_prompts
+                            entity_type.id == data['id'],
+                        ) for data in public_entities
                     ]
                 ),
-                Prompt.versions.any(PromptVersion.status == PublishStatus.published)
+                entity_type.versions.any(entity_version_type.status == PublishStatus.published)
             ).all()
 
-            if not prompt_ids:
-                raise Exception("Collection doesn't contain public prompts")
-
-        result = [{"id": prompt_id[0], "owner_id": self._public_id} for prompt_id in prompt_ids]
+        result = [{"id": entity_id[0], "owner_id": self._public_id} for entity_id in entity_ids]
         return result
 
     @staticmethod
-    def set_status(project_id, collection_id, status: PublishStatus, session=None):
+    def set_status(project_id, collection_id, status: PublishStatus, session=None, return_updated=True):
+        session_created = False
         if session is None:
+            session_created = True
             session = db.get_project_schema_session(project_id)
+        try:
+            collection = session.query(Collection).get(collection_id)
+            if not collection:
+                raise RuntimeError(f"Collecton with id {collection_id} not found in project {project_id}")
+            collection.status = status
+            session.commit()
+        finally:
+            if session_created:
+                session.close()
 
-        collection = session.query(Collection).get(collection_id)
-        #
-        if not collection:
-            return
-        #
-        collection.status = status
-        session.commit()
-        session.close()
-
-        if session:
+        if return_updated:
             return collection
 
     @staticmethod
@@ -686,7 +700,23 @@ class CollectionPublishing:
             collection_data['shared_id'] = collection_data.pop('id')
             collection_data['shared_owner_id'] = collection_data.pop('owner_id')
             collection_data['owner_id'] = self._public_id
-            collection_data['prompts'] = self.get_public_prompts_of_collection(collection_data['prompts'])
+
+            collection_is_empty = True
+            for ent in ENTITY_REG:
+                entities = ent.get_entities_field(collection)
+                if not entities:
+                    continue
+                entity_ids = self.get_public_entities_of_collection(
+                    entities,
+                    ent.get_entity_type(),
+                    ent.get_entity_version_type()
+                )
+                if entity_ids:
+                    collection_is_empty = False
+                    collection_data[ent.entity_name] = entity_ids
+
+            if collection_is_empty:
+                raise Exception("Collection doesn't contain public entities")
 
         new_collection = create_collection(self._public_id, collection_data)
         self.set_statuses(new_collection, PublishStatus.on_moderation)
@@ -720,6 +750,7 @@ def unpublish(current_user_id, project_id, collection_id):
                 "error_code": 403
             }
 
+        # TODO: why checking draft ?
         if collection.status == PublishStatus.draft:
             return {"ok": False, "error": "Collection is not public yet"}
 
@@ -727,39 +758,47 @@ def unpublish(current_user_id, project_id, collection_id):
         session.delete(collection)
         session.commit()
         fire_collection_deleted_event(collection_data)
-        fire_collection_prompt_unpublished(collection_data)
+        fire_collection_unpublished(collection_data)
         return {"ok": True, "msg": "Successfully unpublished"}
 
 
 def group_by_project_id(data, data_type='dict'):
-    prompts = defaultdict(set)
+    items = defaultdict(set)
     group_field = "owner_id" if not data_type == "tuple" else 0
     data_field = "id" if not data_type == "tuple" else 1
     for entity in data:
-        prompts[entity[group_field]].add(entity[data_field])
-    return prompts
+        items[entity[group_field]].add(entity[data_field])
+    return items
 
 
 @add_public_project_id
-def get_include_prompt_flag(collection: CollectionListModel, prompt_id: int, prompt_owner_id: int, *,
-                            project_id: int) -> bool:
-    public_prompts = []
-    for p in collection.prompts:
+def get_include_entity_flag(
+    entity_name: str, collection: CollectionListModel,
+    entity_id: int, entity_owner_id: int, *,
+    project_id: int
+) -> bool:
+
+    entity_info = get_entity_info_by_name(entity_name)
+    Entity = entity_info.get_entity_type()
+    entities = entity_info.get_entities_field(collection)
+
+    public_entities = []
+    for p in entities:
         p_owner_id = int(p['owner_id'])
-        if p_owner_id == prompt_owner_id and \
-                int(p['id']) == prompt_id:
+        if p_owner_id == entity_owner_id and \
+                int(p['id']) == entity_id:
             return True
         elif p_owner_id == project_id and \
-                prompt_owner_id != project_id:
-            # if prompt is public but target collection owner is not public
-            public_prompts.append(p)
+                entity_owner_id != project_id:
+            # if entity is public but target collection owner is not public
+            public_entities.append(p)
     else:
-        if public_prompts:
+        if public_entities:
             with db.with_project_schema_session(project_id) as session:
-                q = session.query(Prompt).filter(
-                    Prompt.id.in_([p['id'] for p in public_prompts]),
-                    Prompt.shared_owner_id == prompt_owner_id,
-                    Prompt.shared_id == prompt_id,
+                q = session.query(Entity).filter(
+                    Entity.id.in_([p['id'] for p in public_entities]),
+                    Entity.shared_owner_id == entity_owner_id,
+                    Entity.shared_id == entity_id,
                 )
                 return bool(q.first())
     return False
