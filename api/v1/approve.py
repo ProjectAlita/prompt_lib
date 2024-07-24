@@ -1,4 +1,4 @@
-from ....promptlib_shared.models.enums.all import PublishStatus
+from ....promptlib_shared.models.enums.all import PublishStatus, NotificationEventTypes
 from sqlalchemy import desc
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.publish_utils import set_public_version_status
@@ -67,7 +67,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
     @api_tools.endpoint_metrics
     def post(self, version_id: int, **kwargs):
         try:
-            result = set_public_version_status(version_id, PublishStatus.published)
+            result = set_public_version_status(
+                version_id, PublishStatus.published,
+                NotificationEventTypes.prompt_moderation_approve
+            )
         except Exception as e:
             log.error(e)
             return {"ok": False, "error": str(e)}, 400

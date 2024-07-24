@@ -1,4 +1,8 @@
-from ....promptlib_shared.models.enums.all import PublishStatus
+from flask import request
+from pydantic import ValidationError
+
+from ...models.pd.reject import RejectPromptInput
+from ....promptlib_shared.models.enums.all import PublishStatus, NotificationEventTypes
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.publish_utils import set_public_version_status
 from pylon.core.tools import log
@@ -16,8 +20,16 @@ class PromptLibAPI(api_tools.APIModeHandler):
         }})
     @api_tools.endpoint_metrics
     def post(self, version_id: int, **kwargs):
+        raw = dict(request.json)
+
+        prompt_reject = RejectPromptInput.parse_obj(raw)
+
         try:
-            result = set_public_version_status(version_id, PublishStatus.rejected)
+            result = set_public_version_status(
+                version_id, PublishStatus.rejected,
+                NotificationEventTypes.prompt_moderation_reject,
+                prompt_reject.reject_details
+            )
         except Exception as e:
             log.error(e)
             return {"ok": False, "error": str(e)}, 400
