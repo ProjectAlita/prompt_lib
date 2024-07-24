@@ -3,8 +3,7 @@ from typing import List
 from ...utils.constants import PROMPT_LIB_MODE
 
 from flask import request
-from tools import api_tools, config as c, db, auth
-from pylon.core.tools import log
+from tools import api_tools, config as c, auth
 from pydantic import ValidationError
 from ...models.pd.collections import CollectionListModel
 from ...utils.collections import (
@@ -12,9 +11,12 @@ from ...utils.collections import (
     list_collections,
     create_collection,
     get_detail_collection,
-    PromptInaccessableError, get_include_prompt_flag,
+    get_include_entity_flag,
 )
-
+from ....promptlib_shared.utils.exceptions import (
+    EntityInaccessableError,
+    EntityNotAvailableCollectionError,
+)
 import json
 
 from ...utils.utils import get_authors_data
@@ -38,6 +40,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
         # list prompts
         prompt_id = request.args.get('prompt_id')
         prompt_owner_id = request.args.get('prompt_owner_id')
+        datasource_id = request.args.get('datasource_id')
+        datasource_owner_id = request.args.get('datasource_owner_id')
         need_tags = 'no_tags' not in request.args
         my_liked = request.args.get('my_liked', default=False, type=bool)
         total, collections = list_collections(project_id, request.args, with_likes=True, my_liked=my_liked)
@@ -49,11 +53,15 @@ class PromptLibAPI(api_tools.APIModeHandler):
             col_model = CollectionListModel.from_orm(col)
             col_model.author = user_map.get(col_model.author_id)
             if need_tags:
-                col_model.tags = get_collection_tags(col.prompts)
+                col_model.tags = get_collection_tags(col)
 
             if prompt_id and prompt_owner_id:
-                col_model.includes_prompt = get_include_prompt_flag(
-                    col_model, int(prompt_id), int(prompt_owner_id)
+                col_model.includes_prompt = get_include_entity_flag(
+                    'prompt', col_model, int(prompt_id), int(prompt_owner_id)
+                )
+            if datasource_id and datasource_owner_id:
+                col_model.includes_datasource = get_include_entity_flag(
+                    'datasource', col_model, int(datasource_id), int(datasource_owner_id)
                 )
             parsed.append(col_model)
 
@@ -82,8 +90,12 @@ class PromptLibAPI(api_tools.APIModeHandler):
             return result, 201
         except ValidationError as e:
             return e.errors(), 400
-        except PromptInaccessableError as e:
+        except EntityInaccessableError as e:
             return {"error": e.message}, 403
+        except EntityNotAvailableCollectionError as e:
+            return {"error": e.message}, 404
+        except Exception as e:
+            return {"error": str(e)}, 400
 
 
 class API(api_tools.APIBase):

@@ -5,11 +5,12 @@ from pydantic import BaseModel, validator
 from .model_settings import ModelSettingsCreateModel, ModelSettingsBaseModel
 from .prompt_message import PromptMessageBaseModel, PromptMessageDetailModel, PromptMessageUpdateModel
 from .prompt_variable import PromptVariableBaseModel, PromptVariableDetailModel, PromptVariableUpdateModel
-from .tag import PromptTagDetailModel, PromptTagListModel, PromptTagUpdateModel
+from .tag import PromptTagListModel, PromptTagUpdateModel
 from ..enums.all import PromptVersionType
 from ...utils.utils import get_authors_data
 from ....promptlib_shared.models.enums.all import PublishStatus
 from ....promptlib_shared.models.pd.base import TagBaseModel, AuthorBaseModel
+from ....promptlib_shared.models.pd.tag import TagDetailModel
 
 
 class PromptVersionBaseModel(BaseModel):
@@ -92,7 +93,7 @@ class PromptVersionDetailModel(PromptVersionBaseModel):
     variables: Optional[List[PromptVariableDetailModel]]
     messages: Optional[List[PromptMessageDetailModel]]
     author: Optional[AuthorBaseModel]
-    tags: Optional[List[PromptTagDetailModel]]
+    tags: Optional[List[TagDetailModel]]
 
     @validator('author', always=True)
     def add_author_data(cls, value: dict, values: dict) -> AuthorBaseModel:

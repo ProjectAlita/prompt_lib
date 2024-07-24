@@ -289,10 +289,11 @@ def delete_public_prompt_versions(prompt_owner_id, prompt_id, session):
 
 def fire_public_prompt_created(prompt_data, collections):
     rpc_tools.EventManagerMixin().event_manager.fire_event(
-        "prompt_lib_prompt_published", 
+        "prompt_lib_entity_published",
         {
-            "prompt_data": prompt_data,
+            "entity_data": prompt_data,
             "collections": collections,
+            "entity_name": "prompt"
         }
     )
 

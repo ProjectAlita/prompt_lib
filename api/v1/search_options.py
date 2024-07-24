@@ -3,15 +3,15 @@ from tools import api_tools, auth, config as c
 
 from ...models.pd.misc import MultiplePromptSearchModel, MultiplePromptTagListModel
 from ....promptlib_shared.models.all import Tag
+from ....promptlib_shared.utils.utils import get_entities_by_tags
 from ...models.all import Prompt, Collection, PromptVersion
 from ...models.pd.collections import MultipleCollectionSearchModel
 from ...utils.constants import PROMPT_LIB_MODE
 
 from ...utils.searches import (
     get_search_options,
-    get_prompts_by_tags,
-    get_filter_collection_by_tags_condition,
-    get_tag_filter
+    get_tag_filter,
+    get_filter_collection_by_prompt_tags_condition,
 )
 from ...utils.collections import NotFound
 
@@ -60,7 +60,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         if tags:
             try:
-                data = get_filter_collection_by_tags_condition(project_id, tags)
+                data = get_filter_collection_by_prompt_tags_condition(project_id, tags)
                 meta_data['collection']['filters'].append(data)
             except NotFound:
                 entities = [entity for entity in entities if entity != "collection"]
@@ -69,7 +69,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                     "rows": []
                 }
 
-            prompts_subq = get_prompts_by_tags(project_id, tags)
+            prompts_subq = get_entities_by_tags(project_id, tags, Prompt, PromptVersion)
             meta_data['prompt']['filters'].append(
                 Prompt.id.in_(prompts_subq)
             )

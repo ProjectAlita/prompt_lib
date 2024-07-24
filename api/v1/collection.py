@@ -3,17 +3,17 @@ from flask import request
 from pydantic import ValidationError
 from pylon.core.tools import log
 
-from ...models.pd.collections import CollectionUpdateModel, CollectionPatchModel
+from ...models.pd.collections import CollectionPatchModel
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.collections import (
     delete_collection,
-    update_collection,
     get_collection,
-    patch_collection,
+    patch_collection_with_entities,
 )
-from ...utils.expceptions import (
-    PromptDoesntExist,
-    PromptInaccessableError,
+from ....promptlib_shared.utils.exceptions import (
+    EntityInaccessableError,
+    EntityDoesntExist,
+    EntityNotAvailableCollectionError,
 )
 
 from tools import api_tools, auth, config as c
@@ -51,40 +51,19 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
     @api_tools.endpoint_metrics
-    def put(self, project_id, collection_id):
-        try:
-            payload = request.get_json()
-            CollectionUpdateModel.validate(payload)
-            result = update_collection(project_id, collection_id, payload)
-            if not result:
-                return {"error": f"No collection found with id '{collection_id}'"}, 404
-            return result, 200
-        except ValidationError as e:
-            return e.errors(), 400
-        except Exception as e:
-            log.info(traceback.format_exc())
-            return {"error": str(e)}, 400
-
-    @auth.decorators.check_api({
-        "permissions": ["models.prompt_lib.collection.update"],
-        "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-        }})
-    @api_tools.endpoint_metrics
     def patch(self, project_id: int, collection_id: int):
         try:
             payload = request.get_json()
             collection_data = CollectionPatchModel.validate(payload)
-            result = patch_collection(project_id, collection_id, collection_data)
+            result = patch_collection_with_entities(project_id, collection_id, collection_data)
             if not result:
                 return {"error": f"No collection found with id '{collection_id}'"}, 404
             return result, 200
         except ValidationError as e:
             return e.errors(), 400
-        except PromptDoesntExist as e:
+        except (EntityDoesntExist, EntityNotAvailableCollectionError) as e:
             return {"error": e.message}, 404
-        except PromptInaccessableError as e:
+        except EntityInaccessableError as e:
             return {"error": e.message}, 403
         except Exception as e:
             log.info(traceback.format_exc())

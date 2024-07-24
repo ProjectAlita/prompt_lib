@@ -9,7 +9,7 @@ from .prompt_variable import PromptVariableBaseModel
 from ..enums.all import PromptVersionType
 from ....promptlib_shared.models.pd.base import TagBaseModel
 from ....promptlib_shared.models.pd.chat import IntegrationDataMixin
-from .collections import CollectionModel, PromptIds
+from .collections import CollectionModel, CollectionItem
 
 
 class PromptVersionExportModel(BaseModel):
@@ -62,7 +62,7 @@ class DialFolderImportModel(BaseModel):
 
     def to_collection(self, project_id: int,
                       author_id: int,
-                      prompt_ids: List[PromptIds] | None = None) -> CollectionModel:
+                      prompt_ids: List[CollectionItem] | None = None) -> CollectionModel:
         if not prompt_ids:
             prompt_ids = []
         return CollectionModel(

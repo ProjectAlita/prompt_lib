@@ -14,8 +14,9 @@ from tools import api_tools
 from flask import request
 from sqlalchemy.orm import joinedload
 from .expceptions import NotFound
+from .collections import get_filter_collection_by_entity_tags_condition
 from ...promptlib_shared.models.all import Tag
-
+from ...promptlib_shared.utils.utils import get_entities_by_tags
 
 def list_search_requests(project_id, args):
     limit = args.get('limit', default=5, type=int)
@@ -85,7 +86,7 @@ def get_tag_filter(
         filters.append(Prompt.versions.any(PromptVersion.status.in_(statuses)))
 
     if tags:
-        prompts_subq = get_prompts_by_tags(project_id, tags, session)
+        prompts_subq = get_entities_by_tags(project_id, tags, Prompt, PromptVersion, session)
         filters.append(
             Prompt.id.in_(prompts_subq)
         )
@@ -104,54 +105,14 @@ def get_tag_filter(
     return Tag.id.in_(query)
 
 
-def get_prompts_by_tags(project_id, tags: List[int], session=None, subquery=True):
-    session_created = False
-    result = None
-    if session is None:
-        session = db.get_project_schema_session(project_id)
-        session_created = True
-
-    query = (
-        session.query(Prompt.id)
-        .join(Prompt.versions)
-        .join(PromptVersion.tags)
-        .filter(Tag.id.in_(tags))
-        .group_by(Prompt.id)
-        .having(
-            func.count(distinct(Tag.id)) == len(tags)
-        )
+def get_filter_collection_by_prompt_tags_condition(project_id: int, tags: List[int], session=None):
+    filters = get_filter_collection_by_entity_tags_condition(
+        project_id,
+        tags,
+        'prompt',
+        session
     )
-    if not subquery:
-        prompts = query.all()
-        result = [prompt.id for prompt in prompts]
-    else:
-        result = query.subquery()
-
-    if session_created:
-        session.close()
-
-    return result
-
-
-def get_filter_collection_by_tags_condition(project_id: int, tags: List[int], session=None):
-    if session is None:
-        session = db.get_project_schema_session(project_id)
-
-    prompt_ids = get_prompts_by_tags(project_id, tags, session, subquery=False)
-
-    if not prompt_ids:
-        raise NotFound("No prompt with given tags found")
-
-    prompt_filters = []
-    for id_ in prompt_ids:
-        prompt_value = {
-            "owner_id": project_id,
-            "id": id_
-        }
-        prompt_filters.append(Collection.prompts.contains([prompt_value]))
-
-    session.close()
-    return or_(*prompt_filters)
+    return or_(*filters)
 
 
 def get_args(prefix):

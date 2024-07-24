@@ -7,20 +7,30 @@ from pylon.core.tools import log
 from tools import rpc_tools
 
 from .prompt import PromptListModel
-from .tag import PromptTagDetailModel
 from ....promptlib_shared.models.pd.base import AuthorBaseModel
+from ....promptlib_shared.models.pd.entity import EntityListModel
+from ....promptlib_shared.models.pd.tag import TagDetailModel
 from ..enums.all import CollectionPatchOperations
 from ...utils.publish_utils import get_public_project_id
 
 
-class PromptIds(BaseModel):
+class CollectionItem(BaseModel):
     id: int
     owner_id: int
 
 
 class CollectionPatchModel(BaseModel):
     operation: CollectionPatchOperations
-    prompt: PromptIds
+    prompt: Optional[CollectionItem] = None
+    datasource: Optional[CollectionItem] = None
+
+    @root_validator(pre=True)
+    def check_only_one_entity(cls, values):
+        fields = ("prompt", "datasource",)
+        if [bool(values.get(f)) for f in fields].count(True) != 1:
+            raise ValueError(f'One non-empty of the fields is expected: {fields}')
+
+        return values
 
 
 class CollectionModel(BaseModel):
@@ -28,7 +38,8 @@ class CollectionModel(BaseModel):
     owner_id: int
     author_id: Optional[int]
     description: Optional[str]
-    prompts: Optional[List[PromptIds]] = []
+    prompts: Optional[List[CollectionItem]] = []
+    datasources: Optional[List[CollectionItem]] = []
     shared_id: Optional[int]
     shared_owner_id: Optional[int]
 
@@ -61,20 +72,13 @@ class CollectionDetailModel(BaseModel):
     owner_id: int
     status: str
     author_id: int
-    prompts: Optional[List[PromptListModel]] = []
+    prompts: Optional[List[EntityListModel]] = []
+    datasources: Optional[List[EntityListModel]] = []
     author: Optional[AuthorBaseModel]
     created_at: datetime
 
     class Config:
         orm_mode = True
-
-
-class CollectionUpdateModel(BaseModel):
-    name: Optional[str]
-    description: Optional[str]
-    owner_id: Optional[int]
-    status: str
-    prompts: Optional[List[PromptIds]] = {}
 
 
 class CollectionListModel(BaseModel):
@@ -86,10 +90,13 @@ class CollectionListModel(BaseModel):
     status: str
     author: Optional[AuthorBaseModel]
     prompts: Optional[List] = []
-    tags: List[PromptTagDetailModel] = []
+    datasources: Optional[List] = []
+    tags: List[TagDetailModel] = []
     created_at: datetime
     includes_prompt: Optional[bool] = None
+    includes_datasource: Optional[bool] = None
     prompt_count: int = 0
+    datasource_count: int = 0
     likes: Optional[int]
     trending_likes: Optional[int]
     is_liked: Optional[bool]
@@ -98,12 +105,13 @@ class CollectionListModel(BaseModel):
         orm_mode = True
         fields = {
             "prompts": {"exclude": True},
+            "datasources": {"exclude": True},
         }
 
     @root_validator
-    def count_prompts(cls, values):
-        count = len(values.get("prompts"))
-        values["prompt_count"] = count
+    def count_entities(cls, values):
+        values["prompt_count"] = len(values.get("prompts"))
+        values["datasource_count"] = len(values.get("datasources"))
         return values
 
     @validator('is_liked')
@@ -117,20 +125,6 @@ class CollectionListModel(BaseModel):
         if v is None:
             return 0
         return v
-
-
-class PublishedCollectionListModel(CollectionListModel):
-    @root_validator
-    def count_prompts(cls, values):
-        public_id = get_public_project_id()
-        values['prompt_count'] = len(
-            [
-                prompt
-                for prompt in values.get('prompts')
-                if prompt['owner_id'] == public_id
-            ]
-        )
-        return values
 
 
 class PublishedCollectionDetailModel(CollectionDetailModel):

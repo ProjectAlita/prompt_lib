@@ -13,7 +13,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         except Exception as e:
             log.error(e)
             return {"ok": False, "error": str(e)}, 400
-         
+
         if not result['ok']:
             code = result.pop('error_code', 400)
             return result, code

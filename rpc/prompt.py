@@ -11,7 +11,6 @@ from sqlalchemy import desc
 from sqlalchemy.orm import joinedload
 from ..models.enums.all import PromptVersionType
 from ..models.pd.predict import PromptVersionPredictModel
-
 from ..utils.ai_providers import AIProvider
 from ..models.pd.v1_structure import PromptV1Model, TagV1Model
 from tools import rpc_tools, db, auth
@@ -316,3 +315,11 @@ class RPC:
             PredictionEvents.prediction_done,
             json.loads(json.dumps(event_payload))
         )
+
+    @web.rpc("prompt_lib_get_prompt_model", "get_prompt_model")
+    def get_prompt_model(self):
+        return Prompt
+
+    @web.rpc("prompt_lib_get_version_model", "get_version_model")
+    def get_version_model(self):
+        return PromptVersion
