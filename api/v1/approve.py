@@ -69,7 +69,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
         try:
             result = set_public_version_status(
                 version_id, PublishStatus.published,
-                NotificationEventTypes.prompt_moderation_approve
             )
         except Exception as e:
             log.error(e)

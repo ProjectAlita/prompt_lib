@@ -1,12 +1,12 @@
 from flask import request
-from pydantic import ValidationError
+from werkzeug.exceptions import UnsupportedMediaType
 
 from ...models.pd.reject import RejectPromptInput
-from ....promptlib_shared.models.enums.all import PublishStatus, NotificationEventTypes
+from ....promptlib_shared.models.enums.all import PublishStatus
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.publish_utils import set_public_version_status
 from pylon.core.tools import log
-from tools import api_tools, auth, config as c
+from tools import api_tools, auth, config as c, serialize
 from ....promptlib_shared.utils.utils import add_public_project_id
 
 
@@ -20,15 +20,17 @@ class PromptLibAPI(api_tools.APIModeHandler):
         }})
     @api_tools.endpoint_metrics
     def post(self, version_id: int, **kwargs):
-        raw = dict(request.json)
+        try:
+            raw = dict(request.json)
+        except UnsupportedMediaType:
+            raw = dict()
 
         prompt_reject = RejectPromptInput.parse_obj(raw)
 
         try:
             result = set_public_version_status(
                 version_id, PublishStatus.rejected,
-                NotificationEventTypes.prompt_moderation_reject,
-                prompt_reject.reject_details
+                reject_details=prompt_reject.reject_details
             )
         except Exception as e:
             log.error(e)
@@ -39,7 +41,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
             return result, code
         #
         prompt_version = result['result']
-        return prompt_version, 200
+        log.info(f'{prompt_version=}')
+        log.info(f'{serialize(prompt_version)=}')
+        return serialize(prompt_version), 200
 
 
 class API(api_tools.APIBase):

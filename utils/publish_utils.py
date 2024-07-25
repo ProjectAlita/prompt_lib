@@ -8,7 +8,7 @@ from pylon.core.tools import log
 from ..models.all import Prompt, PromptVersion
 from .create_utils import create_version
 from ..models.pd.prompt_version import PromptVersionDetailModel, PromptVersionBaseModel
-from ...promptlib_shared.models.enums.all import PublishStatus
+from ...promptlib_shared.models.enums.all import PublishStatus, NotificationEventTypes
 
 
 def set_status(project_id: int, prompt_version_name_or_id: int | str, status: PublishStatus, return_data=False) -> dict:
@@ -21,7 +21,7 @@ def set_status(project_id: int, prompt_version_name_or_id: int | str, status: Pu
             version = session.query(PromptVersion).filter(*f).first()
             if not version:
                 return {
-                    "ok": False, 
+                    "ok": False,
                     "error": f"Version with id/name '{prompt_version_name_or_id}' not found",
                     "error_code": 404,
                 }
@@ -36,7 +36,7 @@ def set_status(project_id: int, prompt_version_name_or_id: int | str, status: Pu
                 "ok": False,
                 "error": f"Error happened while setting status for {project_id=}, {prompt_version_name_or_id=}, {status=}"
             }
-    
+
     if return_data:
         return {"ok": True, "result": json.loads(version_detail.json())}
     return {"ok": True}
@@ -203,7 +203,7 @@ class Publishing(rpc_tools.EventManagerMixin):
             ).scalar()
 
             return exists_query
-    
+
     def set_statuses(self, status: PublishStatus):
         if not (self.public_version_id and self.original_project):
             return
@@ -216,7 +216,7 @@ class Publishing(rpc_tools.EventManagerMixin):
         #         'public_version_id': self.public_version_id,
         #         'status': status
         #     })
-        
+
         # set status of private prompt version
         result = set_status(self.original_project, self.original_version, status)
         return result
@@ -237,8 +237,6 @@ def close_private_version(shared_owner_id, shared_id, session):
     version.status = PublishStatus.draft
 
 
-
-
 def delete_public_version(shared_owner_id, shared_id, session):
     version = session.query(PromptVersion).filter_by(
         shared_id=shared_id,
@@ -246,8 +244,6 @@ def delete_public_version(shared_owner_id, shared_id, session):
     ).first()
     if version:
         session.delete(version)
-
-
 
 
 def delete_public_prompt_versions(prompt_owner_id, prompt_id, session):
@@ -259,7 +255,7 @@ def delete_public_prompt_versions(prompt_owner_id, prompt_id, session):
     if not prompt:
         return
     #
-    versions = session.query(PromptVersion).filter(PromptVersion.prompt_id==prompt.id)
+    versions = session.query(PromptVersion).filter(PromptVersion.prompt_id == prompt.id)
     for version in versions:
         session.delete(version)
 
@@ -289,7 +285,7 @@ def fire_version_deleted_event(project_id, version: dict, prompt: dict):
         'public_id': public_id,
     }
     prefix = "private" if not public else "public"
-    
+
     rpc_tools.EventManagerMixin().event_manager.fire_event(
         f'{prefix}_prompt_version_deleted', payload
     )
@@ -317,21 +313,21 @@ def unpublish(current_user_id, project_id, version_id):
         ).first()
         if not version:
             return {
-                "ok": False, 
+                "ok": False,
                 "error": f"Public version with id '{version_id}'",
                 "error_code": 404,
             }
-        
+
         if int(version.author_id) != int(current_user_id):
             return {
-                "ok": False, 
+                "ok": False,
                 "error": "Current user is not author of the prompt version",
                 "error_code": 403
             }
 
         if version.status in [PublishStatus.draft, PublishStatus.rejected]:
             return {"ok": False, "error": "Version is not public yet"}
-        
+
         version_data = version.to_json()
         prompt_data = version.prompt.to_json()
         session.delete(version)
@@ -340,21 +336,9 @@ def unpublish(current_user_id, project_id, version_id):
         return {"ok": True, "msg": "Successfully unpublished"}
 
 
-def fire_public_version_status_change_event(
-        shared_owner_id, shared_id, status, notification_data
-):
-    rpc_tools.EventManagerMixin().event_manager.fire_event(
-        'prompt_public_version_status_change', {
-            'private_project_id': shared_owner_id,
-            'private_version_id': shared_id,
-            'status': status
-        })
-    rpc_tools.EventManagerMixin().event_manager.fire_event(
-        'notifications_stream', notification_data
-    )
-
-
-def set_public_version_status(version_id: int, status, event_type: str, reject_details: str = None):
+def set_public_version_status(
+        version_id: int, status: PublishStatus, *,
+        reject_details: str = None):
     public_id = get_public_project_id()
     result = set_status(
         project_id=public_id,
@@ -364,22 +348,55 @@ def set_public_version_status(version_id: int, status, event_type: str, reject_d
     )
     log.info(f'Result: {result["result"]}')
     if result['ok']:
-        notification_data = {
-            'project_id': result['result']['shared_owner_id'] or public_id,
-            'user_id': result['result']['author']['id'],
-            'meta': {
-                'prompt_version_id': version_id,
-                'prompt_name': result['result']['name'],
-            },
-            'event_type': event_type
-        }
-        if reject_details:
-            notification_data['meta']['reject_details'] = reject_details
+        prompt_version_data = result['result']
 
-        fire_public_version_status_change_event(
-            shared_owner_id=result['result']['shared_owner_id'],
-            shared_id=result['result']['shared_id'],
-            status=status,
-            notification_data=notification_data,
-        )
+        event_manager = rpc_tools.EventManagerMixin().event_manager
+
+        event_manager.fire_event(
+            'prompt_public_version_status_change', {
+                'private_project_id': prompt_version_data['shared_owner_id'],
+                'private_version_id': prompt_version_data['shared_id'],
+                'status': status
+            })
+
+        prompt_project_id = prompt_version_data['shared_owner_id'] or public_id
+        prompt_version_id = prompt_version_data['shared_id'] or version_id
+        notification_type = None
+        match status:
+            case PublishStatus.published:
+                notification_type = NotificationEventTypes.prompt_moderation_approve
+            case PublishStatus.rejected:
+                notification_type = NotificationEventTypes.prompt_moderation_reject
+
+        if notification_type:
+            with db.get_session(prompt_project_id) as session:
+                original_prompt = session.query(
+                    Prompt.id,
+                    Prompt.name,
+                    PromptVersion.name
+                ).join(
+                    Prompt.versions
+                ).where(
+                    PromptVersion.id == prompt_version_id
+                ).first()
+
+                if original_prompt:
+                    prompt_id, prompt_name, prompt_version_name = original_prompt
+                    event_manager.fire_event(
+                        'notifications_stream', {
+                            'project_id': prompt_project_id,
+                            'user_id': prompt_version_data['author']['id'],
+                            'meta': {
+                                'prompt_version_id': prompt_version_id,
+                                'prompt_version_name': prompt_version_name,
+                                'prompt_id': prompt_id,
+                                'prompt_name': prompt_name,
+                                'reject_details': reject_details,
+                                'public_prompt_id': prompt_version_data.get('prompt_id'),
+                                'public_prompt_version_id': prompt_version_data.get('id'),
+                            },
+                            'event_type': notification_type
+                        }
+                    )
+
     return result
