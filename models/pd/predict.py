@@ -2,6 +2,7 @@ import uuid
 from typing import Optional, List, Any
 
 from pydantic import BaseModel, validator, Field
+from ....promptlib_shared.models.pd.utils import deep_merge
 from .model_settings import ModelSettingsBaseModel
 from .prompt_message import PromptMessageBaseModel
 from .prompt_variable import PromptVariableBaseModel
@@ -75,11 +76,4 @@ class PromptVersionPredictModel(BaseModel):
             return self.model_settings.merged
 
 
-def deep_merge(dict1: dict, dict2: dict) -> dict:
-    result = dict1.copy()
-    for key, value in dict2.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = deep_merge(result[key], value)
-        else:
-            result[key] = value
-    return result
+
