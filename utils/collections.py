@@ -2,10 +2,12 @@ import copy
 import json
 from collections import defaultdict
 from datetime import datetime
+from functools import partial
 from itertools import chain
 from typing import Dict, List, Union
 
 from flask import request
+from pydantic import ValidationError
 from sqlalchemy import and_, desc, or_
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import exists
@@ -31,6 +33,7 @@ from ..models.pd.collections import (
     CollectionModel,
     CollectionPatchModel,
     CollectionShortDetailModel,
+    CollectionPrivateTwinModel,
     PublishedCollectionDetailModel,
 )
 from ...promptlib_shared.models.enums.all import PublishStatus
@@ -40,6 +43,7 @@ from ...promptlib_shared.utils.exceptions import (
     EntityAlreadyInCollectionError,
     EntityDoesntExist,
     EntityInaccessableError,
+    EntityNotInCollectionError,
 )
 from ...promptlib_shared.utils.utils import add_public_project_id, get_entities_by_tags
 
@@ -478,7 +482,226 @@ def fire_patch_collection_event(collection_data, operartion, entity_data, entity
     )
 
 
-def patch_collection_with_entities(project_id, collection_id, data: CollectionPatchModel):
+def patch_collection_with_entities(data_in: CollectionPatchModel):
+    new_private_data, new_public_data = get_entity_private_public_counterpart(data_in)
+
+    sessions = []
+    event_callers = []
+    results = []
+    try:
+        for data in (new_private_data, new_public_data):
+            if data:
+                session = db.get_project_schema_session(data.project_id)
+                sessions.append(session)
+                result, event_caller = do_patch_collection(data, session)
+                results.append(result)
+                event_callers.append(event_caller)
+    except Exception as ex:
+        for session in sessions:
+            session.rollback()
+        raise
+    else:
+        for session in sessions:
+            session.commit()
+    finally:
+        for session in sessions:
+            session.close()
+
+    for event_caller in event_callers:
+        event_caller()
+
+    for r in results:
+        if data_in.project_id == r['owner_id'] and data_in.collection_id == r['id']:
+            return r
+    else:
+        raise RuntimeError("Empty result on collection operation")
+
+
+def get_entity_private_public_counterpart(data: CollectionPatchModel):
+    public_project_id = get_public_project_id()
+    for entity_info in ENTITY_REG:
+        if entity_data := entity_info.get_entity_field(data):
+            Entity = entity_info.get_entity_type()
+            break
+
+    # case 1: private element -> private collection
+    if public_project_id not in (data.project_id, entity_data.owner_id):
+        public_entity = get_entity_public_twin(
+            public_project_id=public_project_id,
+            entity_type=Entity,
+            private_entity_id=entity_data.id,
+            private_entity_owner_id=entity_data.owner_id
+        )
+        public_collection = get_collection_public_twin(
+            private_project_id=data.project_id,
+            private_collection_id=data.collection_id,
+            public_project_id=public_project_id
+        )
+        # case 1.1: private element with public twin -> private collection with public twin
+        if public_entity and public_collection:
+            new_public_data = data.copy(
+                update={
+                    "project_id" : public_collection.owner_id,
+                    "collection_id": public_collection.id,
+                    entity_info.entity_name : CollectionItem.from_orm(public_entity)
+                }
+            )
+            return data, new_public_data
+        # case 1.2: private element without public twin -> private collection with public twin
+        # case 1.3: private element without public twin -> private collection without public twin
+        # case 1.4: private element with public twin -> private collection without public twin
+        else:
+            return data, None
+    # case 2: private element -> public collection
+    elif public_project_id != entity_data.owner_id and public_project_id == data.project_id:
+        public_entity = get_entity_public_twin(
+            public_project_id=public_project_id,
+            entity_type=Entity,
+            private_entity_id=entity_data.id,
+            private_entity_owner_id=entity_data.owner_id
+        )
+        private_collection = get_collection_private_twin(
+            public_project_id=public_project_id,
+            public_collection_id=data.collection_id,
+            public_collection_owner_id=data.project_id
+        )
+
+        # case 2.1: private element without public twin -> public collection with private twin
+        # case 2.2: private element with public twin -> public collection with private twin
+        if private_collection:
+            raise RuntimeError(
+                f"Operation error: use private collection instead of public"
+            )
+        # case 2.3: private element without public twin -> public collection without private twin
+        elif public_entity is None and private_collection is None:
+            raise RuntimeError(
+                f"Operation error: private element within public collection"
+            )
+        # case 2.4: private element with public twin -> public collection without private twin
+        if public_entity and private_collection is None:
+            new_public_data = data.copy(
+                update={
+                    entity_info.entity_name : CollectionItem.from_orm(public_entity)
+                }
+            )
+            return None, new_public_data
+    # case 3: public element -> private collection
+    elif public_project_id == entity_data.owner_id and public_project_id != data.project_id:
+        private_entity = get_entity_private_twin(
+            public_project_id=public_project_id,
+            entity_type=Entity,
+            public_entity_id=entity_data.id,
+            public_entity_owner_id=entity_data.owner_id
+        )
+        public_collection = get_collection_public_twin(
+            private_project_id=data.project_id,
+            private_collection_id=data.collection_id,
+            public_project_id=public_project_id
+        )
+        # case 3.1: public element without private twin -> private collection with public twin
+        if private_entity is None and public_collection:
+            new_public_data = data.copy(
+                update={
+                    "project_id" : public_collection.owner_id,
+                    "collection_id": public_collection.id
+                }
+            )
+            return data, new_public_data
+        # case 3.2: public element with private twin -> private collection with public twin
+        elif private_entity and public_collection:
+            new_private_data = data.copy(
+                update={
+                    entity_info.entity_name : CollectionItem.from_orm(private_entity)
+                }
+            )
+            new_public_data = data.copy(
+                update={
+                    "project_id" : public_collection.owner_id,
+                    "collection_id": public_collection.id
+                }
+            )
+            return new_private_data, new_public_data
+        # case 3.3: public element without private twin -> private collection without public twin
+        elif private_entity is None and public_collection is None:
+            return data, None
+        # case 3.4: public element with private twin -> private collection without public twin
+        elif private_entity and public_collection is None:
+            new_private_data = data.copy(
+                update={
+                    entity_info.entity_name : CollectionItem.from_orm(private_entity)
+                }
+            )
+            return new_private_data, None
+    # case 4: public element -> public collection
+    elif public_project_id == entity_data.owner_id and public_project_id == data.project_id:
+        private_entity = get_entity_private_twin(
+            public_project_id=public_project_id,
+            entity_type=Entity,
+            public_entity_id=entity_data.id,
+            public_entity_owner_id=entity_data.owner_id
+        )
+        private_collection = get_collection_private_twin(
+            public_project_id=public_project_id,
+            public_collection_id=data.collection_id,
+            public_collection_owner_id=data.project_id
+        )
+        # case 4.1: public element without private twin -> public collection with private twin
+        # case 4.2: public element with private twin -> public collection with private twin
+        if private_collection:
+            raise RuntimeError(
+                f"Operation error: use private collection instead of public"
+            )
+        # case 4.3: public element without private twin -> public collection without private twin
+        # case 4.4: public element with private twin -> public collection without private twin
+        elif private_collection is None:
+            return None, data
+
+
+def get_entity_private_twin(public_project_id, entity_type, public_entity_id, public_entity_owner_id):
+    with db.with_project_schema_session(public_project_id) as session:
+        entity = session.query(entity_type).filter_by(
+            owner_id=public_entity_owner_id,
+            id=public_entity_id
+        ).first()
+        if entity:
+            try:
+                return CollectionPrivateTwinModel.from_orm(entity)
+            except ValidationError:
+                pass
+
+
+def get_entity_public_twin(public_project_id, entity_type, private_entity_id, private_entity_owner_id):
+    with db.with_project_schema_session(public_project_id) as session:
+        entity = session.query(entity_type).filter_by(
+            shared_owner_id=private_entity_owner_id,
+            shared_id=private_entity_id
+        ).first()
+        return entity
+
+
+def get_collection_private_twin(public_project_id, public_collection_id, public_collection_owner_id):
+    with db.with_project_schema_session(public_project_id) as session:
+        collection = session.query(Collection).filter_by(
+            owner_id=public_collection_owner_id,
+            id=public_collection_id
+        ).first()
+        if collection:
+            try:
+                return CollectionPrivateTwinModel.from_orm(collection)
+            except ValidationError:
+                pass
+
+
+def get_collection_public_twin(private_project_id, private_collection_id, public_project_id):
+    with db.with_project_schema_session(public_project_id) as session:
+        collection = session.query(Collection).filter_by(
+            shared_owner_id=private_project_id,
+            shared_id=private_collection_id
+        ).first()
+        return collection
+
+
+def do_patch_collection(data: CollectionPatchModel, session):
     op_map = {
         CollectionPatchOperations.add: add_entity_to_collection,
         CollectionPatchOperations.remove: remove_entity_from_collection
@@ -498,36 +721,37 @@ def patch_collection_with_entities(project_id, collection_id, data: CollectionPa
                 f"{entity_info.entity_name} '{entity_data.id}' in project '{entity_data.owner_id}' doesn't exist"
             )
 
-    with db.with_project_schema_session(project_id) as session:
-        if collection := session.query(Collection).get(collection_id):
-            if not check_addability(entity_data.owner_id, collection.author_id):
-                raise EntityInaccessableError(
-                    f"User doesn't have access to project '{entity_data.owner_id}'"
-                )
-
-            # todo: check target collection id is not equal to public project id
-            # if collection.owner_id != entity.owner_id:
-            #
-            if data.operation == CollectionPatchOperations.add and get_include_entity_flag(
-                    entity_name=entity_info.entity_name,
-                    collection=CollectionListModel.from_orm(collection),
-                    entity_id=entity.id,
-                    entity_owner_id=entity.owner_id,
-            ):
-                raise EntityAlreadyInCollectionError('Already in collection')
-
-            # with db.with_project_schema_session(project_id) as session:
-            #     q = session.query(Entity).filter(
-            #     ) todo: add personal entity if public replica is being added
-
-            result = op_map[data.operation](collection, entity_info.entities_name, entity_data)
-            collection_data = collection.to_json()
-            session.commit()
-            fire_patch_collection_event(
-                collection_data, data.operation, entity_data.dict(), entity_info.entity_name
+    if collection := session.query(Collection).get(data.collection_id):
+        if not check_addability(entity_data.owner_id, collection.author_id):
+            raise EntityInaccessableError(
+                f"User doesn't have access to project '{entity_data.owner_id}'"
             )
-            return result
-        return None
+
+        entity_in_collection = get_include_entity_flag(
+            entity_name=entity_info.entity_name,
+            collection=CollectionListModel.from_orm(collection),
+            entity_id=entity.id,
+            entity_owner_id=entity.owner_id,
+        )
+        if data.operation == CollectionPatchOperations.add and entity_in_collection:
+            raise EntityAlreadyInCollectionError('Already in collection')
+        if data.operation == CollectionPatchOperations.remove and not entity_in_collection:
+            raise EntityNotInCollectionError('Not in collection')
+
+        result = op_map[data.operation](collection, entity_info.entities_name, entity_data)
+        collection_data = collection.to_json()
+        session.flush()
+
+        event_caller = partial(
+            fire_patch_collection_event,
+            collection_data,
+            data.operation,
+            entity_data.dict(),
+            entity_info.entity_name
+        )
+        return result, event_caller
+
+    return None
 
 
 def get_collection_tags(collection) -> list:
