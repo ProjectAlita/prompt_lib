@@ -180,19 +180,19 @@ class PromptLibAPI(api_tools.APIModeHandler):
         }})
     @api_tools.endpoint_metrics
     def post(self, project_id: int, prompt_version_id: Optional[int] = None, **kwargs):
-
+        #
         raw_data = dict(request.json)
         raw_data['project_id'] = project_id
         raw_data['prompt_version_id'] = prompt_version_id
         if 'user_name' not in raw_data:
             user = auth.current_user()
             raw_data['user_name'] = user.get('name')
-
+        #
         try:
             payload = prepare_payload(data=raw_data)
         except ValidationError as e:
             return e.errors(), 400
-
+        #
         try:
             conversation = prepare_conversation(payload=payload)
         except CustomTemplateError as e:
@@ -200,93 +200,140 @@ class PromptLibAPI(api_tools.APIModeHandler):
         except Exception as e:
             log.exception("prepare_conversation")
             return {'ok': False, 'msg': str(e), 'loc': []}, 400
-
-        log.info(f'{conversation=}')
-        log.info(f'{payload.merged_settings=}')
-        api_token = SecretField.parse_obj(payload.merged_settings["api_token"])
-        try:
-            api_token = api_token.unsecret(payload.integration.project_id)
-        except AttributeError:
-            api_token = api_token.unsecret(None)
-
-        try:
-            from tools import context
-            module = context.module_manager.module.open_ai_azure
+        #
+        if payload.integration.name == "ai_preload_shim":
+            # log.info(f'{conversation=}')
+            # log.info(f'{payload.merged_settings=}')
             #
-            if module.ad_token_provider is None:
-                raise RuntimeError("No AD provider, using token")
+            routing_key = payload.merged_settings["model_name"]
+            call_messages = json.loads(json.dumps(conversation))
+            call_kwargs = {
+                "max_new_tokens": payload.merged_settings["max_tokens"],
+                "return_full_text": False,
+                "temperature": payload.merged_settings["temperature"],
+                "do_sample": True,
+                "top_k": payload.merged_settings["top_k"],
+                "top_p": payload.merged_settings["top_p"],
+            }
             #
-            ad_token_provider = module.ad_token_provider
-        except:
-            ad_token_provider = None
-
-        try:
-            if ad_token_provider is None:
-                chat = AzureChatOpenAI(
-                    api_key=api_token,
-                    azure_endpoint=payload.merged_settings['api_base'],
-                    azure_deployment=payload.merged_settings['model_name'],
-                    api_version=payload.merged_settings['api_version'],
-                    streaming=False
-                )
-            else:
-                chat = AzureChatOpenAI(
-                    azure_ad_token_provider=ad_token_provider,
-                    azure_endpoint=payload.merged_settings['api_base'],
-                    azure_deployment=payload.merged_settings['model_name'],
-                    api_version=payload.merged_settings['api_version'],
-                    streaming=False
-                )
-        except:
-            if ad_token_provider is None:
-                chat = AzureChatOpenAI(
-                    openai_api_key=api_token,
-                    openai_api_base=payload.merged_settings['api_base'],
-                    deployment_name=payload.merged_settings['model_name'],
-                    openai_api_version=payload.merged_settings['api_version'],
-                    streaming=False
-                )
-            else:
-                chat = AzureChatOpenAI(
-                    azure_ad_token_provider=ad_token_provider,
-                    openai_api_base=payload.merged_settings['api_base'],
-                    deployment_name=payload.merged_settings['model_name'],
-                    openai_api_version=payload.merged_settings['api_version'],
-                    streaming=False
-                )
-
-        conversation = convert_messages_to_langchain(conversation)
-
-        try:
-            result = chat.invoke(input=conversation, config=payload.merged_settings)
-        except Exception as e:
-            return {'error': str(e)}, 400
-
-        result = result.dict()
-
-        current_user = auth.current_user()
-        tokens_in = chat.get_num_tokens(result['content'])
-        tokens_out = chat.get_num_tokens_from_messages(conversation)
-        event_payload = {
-            'pylon': str(self.module.context.id),
-            'project_id': payload.project_id,
-            'user_id': current_user["id"],
-            'predict_source': 'api',
-            'entity_type': 'prompt',
-            'entity_id': payload.prompt_id,
-            'entity_meta': {'version_id': payload.prompt_version_id, 'prediction_type': payload.type},
-            'chat_history': [i.dict() for i in conversation],
-            'predict_response': result['content'],
-            'model_settings': payload.merged_settings,
-            'tokens_in': tokens_in,
-            'tokens_out': tokens_out,
-        }
-        self.module.context.event_manager.fire_event(
-            PredictionEvents.prediction_done,
-            json.loads(json.dumps(event_payload))
-        )
-
-        return {'messages': [result]}, 200
+            from tools import worker_client  # pylint: disable=E0401,C0415
+            #
+            task_id = worker_client.task_node.start_task(
+                name="invoke_model",
+                kwargs={
+                    "routing_key": routing_key,
+                    "method": "__call__",
+                    "method_args": [call_messages],
+                    "method_kwargs": call_kwargs,
+                },
+                pool="indexer",
+            )
+            #
+            log.info("Router task: %s", task_id)
+            #
+            try:
+                full_result = worker_client.task_node.join_task(task_id)[0]["generated_text"]
+            except:  # pylint: disable=W0702
+                full_result = traceback.format_exc()
+            #
+            result = {
+                "type": "text",
+                "content": full_result,
+            }
+            #
+            return {"messages": [result]}, 200
+            #
+            # For now:
+            # - No streaming
+            # - No monitoring calls
+        else:
+            #
+            # AzureChatOpenAI
+            #
+            api_token = SecretField.parse_obj(payload.merged_settings["api_token"])
+            try:
+                api_token = api_token.unsecret(payload.integration.project_id)
+            except AttributeError:
+                api_token = api_token.unsecret(None)
+            #
+            try:
+                from tools import context
+                module = context.module_manager.module.open_ai_azure
+                #
+                if module.ad_token_provider is None:
+                    raise RuntimeError("No AD provider, using token")
+                #
+                ad_token_provider = module.ad_token_provider
+            except:
+                ad_token_provider = None
+            #
+            try:
+                if ad_token_provider is None:
+                    chat = AzureChatOpenAI(
+                        api_key=api_token,
+                        azure_endpoint=payload.merged_settings['api_base'],
+                        azure_deployment=payload.merged_settings['model_name'],
+                        api_version=payload.merged_settings['api_version'],
+                        streaming=False
+                    )
+                else:
+                    chat = AzureChatOpenAI(
+                        azure_ad_token_provider=ad_token_provider,
+                        azure_endpoint=payload.merged_settings['api_base'],
+                        azure_deployment=payload.merged_settings['model_name'],
+                        api_version=payload.merged_settings['api_version'],
+                        streaming=False
+                    )
+            except:
+                if ad_token_provider is None:
+                    chat = AzureChatOpenAI(
+                        openai_api_key=api_token,
+                        openai_api_base=payload.merged_settings['api_base'],
+                        deployment_name=payload.merged_settings['model_name'],
+                        openai_api_version=payload.merged_settings['api_version'],
+                        streaming=False
+                    )
+                else:
+                    chat = AzureChatOpenAI(
+                        azure_ad_token_provider=ad_token_provider,
+                        openai_api_base=payload.merged_settings['api_base'],
+                        deployment_name=payload.merged_settings['model_name'],
+                        openai_api_version=payload.merged_settings['api_version'],
+                        streaming=False
+                    )
+            #
+            conversation = convert_messages_to_langchain(conversation)
+            #
+            try:
+                result = chat.invoke(input=conversation, config=payload.merged_settings)
+            except Exception as e:
+                return {'error': str(e)}, 400
+            #
+            result = result.dict()
+            #
+            current_user = auth.current_user()
+            tokens_in = chat.get_num_tokens(result['content'])
+            tokens_out = chat.get_num_tokens_from_messages(conversation)
+            event_payload = {
+                'pylon': str(self.module.context.id),
+                'project_id': payload.project_id,
+                'user_id': current_user["id"],
+                'predict_source': 'api',
+                'entity_type': 'prompt',
+                'entity_id': payload.prompt_id,
+                'entity_meta': {'version_id': payload.prompt_version_id, 'prediction_type': payload.type},
+                'chat_history': [i.dict() for i in conversation],
+                'predict_response': result['content'],
+                'model_settings': payload.merged_settings,
+                'tokens_in': tokens_in,
+                'tokens_out': tokens_out,
+            }
+            self.module.context.event_manager.fire_event(
+                PredictionEvents.prediction_done,
+                json.loads(json.dumps(event_payload))
+            )
+            #
+            return {'messages': [result]}, 200
 
 
 class API(api_tools.APIBase):
