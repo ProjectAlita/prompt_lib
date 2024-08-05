@@ -37,7 +37,7 @@ def prepare_payload(data: dict) -> PromptVersionPredictModel:
             #
             payload.prompt_id = prompt_version.prompt_id
     #
-    log.info(f'{payload=}')
+    log.debug(f'{payload=}')
     return payload
 
 
