@@ -573,18 +573,11 @@ def get_entity_private_public_counterpart(data: CollectionPatchModel):
                 f"Operation error: use private collection instead of public"
             )
         # case 2.3: private element without public twin -> public collection without private twin
-        elif public_entity is None and private_collection is None:
-            raise RuntimeError(
-                f"Operation error: private element within public collection"
-            )
         # case 2.4: private element with public twin -> public collection without private twin
-        if public_entity and private_collection is None:
-            new_public_data = data.copy(
-                update={
-                    entity_info.entity_name : CollectionItem.from_orm(public_entity)
-                }
+        elif private_collection is None:
+            raise RuntimeError(
+                "Operation error: private element within public collection"
             )
-            return None, new_public_data
     # case 3: public element -> private collection
     elif public_project_id == entity_data.owner_id and public_project_id != data.project_id:
         private_entity = get_entity_private_twin(
@@ -633,28 +626,12 @@ def get_entity_private_public_counterpart(data: CollectionPatchModel):
             )
             return new_private_data, None
     # case 4: public element -> public collection
+    # case 4.1: public element without private twin -> public collection with private twin
+    # case 4.2: public element with private twin -> public collection with private twin
+    # case 4.3: public element without private twin -> public collection without private twin
+    # case 4.4: public element with private twin -> public collection without private twin
     elif public_project_id == entity_data.owner_id and public_project_id == data.project_id:
-        private_entity = get_entity_private_twin(
-            public_project_id=public_project_id,
-            entity_type=Entity,
-            public_entity_id=entity_data.id,
-            public_entity_owner_id=entity_data.owner_id
-        )
-        private_collection = get_collection_private_twin(
-            public_project_id=public_project_id,
-            public_collection_id=data.collection_id,
-            public_collection_owner_id=data.project_id
-        )
-        # case 4.1: public element without private twin -> public collection with private twin
-        # case 4.2: public element with private twin -> public collection with private twin
-        if private_collection:
-            raise RuntimeError(
-                f"Operation error: use private collection instead of public"
-            )
-        # case 4.3: public element without private twin -> public collection without private twin
-        # case 4.4: public element with private twin -> public collection without private twin
-        elif private_collection is None:
-            return None, data
+        raise RuntimeError("Operation error: public element on public collection")
 
 
 def get_entity_private_twin(public_project_id, entity_type, public_entity_id, public_entity_owner_id):
