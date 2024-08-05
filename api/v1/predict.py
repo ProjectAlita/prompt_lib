@@ -203,8 +203,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
             return {'ok': False, 'msg': str(e), 'loc': []}, 400
         #
         if payload.integration.name == "ai_preload_shim":
-            # log.info(f'{conversation=}')
-            # log.info(f'{payload.merged_settings=}')
+            # log.debug(f'{conversation=}')
+            # log.debug(f'{payload.merged_settings=}')
             #
             routing_key = payload.merged_settings["model_name"]
             call_messages = json.loads(json.dumps(conversation))
@@ -230,7 +230,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 pool="indexer",
             )
             #
-            log.info("Router task: %s", task_id)
+            log.debug("Router task: %s", task_id)
             #
             try:
                 full_result = worker_client.task_node.join_task(task_id)[0]["generated_text"]

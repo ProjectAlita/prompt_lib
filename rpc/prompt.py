@@ -196,7 +196,7 @@ class RPC:
             )
         #
         if payload.integration.name == "ai_preload_shim":
-            log.info(f'{payload.merged_settings=}')
+            log.debug(f'{payload.merged_settings=}')
             #
             routing_key = payload.merged_settings["model_name"]
             call_messages = json.loads(json.dumps(conversation))
@@ -242,7 +242,7 @@ class RPC:
                 pool="indexer",
             )
             #
-            log.info("Router task: %s", task_id)
+            log.debug("Router task: %s", task_id)
             #
             try:
                 full_result = worker_client.task_node.join_task(task_id)[0]["generated_text"]
