@@ -54,10 +54,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def patch(self, project_id: int, collection_id: int):
         try:
             payload = request.get_json()
+            payload['project_id'] = project_id
+            payload['collection_id'] = collection_id
             collection_data = CollectionPatchModel.validate(payload)
-            result = patch_collection_with_entities(project_id, collection_id, collection_data)
-            if not result:
-                return {"error": f"No collection found with id '{collection_id}'"}, 404
+            result = patch_collection_with_entities(collection_data)
             return result, 200
         except ValidationError as e:
             return e.errors(), 400

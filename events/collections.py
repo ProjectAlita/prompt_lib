@@ -56,16 +56,6 @@ class Event:
         for owner_id, ids in grouped_removed_entities.items():
             delete_collection_from_entities(Entity, owner_id, ids, collection_data, context)
 
-        # synchronize private and public collections
-        if public_id != collection_data['owner_id']:
-            synchronize_collections(
-                collection_data,
-                entity_info.entities_name,
-                Entity,
-                added_entities,
-                removed_entities
-            )
-
     @web.event("prompt_lib_collection_deleted")
     def handle_collection_deleted(self, context, event, payload: dict):
         collection_data = payload
@@ -144,7 +134,7 @@ class Event:
 
 def delete_collection_from_entities(entity_type, owner_id: int, ids: list, collection_data: dict, context):
     with db.get_session(owner_id) as session:
-        for entity in session.query(entity_type).filter(entity_type.id.in_(ids)).all():
+        for entity in session.query(entity_type).filter(entity_type.id.in_(ids)).with_for_update().all():
             new_data = [
                 deepcopy(collection) for collection in entity.collections
                 if (collection['owner_id'] != collection_data['owner_id'] or
@@ -157,43 +147,13 @@ def delete_collection_from_entities(entity_type, owner_id: int, ids: list, colle
 
 def add_collection_to_entities(entity_type, owner_id: int, ids: list, collection_data: dict, context):
     with db.get_session(owner_id) as session:
-        for entity in session.query(entity_type).filter(entity_type.id.in_(ids)).all():
+        for entity in session.query(entity_type).filter(entity_type.id.in_(ids)).with_for_update().all():
             new_data: list = deepcopy(entity.collections)
             new_data.append({
                 "owner_id": collection_data['owner_id'],
                 "id": collection_data['id']
             })
             entity.collections = new_data
-
-        session.commit()
-
-
-def synchronize_collections(
-    private_collection_data, entities_name, entity_type,
-    added_entities: list = None, removed_entities: list = None
-):
-    added_entities = added_entities or []
-    removed_entities = removed_entities or []
-    public_id = get_public_project_id()
-    with db.with_project_schema_session(public_id) as session:
-        collection = session.query(Collection).filter_by(
-            shared_owner_id=private_collection_data['owner_id'],
-            shared_id=private_collection_data['id']
-        ).first()
-
-        if not collection:
-            return
-
-        added_entities = find_public_entities(entity_type, added_entities, session)
-        removed_entities = find_public_entities(entity_type, removed_entities, session)
-
-        for entity in added_entities:
-            entity = CollectionItem(id=entity.id, owner_id=entity.owner_id)
-            add_entity_to_collection(collection, entities_name, entity, return_data=False)
-
-        for entity in removed_entities:
-            entity = CollectionItem(id=entity.id, owner_id=entity.owner_id)
-            remove_entity_from_collection(collection, entities_name, entity, return_data=False)
 
         session.commit()
 

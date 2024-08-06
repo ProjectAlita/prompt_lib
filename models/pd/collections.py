@@ -1,7 +1,7 @@
 from datetime import datetime
 from queue import Empty
 from typing import Optional, List
-from pydantic import BaseModel, root_validator, validator
+from pydantic import BaseModel, Field, root_validator, validator
 
 from pylon.core.tools import log
 from tools import rpc_tools
@@ -18,8 +18,21 @@ class CollectionItem(BaseModel):
     id: int
     owner_id: int
 
+    class Config:
+        orm_mode = True
+
+
+class CollectionPrivateTwinModel(BaseModel):
+    id: int = Field(..., alias='shared_id')
+    owner_id: int = Field(..., alias='shared_owner_id')
+
+    class Config:
+        orm_mode = True
+
 
 class CollectionPatchModel(BaseModel):
+    project_id: int
+    collection_id: int
     operation: CollectionPatchOperations
     prompt: Optional[CollectionItem] = None
     datasource: Optional[CollectionItem] = None
