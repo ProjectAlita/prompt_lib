@@ -2,6 +2,7 @@ from pylon.core.tools import web, log
 
 from tools import db
 
+from ..models.all import Prompt
 from ...promptlib_shared.utils.sio_utils import SioEvents
 
 
@@ -66,3 +67,8 @@ class RPC:
                                 return message_in_messages
             log.info('return True - no assistant messages in chat history')
             return True
+
+    @web.rpc(f'prompt_lib_get_prompt_count', "get_prompt_count")
+    def prompt_lib_get_prompt_count(self, project_id: int, **kwargs) -> int:
+        with db.get_session(project_id) as session:
+            return session.query(Prompt).count()
