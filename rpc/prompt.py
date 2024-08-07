@@ -436,3 +436,8 @@ class RPC:
     @web.rpc("prompt_lib_get_version_model", "get_version_model")
     def get_version_model(self):
         return PromptVersion
+
+    @web.rpc(f'prompt_lib_get_prompt_count', "get_prompt_count")
+    def prompt_lib_get_prompt_count(self, project_id: int, **kwargs) -> int:
+        with db.with_project_schema_session(project_id) as session:
+            return session.query(Prompt).distinct().count()
