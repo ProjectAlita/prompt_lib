@@ -6,7 +6,10 @@ from pylon.core.tools import log, web
 from tools import db
 from ..models.all import Collection
 from ..models.enums.all import CollectionPatchOperations
-from ..models.pd.collections import CollectionItem
+from ..models.pd.collections import (
+    CollectionItem,
+    CollectionPatchModel
+)
 from ..utils.collection_registry import (
     ENTITY_REG,
     get_entity_info_by_name
@@ -16,6 +19,7 @@ from ..utils.collections import (
     add_entity_to_collection,
     fire_patch_collection_event,
     group_by_project_id,
+    patch_collection_with_entities,
     remove_entity_from_collection,
 )
 from ..utils.publish_utils import get_public_project_id
@@ -83,42 +87,21 @@ class Event:
     @web.event('prompt_lib_entity_published')
     def handle_entity_publishing(self, context, event, payload: dict) -> None:
         entity_data = payload['entity_data']
-        owner_id = entity_data['owner_id']
-        collections = payload['collections']
+        collections = payload.get('collections', [])
         entity_name = payload['entity_name']
-        entity_info = get_entity_info_by_name(entity_name)
 
-        with db.with_project_schema_session(owner_id) as session:
-            if not collections:
-                collections = session.query(Collection).filter(
-                    or_(
-                        *[
-                            and_(
-                                Collection.shared_id == collection['id'],
-                                Collection.shared_owner_id == collection['owner_id']
-                            ) for collection in collections
-                        ]
-                    )
-                ).all()
-            else:
-                collections = []
-
-            for collection in collections:
-                entities = deepcopy(entity_info.get_entities_field(collection))
-                entities.append({
-                    "owner_id": owner_id,
+        for collection in collections:
+            data = {
+                "project_id": collection["owner_id"],
+                "collection_id": collection["id"],
+                "operation": CollectionPatchOperations.add.name,
+                entity_name: {
+                    "owner_id": entity_data['owner_id'],
                     "id": entity_data['id']
-                })
-                setattr(collection, entity_info.entities_name, entities)
-            session.commit()
-
-            for collection in collections:
-                fire_patch_collection_event(
-                    collection.to_json(),
-                    CollectionPatchOperations.add,
-                    entity_data,
-                    entity_name
-                )
+                }
+            }
+            collection_data = CollectionPatchModel.validate(data)
+            patch_collection_with_entities(collection_data, passthrough_mode=True)
 
     @web.event('prompt_lib_collection_unpublished')
     def handle_collection_unpublished(self, context, event, payload) -> None:

@@ -123,6 +123,7 @@ class Collection(db_tools.AbstractBaseMixin, db.Base, AbstractLikesMixin):
     author_id: Mapped[int] = mapped_column(Integer, nullable=False)
     prompts: Mapped[dict] = mapped_column(JSONB, nullable=True)
     datasources: Mapped[dict] = mapped_column(JSONB, nullable=True)
+    applications: Mapped[dict] = mapped_column(JSONB, nullable=True)
     status: Mapped[PublishStatus] = mapped_column(String, nullable=False, default=PublishStatus.draft)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     # reference fields to origin 
