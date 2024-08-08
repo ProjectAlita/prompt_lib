@@ -29,6 +29,7 @@ class PromptVersionBaseModel(BaseModel):
     shared_owner_id: Optional[int]
     conversation_starters: Optional[List]
     welcome_message: Optional[str]
+    meta: Optional[dict]
 
     class Config:
         orm_mode = True
