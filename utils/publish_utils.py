@@ -398,5 +398,11 @@ def set_public_version_status(
                             'event_type': notification_type
                         }
                     )
+                    if PublishStatus.rejected:
+                        version = session.query(PromptVersion).filter(
+                            PromptVersion.id == version_id
+                        ).first()
+                        version.meta = {'reject_details': reject_details}
+                        session.commit()
 
     return result

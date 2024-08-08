@@ -66,6 +66,7 @@ class PromptVersion(db_tools.AbstractBaseMixin, db.Base):
     shared_id: Mapped[int] = mapped_column(Integer, nullable=True)
     conversation_starters: Mapped[dict] = mapped_column(JSON, default=list)
     welcome_message: Mapped[str] = mapped_column(String, default='')
+    meta: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
 class PromptVariable(db_tools.AbstractBaseMixin, db.Base):
@@ -129,6 +130,7 @@ class Collection(db_tools.AbstractBaseMixin, db.Base, AbstractLikesMixin):
     # reference fields to origin 
     shared_owner_id: Mapped[int] = mapped_column(Integer, nullable=True)
     shared_id: Mapped[int] = mapped_column(Integer, nullable=True)
+    meta: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
 class SearchRequest(db_tools.AbstractBaseMixin, db.Base):
