@@ -402,7 +402,7 @@ def set_public_version_status(
                         version = session.query(PromptVersion).filter(
                             PromptVersion.id == version_id
                         ).first()
-                        version.meta = {'reject_details': reject_details}
+                        version.meta.update({'reject_details': reject_details})
                         session.commit()
 
     return result
