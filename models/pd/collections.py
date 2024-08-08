@@ -36,10 +36,11 @@ class CollectionPatchModel(BaseModel):
     operation: CollectionPatchOperations
     prompt: Optional[CollectionItem] = None
     datasource: Optional[CollectionItem] = None
+    application: Optional[CollectionItem] = None
 
     @root_validator(pre=True)
     def check_only_one_entity(cls, values):
-        fields = ("prompt", "datasource",)
+        fields = ("prompt", "datasource", "application",)
         if [bool(values.get(f)) for f in fields].count(True) != 1:
             raise ValueError(f'One non-empty of the fields is expected: {fields}')
 
@@ -53,6 +54,7 @@ class CollectionModel(BaseModel):
     description: Optional[str]
     prompts: Optional[List[CollectionItem]] = []
     datasources: Optional[List[CollectionItem]] = []
+    applications: Optional[List[CollectionItem]] = []
     shared_id: Optional[int]
     shared_owner_id: Optional[int]
 
@@ -87,6 +89,7 @@ class CollectionDetailModel(BaseModel):
     author_id: int
     prompts: Optional[List[EntityListModel]] = []
     datasources: Optional[List[EntityListModel]] = []
+    applications: Optional[List[EntityListModel]] = []
     author: Optional[AuthorBaseModel]
     created_at: datetime
 
@@ -104,12 +107,15 @@ class CollectionListModel(BaseModel):
     author: Optional[AuthorBaseModel]
     prompts: Optional[List] = []
     datasources: Optional[List] = []
+    applications: Optional[List] = []
     tags: List[TagDetailModel] = []
     created_at: datetime
     includes_prompt: Optional[bool] = None
     includes_datasource: Optional[bool] = None
+    includes_application: Optional[bool] = None
     prompt_count: int = 0
     datasource_count: int = 0
+    application_count: int = 0
     likes: Optional[int]
     trending_likes: Optional[int]
     is_liked: Optional[bool]
@@ -119,12 +125,14 @@ class CollectionListModel(BaseModel):
         fields = {
             "prompts": {"exclude": True},
             "datasources": {"exclude": True},
+            "applications": {"exclude": True},
         }
 
     @root_validator
     def count_entities(cls, values):
         values["prompt_count"] = len(values.get("prompts"))
         values["datasource_count"] = len(values.get("datasources"))
+        values["application_count"] = len(values.get("applications"))
         return values
 
     @validator('is_liked')

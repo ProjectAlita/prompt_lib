@@ -26,6 +26,12 @@ _ENTITIES_INFO_IN = (
         _RPC_CALL.datasources_get_datasource_model,
         _RPC_CALL.datasources_get_version_model
     ),
+    (
+        "application",
+        "applications",
+        _RPC_CALL.applications_get_application_model,
+        _RPC_CALL.applications_get_version_model
+    ),
 )
 #####################################################################
 

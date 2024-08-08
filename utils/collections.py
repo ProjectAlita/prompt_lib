@@ -461,6 +461,11 @@ def remove_entity_from_collections(collection_ids: list, entities_name, entity_d
         setattr(collection, entities_name, new_data)
 
 
+def delete_entity_from_collections(entity_name, collection_ids: list, entity_data: dict, session):
+    entities_field_name = get_entity_info_by_name(entity_name).entities_name
+    remove_entity_from_collections(collection_ids, entities_field_name, entity_data, session)
+
+
 def fire_patch_collection_event(collection_data, operartion, entity_data, entity_name):
     if operartion == CollectionPatchOperations.add:
         removed_entities = tuple()
@@ -482,9 +487,11 @@ def fire_patch_collection_event(collection_data, operartion, entity_data, entity
     )
 
 
-def patch_collection_with_entities(data_in: CollectionPatchModel):
+# when passthrough_mode is used, we do not return any results and skip NotIn/Already in errors
+def patch_collection_with_entities(data_in: CollectionPatchModel, passthrough_mode=False):
     new_private_data, new_public_data = get_entity_private_public_counterpart(data_in)
 
+    return_data = not passthrough_mode
     sessions = []
     event_callers = []
     results = []
@@ -493,9 +500,16 @@ def patch_collection_with_entities(data_in: CollectionPatchModel):
             if data:
                 session = db.get_project_schema_session(data.project_id)
                 sessions.append(session)
-                result, event_caller = do_patch_collection(data, session)
-                results.append(result)
-                event_callers.append(event_caller)
+                try:
+                    result, event_caller = do_patch_collection(data, session, return_data)
+                except (EntityAlreadyInCollectionError, EntityNotInCollectionError):
+                    if passthrough_mode:
+                        continue
+                    raise
+                if result:
+                    results.append(result)
+                if event_caller:
+                    event_callers.append(event_caller)
     except Exception as ex:
         for session in sessions:
             session.rollback()
@@ -509,6 +523,9 @@ def patch_collection_with_entities(data_in: CollectionPatchModel):
 
     for event_caller in event_callers:
         event_caller()
+
+    if passthrough_mode:
+        return
 
     for r in results:
         if data_in.project_id == r['owner_id'] and data_in.collection_id == r['id']:
@@ -678,7 +695,7 @@ def get_collection_public_twin(private_project_id, private_collection_id, public
         return collection
 
 
-def do_patch_collection(data: CollectionPatchModel, session):
+def do_patch_collection(data: CollectionPatchModel, session, return_data):
     op_map = {
         CollectionPatchOperations.add: add_entity_to_collection,
         CollectionPatchOperations.remove: remove_entity_from_collection
@@ -715,7 +732,7 @@ def do_patch_collection(data: CollectionPatchModel, session):
         if data.operation == CollectionPatchOperations.remove and not entity_in_collection:
             raise EntityNotInCollectionError('Not in collection')
 
-        result = op_map[data.operation](collection, entity_info.entities_name, entity_data)
+        result = op_map[data.operation](collection, entity_info.entities_name, entity_data, return_data)
         collection_data = collection.to_json()
         session.flush()
 
@@ -912,9 +929,10 @@ class CollectionPublishing:
                     ent.get_entity_type(),
                     ent.get_entity_version_type()
                 )
+                collection_data.pop(ent.entities_name)
                 if entity_ids:
                     collection_is_empty = False
-                    collection_data[ent.entity_name] = entity_ids
+                    collection_data[ent.entities_name] = entity_ids
 
             if collection_is_empty:
                 raise Exception("Collection doesn't contain public entities")

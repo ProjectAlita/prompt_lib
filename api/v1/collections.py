@@ -42,6 +42,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
         prompt_owner_id = request.args.get('prompt_owner_id')
         datasource_id = request.args.get('datasource_id')
         datasource_owner_id = request.args.get('datasource_owner_id')
+        application_id = request.args.get('application_id')
+        application_owner_id = request.args.get('application_owner_id')
         need_tags = 'no_tags' not in request.args
         my_liked = request.args.get('my_liked', default=False, type=bool)
         total, collections = list_collections(project_id, request.args, with_likes=True, my_liked=my_liked)
@@ -62,6 +64,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
             if datasource_id and datasource_owner_id:
                 col_model.includes_datasource = get_include_entity_flag(
                     'datasource', col_model, int(datasource_id), int(datasource_owner_id)
+                )
+            if application_id and application_owner_id:
+                col_model.includes_application = get_include_entity_flag(
+                    'application', col_model, int(application_id), int(application_owner_id)
                 )
             parsed.append(col_model)
 
