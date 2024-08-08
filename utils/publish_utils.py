@@ -15,7 +15,7 @@ def set_status(project_id: int, prompt_version_name_or_id: int | str, status: Pu
     f = [PromptVersion.name == prompt_version_name_or_id]
     if isinstance(prompt_version_name_or_id, int):
         f = [PromptVersion.id == prompt_version_name_or_id]
-    log.info(f'set_status {project_id=} {prompt_version_name_or_id=} {status=}')
+    log.debug(f'set_status {project_id=} {prompt_version_name_or_id=} {status=}')
     with db.with_project_schema_session(project_id) as session:
         try:
             version = session.query(PromptVersion).filter(*f).first()
@@ -346,7 +346,7 @@ def set_public_version_status(
         status=status,
         return_data=True
     )
-    log.info(f'Result: {result["result"]}')
+    log.debug(f'Result: {result["result"]}')
     if result['ok']:
         prompt_version_data = result['result']
 
@@ -399,11 +399,10 @@ def set_public_version_status(
                         }
                     )
                     if PublishStatus.rejected:
-                        session.query(PromptVersion).filter(
-                            PromptVersion.id == version_id
-                        ).update(
-                            {PromptVersion.meta: {'reject_details': reject_details}}
-                        )
+                        version = session.query(PromptVersion).filter(
+                            PromptVersion.id == prompt_version_id
+                        ).first()
+                        version.meta = {**version.meta, 'reject_details': reject_details}
                         session.commit()
 
     return result
