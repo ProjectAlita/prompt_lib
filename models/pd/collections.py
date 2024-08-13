@@ -147,6 +147,12 @@ class CollectionListModel(BaseModel):
             return 0
         return v
 
+    @validator('description')
+    def truncate_long_description(cls, value: Optional[str]) -> Optional[str]:
+        if value:
+            return value[:64]
+        return value
+
 
 class PublishedCollectionDetailModel(CollectionDetailModel):
     likes: Optional[int] = 0

@@ -109,6 +109,12 @@ class PromptListModel(BaseModel):
             AuthorBaseModel(**user_map[author_id]) for author_id in self.author_ids
         ]
 
+    @validator('description')
+    def truncate_long_description(cls, value: Optional[str]) -> Optional[str]:
+        if value:
+            return value[:64]
+        return value
+
 
 class PublishedPromptListModel(PromptListModel):
     likes: Optional[int]
