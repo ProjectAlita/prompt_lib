@@ -47,6 +47,7 @@ class Event:
         is_public = payload['is_public']
         public_id = payload.get('public_id')
 
+        # handle collections
         collections = group_by_project_id(prompt_data['collections'])
         for owner_id, collection_ids in collections.items():
             with db.get_session(owner_id) as session:
@@ -57,7 +58,18 @@ class Event:
                     session=session
                 )
                 session.commit()
-
+        # handle chats
+        project_id = prompt_data['owner_id']
+        prompt_meta = {
+            "project_id": project_id,
+            "id": prompt_data['id']
+        }
+        self.context.rpc_manager.call.chat_delete_entity_in_all_conversations(
+            project_id,
+            "prompt",
+            prompt_meta
+        )
+        # handle published things
         if is_public:
             prompt_owner_id = prompt_data['shared_owner_id']
             prompt_id = prompt_data['shared_id']
