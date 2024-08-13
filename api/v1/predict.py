@@ -202,139 +202,53 @@ class PromptLibAPI(api_tools.APIModeHandler):
             log.exception("prepare_conversation")
             return {'ok': False, 'msg': str(e), 'loc': []}, 400
         #
-        if payload.integration.name == "ai_preload_shim":
-            # log.debug(f'{conversation=}')
-            # log.debug(f'{payload.merged_settings=}')
-            #
-            routing_key = payload.merged_settings["model_name"]
-            call_messages = json.loads(json.dumps(conversation))
-            call_kwargs = {
-                "max_new_tokens": payload.merged_settings["max_tokens"],
-                "return_full_text": False,
-                "temperature": payload.merged_settings["temperature"],
-                "do_sample": True,
-                "top_k": payload.merged_settings["top_k"],
-                "top_p": payload.merged_settings["top_p"],
-            }
-            #
-            from tools import worker_client  # pylint: disable=E0401,C0415
-            #
-            task_id = worker_client.task_node.start_task(
-                name="invoke_model",
-                kwargs={
-                    "routing_key": routing_key,
-                    "method": "__call__",
-                    "method_args": [call_messages],
-                    "method_kwargs": call_kwargs,
-                },
-                pool="indexer",
+        from tools import worker_client  # pylint: disable=E0401,C0415
+        #
+        try:
+            result = worker_client.chat_model_invoke(
+                integration_name=payload.integration.name,
+                settings=payload,
+                messages=conversation,
             )
-            #
-            log.debug("Router task: %s", task_id)
-            #
-            try:
-                full_result = worker_client.task_node.join_task(task_id)[0]["generated_text"]
-            except:  # pylint: disable=W0702
-                full_result = traceback.format_exc()
-            #
-            result = {
-                "type": "text",
-                "content": full_result,
-            }
-            #
-            return {"messages": [result]}, 200
-            #
-            # For now:
-            # - No streaming
-            # - No monitoring calls
-        else:
-            #
-            # AzureChatOpenAI
-            #
-            api_token = SecretField.parse_obj(payload.merged_settings["api_token"])
-            try:
-                api_token = api_token.unsecret(payload.integration.project_id)
-            except AttributeError:
-                api_token = api_token.unsecret(None)
-            #
-            try:
-                from tools import context
-                module = context.module_manager.module.open_ai_azure
-                #
-                if module.ad_token_provider is None:
-                    raise RuntimeError("No AD provider, using token")
-                #
-                ad_token_provider = module.ad_token_provider
-            except:
-                ad_token_provider = None
-            #
-            try:
-                if ad_token_provider is None:
-                    chat = AzureChatOpenAI(
-                        api_key=api_token,
-                        azure_endpoint=payload.merged_settings['api_base'],
-                        azure_deployment=payload.merged_settings['model_name'],
-                        api_version=payload.merged_settings['api_version'],
-                        streaming=False
-                    )
-                else:
-                    chat = AzureChatOpenAI(
-                        azure_ad_token_provider=ad_token_provider,
-                        azure_endpoint=payload.merged_settings['api_base'],
-                        azure_deployment=payload.merged_settings['model_name'],
-                        api_version=payload.merged_settings['api_version'],
-                        streaming=False
-                    )
-            except:
-                if ad_token_provider is None:
-                    chat = AzureChatOpenAI(
-                        openai_api_key=api_token,
-                        openai_api_base=payload.merged_settings['api_base'],
-                        deployment_name=payload.merged_settings['model_name'],
-                        openai_api_version=payload.merged_settings['api_version'],
-                        streaming=False
-                    )
-                else:
-                    chat = AzureChatOpenAI(
-                        azure_ad_token_provider=ad_token_provider,
-                        openai_api_base=payload.merged_settings['api_base'],
-                        deployment_name=payload.merged_settings['model_name'],
-                        openai_api_version=payload.merged_settings['api_version'],
-                        streaming=False
-                    )
-            #
-            conversation = convert_messages_to_langchain(conversation)
-            #
-            try:
-                result = chat.invoke(input=conversation, config=payload.merged_settings)
-            except Exception as e:
-                return {'error': str(e)}, 400
-            #
-            result = result.dict()
-            #
-            current_user = auth.current_user()
-            tokens_in = chat.get_num_tokens(result['content'])
-            tokens_out = chat.get_num_tokens_from_messages(conversation)
-            event_payload = {
-                'pylon': str(self.module.context.id),
-                'project_id': payload.project_id,
-                'user_id': current_user["id"],
-                'predict_source': 'api',
-                'entity_type': 'prompt',
-                'entity_id': payload.prompt_id,
-                'entity_meta': {'version_id': payload.prompt_version_id, 'prediction_type': payload.type},
-                'chat_history': [i.dict() for i in conversation],
-                'predict_response': result['content'],
-                'model_settings': payload.merged_settings,
-                'tokens_in': tokens_in,
-                'tokens_out': tokens_out,
-            }
-            self.module.context.event_manager.fire_event(
-                PredictionEvents.prediction_done,
-                json.loads(json.dumps(event_payload))
-            )
-            #
-            return {'messages': [result]}, 200
+        except Exception as e:
+            return {'error': str(e)}, 400
+        #
+        current_user = auth.current_user()
+        #
+        tokens_in = worker_client.ai_count_tokens(
+            integration_name=payload.integration.name,
+            settings=payload,
+            data=result['content'],
+        )
+        #
+        tokens_out = worker_client.ai_count_tokens(
+            integration_name=payload.integration.name,
+            settings=payload,
+            data=conversation,
+        )
+        #
+        conversation = convert_messages_to_langchain(conversation)
+        #
+        event_payload = {
+            'pylon': str(self.module.context.id),
+            'project_id': payload.project_id,
+            'user_id': current_user["id"],
+            'predict_source': 'api',
+            'entity_type': 'prompt',
+            'entity_id': payload.prompt_id,
+            'entity_meta': {'version_id': payload.prompt_version_id, 'prediction_type': payload.type},
+            'chat_history': [i.dict() for i in conversation],
+            'predict_response': result['content'],
+            'model_settings': payload.merged_settings,
+            'tokens_in': tokens_in,
+            'tokens_out': tokens_out,
+        }
+        self.module.context.event_manager.fire_event(
+            PredictionEvents.prediction_done,
+            json.loads(json.dumps(event_payload))
+        )
+        #
+        return {'messages': [result]}, 200
 
 
 class API(api_tools.APIBase):

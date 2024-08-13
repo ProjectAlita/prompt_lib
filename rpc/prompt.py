@@ -195,63 +195,40 @@ class RPC:
                 message_id=payload.message_id
             )
         #
-        if payload.integration.name == "ai_preload_shim":
-            log.debug(f'{payload.merged_settings=}')
-            #
-            routing_key = payload.merged_settings["model_name"]
-            call_messages = json.loads(json.dumps(conversation))
-            call_kwargs = {
-                "max_new_tokens": payload.merged_settings["max_tokens"],
-                "return_full_text": False,
-                "temperature": payload.merged_settings["temperature"],
-                "do_sample": True,
-                "top_k": payload.merged_settings["top_k"],
-                "top_p": payload.merged_settings["top_p"],
-            }
-            #
-            room = get_event_room(
-                event_name=sio_event,
-                room_id=payload.stream_id
-            )
-            #
-            if sid:
-                self.context.sio.enter_room(sid, room)
-            #
-            self.context.sio.emit(
-                event=sio_event,
-                data={
-                    "stream_id": payload.stream_id,
-                    "message_id": payload.message_id,
-                    "type": "start_task",
-                    "message_type": payload.type,
-                    "content": {**start_event_content}
-                },
-                room=room,
-            )
-            #
-            from tools import worker_client  # pylint: disable=E0401,C0415
-            #
-            task_id = worker_client.task_node.start_task(
-                name="invoke_model",
-                kwargs={
-                    "routing_key": routing_key,
-                    "method": "__call__",
-                    "method_args": [call_messages],
-                    "method_kwargs": call_kwargs,
-                },
-                pool="indexer",
-            )
-            #
-            log.debug("Router task: %s", task_id)
-            #
-            try:
-                full_result = worker_client.task_node.join_task(task_id)[0]["generated_text"]
-            except:  # pylint: disable=W0702
-                full_result = traceback.format_exc()
+        room = get_event_room(
+            event_name=sio_event,
+            room_id=payload.stream_id
+        )
+        #
+        if sid:
+            self.context.sio.enter_room(sid, room)
+        #
+        self.context.sio.emit(
+            event=sio_event,
+            data={
+                "stream_id": payload.stream_id,
+                "message_id": payload.message_id,
+                "type": "start_task",
+                "message_type": payload.type,
+                "content": {**start_event_content}
+            },
+            room=room,
+        )
+        #
+        full_result = ""
+        #
+        from tools import worker_client  # pylint: disable=E0401,C0415
+        #
+        for chunk in worker_client.chat_model_stream(
+            integration_name=payload.integration.name,
+            settings=payload,
+            messages=conversation,
+        ):
+            full_result += chunk["content"]
             #
             chunk_data = {
                 "type": "AIMessageChunk",
-                "content": full_result,
+                "content": chunk["content"],
                 "response_metadata": {},
             }
             #
@@ -266,168 +243,69 @@ class RPC:
                 data=chunk_data,
                 room=room,
             )
-            #
-            self.context.sio.emit(
-                event=sio_event,
-                data={
-                    "type": "AIMessageChunk",
-                    "content": "",
-                    "response_metadata": {
-                        "finish_reason": "stop",
-                    },
-                    "stream_id": payload.stream_id,
-                    "message_id": payload.stream_id,
+        #
+        self.context.sio.emit(
+            event=sio_event,
+            data={
+                "type": "AIMessageChunk",
+                "content": "",
+                "response_metadata": {
+                    "finish_reason": "stop",
                 },
-                room=room,
-            )
-            #
-            if sio_event == SioEvents.chat_predict.value and chat_project_id is not None:
-                chat_payload = {
-                    'message_id': payload.message_id,
-                    'response_metadata': {
-                        'project_id': payload.project_id,
-                        'chat_project_id': chat_project_id,
-                    },
-                    'content': full_result,
-                }
-                self.context.event_manager.fire_event('chat_message_stream_end', chat_payload)
-            #
-            # For now:
-            # - No streaming
-            # - No monitoring calls
-        else:
-            #
-            # AzureChatOpenAI
-            #
-            api_token = SecretField.parse_obj(payload.merged_settings["api_token"])
-            try:
-                api_token = api_token.unsecret(payload.integration.project_id)
-            except AttributeError:
-                api_token = api_token.unsecret(None)
-            #
-            try:
-                from tools import context
-                module = context.module_manager.module.open_ai_azure
-                #
-                if module.ad_token_provider is None:
-                    raise RuntimeError("No AD provider, using token")
-                #
-                ad_token_provider = module.ad_token_provider
-            except:
-                ad_token_provider = None
-            #
-            try:
-                if ad_token_provider is None:
-                    chat = AzureChatOpenAI(
-                        api_key=api_token,
-                        azure_endpoint=payload.merged_settings['api_base'],
-                        azure_deployment=payload.merged_settings['model_name'],
-                        api_version=payload.merged_settings['api_version'],
-                        streaming=True
-                    )
-                else:
-                    chat = AzureChatOpenAI(
-                        azure_ad_token_provider=ad_token_provider,
-                        azure_endpoint=payload.merged_settings['api_base'],
-                        azure_deployment=payload.merged_settings['model_name'],
-                        api_version=payload.merged_settings['api_version'],
-                        streaming=True
-                    )
-            except:
-                if ad_token_provider is None:
-                    chat = AzureChatOpenAI(
-                        openai_api_key=api_token,
-                        openai_api_base=payload.merged_settings['api_base'],
-                        deployment_name=payload.merged_settings['model_name'],
-                        openai_api_version=payload.merged_settings['api_version'],
-                        streaming=True
-                    )
-                else:
-                    chat = AzureChatOpenAI(
-                        azure_ad_token_provider=ad_token_provider,
-                        openai_api_base=payload.merged_settings['api_base'],
-                        deployment_name=payload.merged_settings['model_name'],
-                        openai_api_version=payload.merged_settings['api_version'],
-                        streaming=True
-                    )
-            #
-            conversation = convert_messages_to_langchain(conversation)
-            #
-            room = get_event_room(
-                event_name=sio_event,
-                room_id=payload.stream_id
-            )
-            #
-            if sid:
-                self.context.sio.enter_room(sid, room)
-            #
-            self.context.sio.emit(
-                event=sio_event,
-                data={
-                    "stream_id": payload.stream_id,
-                    "message_id": payload.message_id,
-                    "type": "start_task",
-                    "message_type": payload.type,
-                    "content": {**start_event_content}
+                "stream_id": payload.stream_id,
+                "message_id": payload.stream_id,
+            },
+            room=room,
+        )
+        #
+        if sio_event == SioEvents.chat_predict.value and chat_project_id is not None:
+            chat_payload = {
+                'message_id': payload.message_id,
+                'response_metadata': {
+                    'project_id': payload.project_id,
+                    'chat_project_id': chat_project_id,
                 },
-                room=room,
-            )
-            #
-            full_result = ""
-            #
-            for chunk in chat.stream(input=conversation, config=payload.merged_settings):
-                chunk_data = chunk.dict()
-                full_result += chunk_data["content"]
-                #
-                chunk_data['stream_id'] = payload.stream_id
-                chunk_data['message_id'] = payload.message_id
-                #
-                if payload.type == PromptVersionType.freeform:
-                    chunk_data['message_type'] = PromptVersionType.freeform
-                #
-                self.context.sio.emit(
-                    event=sio_event,
-                    data=chunk_data,
-                    room=room,
-                )
-            #
-            if sio_event == SioEvents.chat_predict.value and chat_project_id is not None:
-                chat_payload = {
-                    'message_id': payload.message_id,
-                    'response_metadata': {
-                        'project_id': payload.project_id,
-                        'chat_project_id': chat_project_id,
-                    },
-                    'content': full_result,
-                }
-                self.context.event_manager.fire_event('chat_message_stream_end', chat_payload)
-            #
-            current_user = auth.current_user(
-                auth_data=auth.sio_users[sid]
-            )
-            #
-            tokens_in = chat.get_num_tokens(full_result)
-            tokens_out = chat.get_num_tokens_from_messages(conversation)
-            #
-            event_payload = {
-                'pylon': str(self.context.id),
-                'project_id': payload.project_id,
-                'user_id': current_user["id"],
-                'predict_source': str(sio_event),
-                'entity_type': 'prompt',
-                'entity_id': payload.prompt_id,
-                'entity_meta': {'version_id': payload.prompt_version_id, 'prediction_type': payload.type},
-                'chat_history': [i.dict() for i in conversation],
-                'predict_response': full_result,
-                'model_settings': payload.merged_settings,
-                'tokens_in': tokens_in,
-                'tokens_out': tokens_out,
+                'content': full_result,
             }
-            #
-            self.context.event_manager.fire_event(
-                PredictionEvents.prediction_done,
-                json.loads(json.dumps(event_payload))
-            )
+            self.context.event_manager.fire_event('chat_message_stream_end', chat_payload)
+        #
+        current_user = auth.current_user(
+            auth_data=auth.sio_users[sid]
+        )
+        #
+        tokens_in = worker_client.ai_count_tokens(
+            integration_name=payload.integration.name,
+            settings=payload,
+            data=full_result,
+        )
+        #
+        tokens_out = worker_client.ai_count_tokens(
+            integration_name=payload.integration.name,
+            settings=payload,
+            data=conversation,
+        )
+        #
+        conversation = convert_messages_to_langchain(conversation)
+        #
+        event_payload = {
+            'pylon': str(self.context.id),
+            'project_id': payload.project_id,
+            'user_id': current_user["id"],
+            'predict_source': str(sio_event),
+            'entity_type': 'prompt',
+            'entity_id': payload.prompt_id,
+            'entity_meta': {'version_id': payload.prompt_version_id, 'prediction_type': payload.type},
+            'chat_history': [i.dict() for i in conversation],
+            'predict_response': full_result,
+            'model_settings': payload.merged_settings,
+            'tokens_in': tokens_in,
+            'tokens_out': tokens_out,
+        }
+        #
+        self.context.event_manager.fire_event(
+            PredictionEvents.prediction_done,
+            json.loads(json.dumps(event_payload))
+        )
 
     @web.rpc("prompt_lib_get_prompt_model", "get_prompt_model")
     def get_prompt_model(self):
