@@ -369,6 +369,18 @@ def fire_collection_unpublished(collection_data):
     )
 
 
+def update_collection(project_id: int, collection_id: int, data: dict):
+    with db.with_project_schema_session(project_id) as session:
+        if collection := session.query(Collection).get(collection_id):
+            for field, value in data.items():
+                if hasattr(collection, field):
+                    setattr(collection, field, value)
+            session.commit()
+
+            return get_detail_collection(collection)
+        return None
+
+
 def get_collection(project_id: int, collection_id: int, only_public: bool = False):
     with db.with_project_schema_session(project_id) as session:
         if collection := session.query(Collection).get(collection_id):
