@@ -3,10 +3,11 @@ from flask import request
 from pydantic import ValidationError
 from pylon.core.tools import log
 
-from ...models.pd.collections import CollectionPatchModel
+from ...models.pd.collections import CollectionUpdateModel, CollectionPatchModel
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.collections import (
     delete_collection,
+    update_collection,
     get_collection,
     patch_collection_with_entities,
 )
@@ -43,6 +44,30 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def delete(self, project_id, collection_id):
         is_deleted = delete_collection(project_id, collection_id)
         return "", 204 if is_deleted else 404
+
+    @auth.decorators.check_api({
+        "permissions": ["models.prompt_lib.collection.update"],
+        "recommended_roles": {
+            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+        }})
+    @api_tools.endpoint_metrics
+    def put(self, project_id, collection_id):
+        try:
+            payload = request.get_json()
+            data = CollectionUpdateModel.validate(payload).dict(
+                exclude_none=True,
+                exclude={"status"}
+            )
+            result = update_collection(project_id, collection_id, data)
+            if not result:
+                return {"error": f"No collection found with id '{collection_id}'"}, 404
+            return result, 200
+        except ValidationError as e:
+            return e.errors(), 400
+        except Exception as e:
+            log.info(traceback.format_exc())
+            return {"error": str(e)}, 400
 
     @auth.decorators.check_api({
         "permissions": ["models.prompt_lib.collection.update"],

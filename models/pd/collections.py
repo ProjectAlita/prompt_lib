@@ -97,6 +97,12 @@ class CollectionDetailModel(BaseModel):
         orm_mode = True
 
 
+class CollectionUpdateModel(BaseModel):
+    name: Optional[str]
+    description: Optional[str]
+    status: str
+
+
 class CollectionListModel(BaseModel):
     id: int
     name: str

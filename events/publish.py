@@ -3,6 +3,7 @@ from pylon.core.tools import log, web
 from tools import db
 from copy import deepcopy
 from ..models.all import Collection, Prompt, PromptVersion
+from ..models.pd.prompt import PromptDetailModel
 from ..models.enums.events import PromptEvents
 from ..utils.publish_utils import (
     close_private_version,
@@ -89,8 +90,22 @@ class Event:
                 if not prompt:
                     return
 
+                prompt_details = PromptDetailModel.from_orm(prompt)
+
                 session.delete(prompt)
                 session.commit()
+
+                # recursive call of itself
+                payload = {
+                    'prompt_data': prompt_details.dict(),
+                    'public_id': public_id,
+                    'is_public': True
+                }
+
+                context.event_manager.fire_event(
+                    PromptEvents.prompt_deleted, payload
+                )
+
 
     @web.event('prompt_public_version_status_change')
     def handle_on_moderation(self, context, event, payload: dict) -> None:
