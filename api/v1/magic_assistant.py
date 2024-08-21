@@ -61,11 +61,11 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         try:
             response = MagicAssistantResponse.parse_obj(result)
-            log.info(f'{result}=')
+            log.debug(f'{result}=')
         except ValidationError:
             log.warning('LLM did not return required values, second attempt...')
             regenerated_result = get_generated_prompt_content(payload, conversation)
-            log.info(f'{regenerated_result}=')
+            log.debug(f'{regenerated_result}=')
             response = MagicAssistantResponse.create_from_dict(regenerated_result)
 
         return serialize(response.dict()), 200
