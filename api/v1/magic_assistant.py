@@ -3,7 +3,7 @@ from pydantic import ValidationError
 from tools import api_tools, auth, VaultClient, serialize, config as c
 from pylon.core.tools import log
 
-# from ....promptlib_shared.utils.utils import add_public_project_id
+from ....promptlib_shared.utils.utils import add_public_project_id
 from ...models.pd.magic_assistant import MagicAssistantPredict, MagicAssistantResponse
 from ...utils.conversation import prepare_payload, prepare_conversation, CustomTemplateError
 from ...utils.constants import PROMPT_LIB_MODE
@@ -16,13 +16,13 @@ except:
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
-    # @add_public_project_id
-    # @auth.decorators.check_api({
-    #     "permissions": ["models.prompts.magic_assistant.post"],
-    #     "recommended_roles": {
-    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-    #     }})
+    @add_public_project_id
+    @auth.decorators.check_api({
+        "permissions": ["models.prompts.magic_assistant.post"],
+        "recommended_roles": {
+            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+        }})
     def post(self, project_id: int, **kwargs):
         payload = dict(request.json)
 
@@ -54,6 +54,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
         except Exception as e:
             return {'error': str(e)}, 400
 
+        if not payload.model_settings.model.integration_uid:
+            return {'error': 'Check magic_assistant_version_id '
+                             'variable or project_id were provided correctly'}, 400
+
         result = get_generated_prompt_content(payload, conversation)
 
         if not result:
@@ -61,7 +65,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         try:
             response = MagicAssistantResponse.parse_obj(result)
-            log.debug(f'{result}=')
         except ValidationError:
             log.warning('LLM did not return required values, second attempt...')
             regenerated_result = get_generated_prompt_content(payload, conversation)

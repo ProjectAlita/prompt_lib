@@ -14,7 +14,6 @@ def get_generated_prompt_content(payload: PromptVersionPredictModel, conversatio
             settings=payload,
             messages=conversation,
         )
-        log.info(f'{result=}')
     except Exception as e:
         return {'error': str(e)}, 400
     return json.loads(result.get('content'))
