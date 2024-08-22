@@ -35,7 +35,7 @@ class TagList(metaclass=TagListABC):
         self._is_collection = False
 
     def _set_general_query_info(self):
-        self.limit = self.args.get("limit", default=10, type=int)
+        self.limit = self.args.get("limit", default=0, type=int)
         self.offset = self.args.get("offset", default=0, type=int)
         self.my_liked = self.args.get("my_liked", default=False, type=bool)
         self.entity_coverage = self.args.get("entity_coverage", default="all")
