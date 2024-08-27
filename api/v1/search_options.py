@@ -1,19 +1,38 @@
-from flask import request
 from tools import api_tools, auth, config as c
+from pylon.core.tools import log
 
-from ...models.pd.misc import MultiplePromptSearchModel, MultiplePromptTagListModel
-from ....promptlib_shared.models.all import Tag
-from ....promptlib_shared.utils.utils import get_entities_by_tags
-from ...models.all import Prompt, Collection, PromptVersion
-from ...models.pd.collections import MultipleCollectionSearchModel
+from ...models.pd.misc import MultiplePromptSearchModel
+from ...models.all import Prompt, PromptVersion, PromptVersionTagAssociation
 from ...utils.constants import PROMPT_LIB_MODE
+from ...utils.searches import get_search_options_one_entity
 
-from ...utils.searches import (
-    get_search_options,
-    get_tag_filter,
-    get_filter_collection_by_prompt_tags_condition,
-)
-from ...utils.collections import NotFound
+
+def _merge_search_options_results(search_results):
+    assert len(search_results) != 0
+
+    res = {
+        "collection": {
+            "total": 0,
+            "rows": []
+        },
+        "tag": {
+            "total": 0,
+            "rows": []
+        }
+    }
+    for search_result in search_results:
+        for entity_name, entity_result in search_result.items():
+            if entity_name in ('collection', 'tag'):
+                for item in entity_result['rows']:
+                    if item not in res[entity_name]['rows']:
+                        res[entity_name]['rows'].append(item)
+                res[entity_name]['total'] = len(res[entity_name]['rows'])
+            elif entity_name not in res:
+                res[entity_name] = entity_result
+            else:
+                continue
+
+    return res
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
@@ -28,83 +47,36 @@ class PromptLibAPI(api_tools.APIModeHandler):
     )
     @api_tools.endpoint_metrics
     def get(self, project_id: int):
-        result = {}
-        entities = request.args.getlist('entities[]')
-        tags = tuple(set(int(tag) for tag in request.args.getlist('tags[]')))
-        statuses = request.args.getlist('statuses[]')
-        author_id = request.args.get("author_id", type=int)
+        results = []
 
-        meta_data = {
-            "prompt": {
-                "Model": Prompt,
-                "PDModel": MultiplePromptSearchModel,
-                "joinedload_": [Prompt.versions],
-                "args_prefix": "prompt",
-                "filters": [],
-            },
-            "collection": {
-                "Model": Collection,
-                "PDModel": MultipleCollectionSearchModel,
-                "joinedload_": None,
-                "args_prefix": "col",
-                "filters": [],
-            },
-            "tag": {
-                "Model": Tag,
-                "PDModel": MultiplePromptTagListModel,
-                "joinedload_": None,
-                "args_prefix": "tag",
-                "filters": []
-            }
-        }
-
-        if tags:
-            try:
-                data = get_filter_collection_by_prompt_tags_condition(project_id, tags)
-                meta_data['collection']['filters'].append(data)
-            except NotFound:
-                entities = [entity for entity in entities if entity != "collection"]
-                result['collection'] = {
-                    "total": 0,
-                    "rows": []
-                }
-
-            prompts_subq = get_entities_by_tags(project_id, tags, Prompt, PromptVersion)
-            meta_data['prompt']['filters'].append(
-                Prompt.id.in_(prompts_subq)
-            )
-
-        if author_id:
-            # collection filtering
-            meta_data['collection']['filters'].append(
-                Collection.author_id == author_id
-            )
-
-            # prompt filtering
-            meta_data['prompt']['filters'].append(
-                Prompt.versions.any(PromptVersion.author_id == author_id)
-            )
-
-        if statuses:
-            meta_data['prompt']['filters'].append(
-                (Prompt.versions.any(PromptVersion.status.in_(statuses)))
-            )
-            meta_data['collection']['filters'].append(
-                Collection.status.in_(statuses)
-            )
-
-        meta_data['tag']['filters'].append(
-            get_tag_filter(
-                project_id=project_id,
-                author_id=author_id,
-                statuses=statuses,
-                tags=tags
-            )
+        res = get_search_options_one_entity(
+            project_id,
+            'prompt',
+            Prompt,
+            PromptVersion,
+            MultiplePromptSearchModel,
+            PromptVersionTagAssociation
         )
+        results.append(res)
 
-        for section, data in meta_data.items():
-            if section in entities:
-                result[section] = get_search_options(project_id, **data)
+        try:
+            res = self.module.context.rpc_manager.timeout(2).datasources_get_search_options(project_id)
+        except Exception as ex:
+            log.debug(ex)
+            log.warning("Datasource plugun is not available, skipping for search_options")
+        else:
+            results.append(res)
+
+        try:
+            res = self.module.context.rpc_manager.timeout(2).applications_get_search_options(project_id)
+        except Exception:
+            log.debug(ex)
+            log.warning("Application plugun is not available, skipping for search_options")
+        else:
+            results.append(res)
+
+        result = _merge_search_options_results(results)
+
         return result, 200
 
 
