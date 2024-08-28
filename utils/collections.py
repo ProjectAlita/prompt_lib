@@ -756,6 +756,8 @@ def do_patch_collection(data: CollectionPatchModel, session, return_data):
             entity_info.entity_name
         )
         return result, event_caller
+    else:
+        raise RuntimeError(f"Collection with id={data.collection_id} does not exist in project {data.project_id}")
 
     return None
 
