@@ -69,7 +69,7 @@ def get_entities_for_collection(
     entities = []
     filters = []
     offset = request.args.get("offset", 0, type=int)
-    limit = request.args.get("limit", 10, type=int)
+    limit = request.args.get("limit", 0, type=int)
     trend_period = request.args.get("trending_period")
     my_liked = request.args.get('my_liked', False)
 
@@ -154,7 +154,8 @@ def get_entities_for_collection(
                 entity.set_authors(user_map)
                 entities.append(json.loads(entity.json()))
 
-    entities = entities[offset:limit + offset]
+    if limit:
+        entities = entities[offset:limit + offset]
     return entities
 
 
