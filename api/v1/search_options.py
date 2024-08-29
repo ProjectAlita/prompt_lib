@@ -69,7 +69,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         try:
             res = self.module.context.rpc_manager.timeout(2).applications_get_search_options(project_id)
-        except Exception:
+        except Exception as ex:
             log.debug(ex)
             log.warning("Application plugun is not available, skipping for search_options")
         else:
