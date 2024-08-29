@@ -3,11 +3,11 @@ from pydantic import ValidationError
 from tools import api_tools, auth, VaultClient, serialize, config as c
 from pylon.core.tools import log
 
-# from ....promptlib_shared.utils.utils import add_public_project_id
 from ...models.pd.magic_assistant import MagicAssistantPredict, MagicAssistantResponse
 from ...utils.conversation import prepare_payload, prepare_conversation, CustomTemplateError
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.generate_prompt_utils import get_generated_prompt_content
+from ...utils.publish_utils import get_public_project_id
 
 try:
     from langchain_openai import AzureChatOpenAI
@@ -16,7 +16,6 @@ except:
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
-    # @add_public_project_id
     # @auth.decorators.check_api({
     #     "permissions": ["models.prompts.magic_assistant.post"],
     #     "recommended_roles": {
@@ -31,14 +30,22 @@ class PromptLibAPI(api_tools.APIModeHandler):
         except Exception as e:
             return {'error': str(e)}, 400
 
-        secrets = VaultClient(project_id).get_all_secrets()
-        magic_assistant_prompt_version_id = secrets.get('magic_assistant_version_id')
+        private_secrets = VaultClient(project_id).get_secrets()
+        magic_assistant_prompt_version_id = private_secrets.get('magic_assistant_version_id')
+
+        if not magic_assistant_prompt_version_id:
+            project_id = get_public_project_id()
+            admin_secrets = VaultClient(project_id).get_all_secrets()
+            magic_assistant_prompt_version_id = admin_secrets.get('magic_assistant_version_id')
+            if not magic_assistant_prompt_version_id:
+                return {'error': 'No magic_assistant_version_id were found'}, 400
+
         user_name = auth.current_user().get('name')
 
         raw_data = {
             **data.dict(),
             'project_id': project_id,
-            'prompt_version_id': magic_assistant_prompt_version_id,
+            'prompt_version_id': int(magic_assistant_prompt_version_id),
             'user_name': user_name,
         }
 
