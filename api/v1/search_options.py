@@ -63,7 +63,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             res = self.module.context.rpc_manager.timeout(2).datasources_get_search_options(project_id)
         except Exception as ex:
             log.debug(ex)
-            log.warning("Datasource plugun is not available, skipping for search_options")
+            log.warning("Datasource plugin is not available, skipping for search_options")
         else:
             results.append(res)
 
@@ -71,7 +71,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             res = self.module.context.rpc_manager.timeout(2).applications_get_search_options(project_id)
         except Exception as ex:
             log.debug(ex)
-            log.warning("Application plugun is not available, skipping for search_options")
+            log.warning("Application plugin is not available, skipping for search_options")
         else:
             results.append(res)
 
