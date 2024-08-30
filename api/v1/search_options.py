@@ -1,3 +1,6 @@
+from traceback import format_exc
+
+from queue import Empty
 from tools import api_tools, auth, config as c
 from pylon.core.tools import log
 
@@ -49,31 +52,37 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def get(self, project_id: int):
         results = []
 
-        res = get_search_options_one_entity(
-            project_id,
-            'prompt',
-            Prompt,
-            PromptVersion,
-            MultiplePromptSearchModel,
-            PromptVersionTagAssociation
-        )
-        results.append(res)
-
         try:
-            res = self.module.context.rpc_manager.timeout(2).datasources_get_search_options(project_id)
-        except Exception as ex:
-            log.debug(ex)
-            log.warning("Datasource plugin is not available, skipping for search_options")
-        else:
+            res = get_search_options_one_entity(
+                project_id,
+                'prompt',
+                Prompt,
+                PromptVersion,
+                MultiplePromptSearchModel,
+                PromptVersionTagAssociation
+            )
             results.append(res)
 
-        try:
-            res = self.module.context.rpc_manager.timeout(2).applications_get_search_options(project_id)
+            try:
+                res = self.module.context.rpc_manager.timeout(2).datasources_get_search_options(project_id)
+            except Empty:
+                log.warning("Datasource plugin is not available, skipping for search_options")
+            else:
+                results.append(res)
+
+            try:
+                res = self.module.context.rpc_manager.timeout(2).applications_get_search_options(project_id)
+            except Empty:
+                log.warning("Application plugin is not available, skipping for search_options")
+            else:
+                results.append(res)
+
+        except AttributeError as ex:
+            log.error(ex)
+            return {"error": f"One of the search conditions has invalid value: {ex.name}"}, 400
         except Exception as ex:
-            log.debug(ex)
-            log.warning("Application plugin is not available, skipping for search_options")
-        else:
-            results.append(res)
+            log.error(format_exc())
+            return {"error": str(ex)}, 400
 
         result = _merge_search_options_results(results)
 

@@ -216,10 +216,10 @@ def get_filter_collection_by_prompt_tags_condition(project_id: int, tags: List[i
 
 def get_args(prefix):
     args = request.args
-    limit = args.get('limit', 10, type=int)
+    limit = args.get('limit', 0, type=int)
     offset = args.get('offset', 0, type=int)
     sort = args.get('sort')
-    order = args.get('order')
+    order = args.get('order', 'desc')
 
     result_args = dict(args)
     result_args['limit'] = result_args.get(f'{prefix}_limit', limit)
