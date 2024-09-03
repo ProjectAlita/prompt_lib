@@ -193,7 +193,7 @@ def get_filter_collection_by_entity_tags_condition(project_id: int, tags: List[i
     entity_ids = get_entities_by_tags(project_id, tags, **kwargs)
 
     if not entity_ids:
-        raise NotFound(f"No {entity_name} with given tags found")
+        return entity_filters
 
     for id_ in entity_ids:
         entity_value = {
@@ -273,10 +273,7 @@ def list_collections(
             # tag filtering
             if isinstance(tags, str):
                 tags = [int(tag) for tag in tags.split(',')]
-            try:
-                condition = get_filter_collection_by_tags_condition(project_id, tags)
-            except NotFound:
-                return 0, []
+            condition = get_filter_collection_by_tags_condition(project_id, tags)
             filters.append(condition)
 
         query = session.query(Collection)
