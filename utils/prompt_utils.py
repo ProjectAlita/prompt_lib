@@ -42,7 +42,7 @@ def prompts_create_variable(project_id: int, variable: dict, **kwargs) -> dict:
     return create_variables_bulk(project_id, [variable])[0]
 
 
-def get_prompt_tags(project_id: int, prompt_id: int) -> List[dict]:
+def get_prompt_tags(project_id: int, prompt_id: int, args: dict = None) -> List[dict]:
     with db.with_project_schema_session(project_id) as session:
         query = (
             session.query(Tag)
@@ -51,6 +51,17 @@ def get_prompt_tags(project_id: int, prompt_id: int) -> List[dict]:
             .filter(PromptVersion.prompt_id == prompt_id)
             .order_by(PromptVersion.id)
         )
+        filters = list()
+
+        if author_id := args.get('author_id'):
+            filters.append(Prompt.versions.any(PromptVersion.author_id == author_id))
+        if statuses := args.get('statuses'):
+            statuses = statuses.split(',')
+            filters.append(Prompt.versions.any(PromptVersion.status.in_(statuses)))
+
+        if filters:
+            query = query.filter(*filters)
+
         return [PromptTagListModel.from_orm(tag).dict() for tag in query.all()]
 
 
