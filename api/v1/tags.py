@@ -45,7 +45,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
     @api_tools.endpoint_metrics
     def get(self, project_id, prompt_id=None):
         if prompt_id:
-            return get_prompt_tags(project_id, prompt_id), 200
+            return get_prompt_tags(project_id, prompt_id, request.args), 200
         return list_tags(project_id, request.args), 200
 
 
