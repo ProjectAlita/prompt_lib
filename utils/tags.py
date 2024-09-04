@@ -35,11 +35,10 @@ class TagList(metaclass=TagListABC):
         self._is_collection = False
 
     def _set_general_query_info(self):
-        self.limit = self.args.get("limit", default=0, type=int)
-        self.offset = self.args.get("offset", default=0, type=int)
-        self.my_liked = self.args.get("my_liked", default=False, type=bool)
-        self.entity_coverage = self.args.get("entity_coverage", default="all")
-        self.not_all = self.entity_coverage != "all"
+        self.limit = self.args.get("limit", 0)
+        self.offset = self.args.get("offset", 0)
+        self.my_liked = self.args.get("my_liked", False)
+        self.entity_coverage = self.args.get("entity_coverage", "all")
 
     def _set_trending_info(self):
         trend_start_period = self.args.get('trend_start_period')
@@ -122,21 +121,18 @@ class TagList(metaclass=TagListABC):
 
     def execute_main_query(self, tag_filters):
         select_list = [Tag.id, Tag.name, cast(Tag.data, String)]
-        if self.not_all:
-            select_list.append(func.count(func.distinct(getattr(self.Version, self.foriegn_key))))
+        select_list.append(func.count(func.distinct(getattr(self.Version, self.foriegn_key))))
 
         query = (
             self.session.query(*select_list)
             .filter(*tag_filters)
         )
-        if self.not_all:
-            query = query.join(self.VersionTagAssociation, self.VersionTagAssociation.c.tag_id == Tag.id)\
-                .join(self.Version, self.Version.id == self.VersionTagAssociation.c.version_id)
+        query = query.join(self.VersionTagAssociation, self.VersionTagAssociation.c.tag_id == Tag.id)\
+            .join(self.Version, self.Version.id == self.VersionTagAssociation.c.version_id)
 
         query = query.group_by(Tag.id, Tag.name, cast(Tag.data, String))
         order_by = Tag.id.desc()
-        if self.not_all:
-            order_by = func.count(func.distinct(getattr(self.Version, self.foriegn_key))).desc()
+        order_by = func.count(func.distinct(getattr(self.Version, self.foriegn_key))).desc()
         query = query.order_by(order_by)
         total = query.count()
 
@@ -149,28 +145,26 @@ class TagList(metaclass=TagListABC):
     
     def _as_dict(self, x):
         result = {'id': x[0], 'name': x[1], 'data': loads(x[2])}
-        if self.not_all:
-            result[self.count_name] = x[3]
+        result[self.count_name] = x[3]
         return result
 
     # template method    
     def get_tags(self):
         # set entity info
         tag_filters = []
-        if self.not_all:
-            self.set_related_entity_info()
+        self.set_related_entity_info()
 
-            # getting related entity info
-            filters = self.get_related_entity_filters()
+        # getting related entity info
+        filters = self.get_related_entity_filters()
 
-            # adding extra filters into filters
-            filters = self.add_related_entity_extra_filters(filters)
+        # adding extra filters into filters
+        filters = self.add_related_entity_extra_filters(filters)
 
-            # get related entity query
-            subquery = self.get_related_entity_query(filters)
+        # get related entity query
+        subquery = self.get_related_entity_query(filters)
 
-            # get main query filters
-            tag_filters = self.get_main_query_filters(subquery)
+        # get main query filters
+        tag_filters = self.get_main_query_filters(subquery)
 
         # execute main query
         total, tags = self.execute_main_query(tag_filters)
@@ -204,7 +198,7 @@ class PromptTagList(TagList):
             prompt_ids = prompt_ids = self._flatten_prompt_ids(self.project_id, collection_prompts)
             filters.append(Prompt.id.in_(prompt_ids))
 
-        if self.args.get("my_liked_collections", default=False, type=bool):
+        if self.args.get("my_liked_collections", False):
             query = self.session.query(Collection.prompts)
             extra_columns = []
 
@@ -278,11 +272,28 @@ class AllTagList(TagList):
 
 def list_tags(project_id, args):
     entity_coverage = args.get("entity_coverage", default="all")
-    TagClass: TagList = TagListABC.meta_registry.get(entity_coverage)
-    if not TagClass:
-        return {
-            "total": 0,
-            "rows": list()
-        }
-    return TagClass(project_id, args).get_tags()
-    
+    tags = {
+        'total': 0,
+        'rows': list()
+    }
+    if entity_coverage == 'all':
+        tag_ids = set()
+        entities = dict(**TagListABC.meta_registry)
+        entities.pop(entity_coverage)
+        args = dict(args)
+        for entity in entities:
+            TagClass: TagList = TagListABC.meta_registry.get(entity)
+            args['entity_coverage'] = entity
+            half_result = TagClass(project_id, args).get_tags()
+            for row in half_result['rows']:
+                if row['id'] not in tag_ids:
+                    tags['rows'].append(row)
+                    tag_ids.add(row['id'])
+        tags['total'] = len(tags['rows'])
+    else:
+        TagClass: TagList = TagListABC.meta_registry.get(entity_coverage)
+        if not TagClass:
+            return tags
+        else:
+            tags = TagClass(project_id, args).get_tags()
+    return tags
