@@ -79,7 +79,7 @@ class Event:
                     "models.prompt_lib.feedbacks.create",
                     #
                     "models.applications.public_applications.list",
-                    "models.chat.conversations.list",
+                    # "models.chat.conversations.list",
                 ],
                 "public_admin": [
                     "models.datasource",
