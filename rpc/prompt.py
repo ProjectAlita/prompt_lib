@@ -1,17 +1,17 @@
 import json
-import traceback
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from uuid import uuid4
 
 from pylon.core.tools import web, log
 
-from langchain_openai import AzureChatOpenAI
 from pydantic import parse_obj_as, ValidationError
 from sqlalchemy import desc
 from sqlalchemy.orm import joinedload
 from ..models.enums.all import PromptVersionType
+from ..models.pd.export_import import PromptImportModel
 from ..models.pd.predict import PromptVersionPredictModel
+from ..models.pd.prompt import PromptDetailModel
 from ..utils.ai_providers import AIProvider
 from ..models.pd.v1_structure import PromptV1Model, TagV1Model
 from tools import rpc_tools, db, auth
@@ -21,9 +21,9 @@ from ..models.all import (
 )
 from ..utils.conversation import prepare_payload, prepare_conversation, CustomTemplateError, \
     convert_messages_to_langchain
+from ..utils.create_utils import create_prompt
 from ...promptlib_shared.utils.constants import PredictionEvents
 from ...promptlib_shared.utils.sio_utils import SioValidationError, get_event_room, SioEvents
-from ...integrations.models.pd.integration import SecretField
 
 
 class RPC:
@@ -314,3 +314,23 @@ class RPC:
     @web.rpc("prompt_lib_get_version_model", "get_version_model")
     def get_version_model(self):
         return PromptVersion
+
+    @web.rpc("prompt_lib_import_prompt", "import_prompt")
+    def import_prompt(self, raw: dict, project_id: int, author_id: int) -> Tuple[str, list]:
+        errors = []
+
+        with db.with_project_schema_session(project_id) as session:
+            raw['owner_id'] = project_id
+            for version in raw.get("versions", []):
+                version["author_id"] = author_id
+                if not version.get('name'):
+                    version['name'] = 'latest'
+            try:
+                prompt_data = PromptImportModel.parse_obj(raw)
+            except ValidationError as e:
+                errors.append(str(e))
+                return '', errors
+            prompt = create_prompt(prompt_data, session)
+            session.commit()
+
+            return json.loads(PromptDetailModel.from_orm(prompt).json()), errors
