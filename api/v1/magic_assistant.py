@@ -16,12 +16,12 @@ except:
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
-    # @auth.decorators.check_api({
-    #     "permissions": ["models.prompts.magic_assistant.post"],
-    #     "recommended_roles": {
-    #         c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-    #         c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
-    #     }})
+    @auth.decorators.check_api({
+        "permissions": ["models.prompt_lib.magic_assistant.post"],
+        "recommended_roles": {
+            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
+            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+        }})
     def post(self, project_id: int, **kwargs):
         payload = dict(request.json)
 
