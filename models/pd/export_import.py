@@ -22,6 +22,7 @@ class PromptVersionExportModel(BaseModel):
     model_settings: Optional[ModelSettingsBaseModel]
     type: PromptVersionType
     author_id: int
+    meta: Optional[dict]
 
     class Config:
         orm_mode = True
