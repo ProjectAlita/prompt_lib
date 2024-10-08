@@ -39,6 +39,7 @@ class PromptVersionPredictModel(BaseModel):
     user_input: Optional[str]
     chat_history: Optional[List[PromptMessagePredictModel]] = []
     integration: Optional[Any] = None
+    interaction_uuid: str | uuid.UUID | None = None
 
     class Config:
         orm_mode = True

@@ -210,7 +210,8 @@ class RPC:
                 "message_id": payload.message_id,
                 "type": "start_task",
                 "message_type": payload.type,
-                "content": {**start_event_content}
+                "content": {**start_event_content},
+                'interaction_uuid': payload.interaction_uuid
             },
             room=room,
         )
@@ -300,6 +301,7 @@ class RPC:
             'model_settings': payload.merged_settings,
             'tokens_in': tokens_in,
             'tokens_out': tokens_out,
+            'interaction_uuid': payload.interaction_uuid
         }
         #
         self.context.event_manager.fire_event(
