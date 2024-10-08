@@ -39,9 +39,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 try:
                     model = entity_model.parse_obj(item).dict()
                 except ValidationError as e:
-                    return f'Validation error on item {entity}: {e}', 400
+                    return {'errors': {entity: [f'Validation error on item {entity}: {e}']}}, 400
             else:
-                return f'No such {entity} in import entity mapper', 400
+                return {'errors': {entity: [f'No such {entity} in import entity mapper']}}, 400
 
             rpc_func = ENTITY_IMPORT_MAPPER.get(entity)
             if rpc_func:
