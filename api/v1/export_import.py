@@ -155,6 +155,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
         }})
     @api_tools.endpoint_metrics
     def post(self, project_id: int, **kwargs):
+        """
+        WARNING: this code is deprecated recommended to use magic import instead. This API can be used optional.
+        """
         author_id = auth.current_user().get("id")
         is_dial_struct = 'folders' in request.json or 'from_dial' in request.args
         if is_dial_struct:

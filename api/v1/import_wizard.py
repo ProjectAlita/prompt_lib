@@ -26,7 +26,11 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def post(self, project_id: int, **kwargs):
         import_data = request.json
         author_id = auth.current_user().get("id")
-        result, errors = [], []
+        result, errors = {}, {}
+
+        for key in ENTITY_IMPORT_MAPPER:
+            result[key] = []
+            errors[key] = []
 
         for item in import_data:
             entity = item['entity']
@@ -35,19 +39,29 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 try:
                     model = entity_model.parse_obj(item).dict()
                 except ValidationError as e:
-                    return f'Validation error on item {entity}: {e}', 400
+                    return {'errors': {entity: [f'Validation error on item {entity}: {e}']}}, 400
             else:
-                return f'No such {entity} in import entity mapper', 400
+                return {'errors': {entity: [f'No such {entity} in import entity mapper']}}, 400
 
             rpc_func = ENTITY_IMPORT_MAPPER.get(entity)
             if rpc_func:
                 r, e = getattr(self.module.context.rpc_manager.call, rpc_func)(
                     model, project_id, author_id
                 )
-                result.append(r)
-                errors.extend(e)
+                result[entity].append(r)
+                errors[entity].extend(e)
 
-        return {'result': result, 'errors': errors}, 201
+        has_results = any(result[key] for key in result if result[key])
+        has_errors = any(errors[key] for key in errors if errors[key])
+
+        if not has_errors and has_results:
+            status_code = 201
+        elif has_errors and has_results:
+            status_code = 207
+        else:
+            status_code = 400
+
+        return {'result': result, 'errors': errors}, status_code
 
 
 class API(api_tools.APIBase):

@@ -20,7 +20,7 @@ class PromptVersionExportModel(BaseModel):
     messages: Optional[List[PromptMessageBaseModel]]
     tags: Optional[List[TagBaseModel]]
     model_settings: Optional[ModelSettingsBaseModel]
-    type: PromptVersionType
+    type: Optional[PromptVersionType] = PromptVersionType.chat
     author_id: int
     meta: Optional[dict]
 

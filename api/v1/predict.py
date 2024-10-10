@@ -242,6 +242,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             'model_settings': payload.merged_settings,
             'tokens_in': tokens_in,
             'tokens_out': tokens_out,
+            'interaction_uuid': payload.interaction_uuid
         }
         self.module.context.event_manager.fire_event(
             PredictionEvents.prediction_done,
