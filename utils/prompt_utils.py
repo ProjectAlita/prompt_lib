@@ -430,3 +430,34 @@ def fire_searched_event(project_id: int, search_data: dict):
             "search_data": search_data,
         }
     )
+
+
+def get_prompt_with_versions_dict(project_id: int, prompt_id: int, exclude=None) -> (dict, list):
+    with db.with_project_schema_session(project_id) as session:
+        prompt = session.query(Prompt).filter(Prompt.id == prompt_id).first()
+        if not prompt:
+            return None, None
+        versions = list()
+        for v in prompt.versions:
+            v_data = v.to_json(exclude_fields=exclude)
+            v_data['tags'] = []
+            for i in v.tags:
+                v_data['tags'].append(i.to_json())
+            versions.append(v_data)
+        return prompt.to_json(exclude_fields=exclude), versions
+
+
+def get_entity_diff(source, target) -> dict:
+    all_keys = set(source.keys()).union(set(target.keys()))
+    key_diffs = {'modified': {}}
+    for key in all_keys:
+        if key not in source:
+            key_diffs['added'].append({key: target[key]})
+        elif key not in target:
+            key_diffs['removed'].append({key: source[key]})
+        elif source[key] != target[key]:
+            key_diffs['modified'][key] = {
+                'old_value': source[key],
+                'new_value': target[key],
+            }
+    return key_diffs
