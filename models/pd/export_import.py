@@ -1,7 +1,6 @@
 from typing import Optional, List
 
 from pydantic import AnyUrl, BaseModel
-from pylon.core.tools import log
 
 from .model_settings import ModelSettingsBaseModel
 from .prompt_message import PromptMessageBaseModel
@@ -36,6 +35,19 @@ class PromptExportModel(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class PromptVersionForkModel(PromptVersionExportModel):
+    id: int
+    name: Optional[str]
+    author_id: Optional[str]
+
+
+class PromptForkModel(PromptExportModel):
+    id: int
+    owner_id: int
+    name: Optional[str]
+    versions: List[PromptVersionForkModel]
 
 
 class PromptImportModel(PromptExportModel):

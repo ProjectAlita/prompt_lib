@@ -1,9 +1,9 @@
 from typing import List
 
 from openai import BaseModel
-from ...models.all import PromptVersion
+from .export_import import PromptForkModel
 
 
-class ForkPromptBase(BaseModel):
-    target_project_id: int
-    versions: List[PromptVersion]
+class ForkPromptInput(BaseModel):
+    prompts: List[PromptForkModel]
+

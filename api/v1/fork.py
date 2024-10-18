@@ -4,7 +4,7 @@ from tools import api_tools, db, auth, config as c
 
 from pydantic import ValidationError
 from ...models.all import Prompt
-from ...models.pd.fork import ForkPromptBase
+from ...models.pd.fork import ForkPromptInput
 
 from ...utils.constants import PROMPT_LIB_MODE
 
@@ -17,59 +17,72 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
     @api_tools.endpoint_metrics
-    def post(self, project_id: int, prompt_id: int, **kwargs):
+    def post(self, project_id: int, **kwargs):
         fork_data = request.json
         author_id = auth.current_user().get("id")
 
         try:
-            model = ForkPromptBase.parse_obj(fork_data)
+            fork_input = ForkPromptInput.parse_obj(fork_data)
         except ValidationError as e:
             return f'Validation error on item: {e}', 400
 
-        with db.with_project_schema_session(project_id) as session:
-            prompt = session.query(Prompt).filter(Prompt.id == prompt_id).first()
-            prompt_with_versions = prompt.to_json()
-            prompt_with_versions['versions'] = []
-            for v in prompt.versions:
-                if v.id not in model.versions:
-                    continue
-                # TODO parse model settings from payload
-                v_data = v.to_json()
-                v_data['tags'] = []
-                for i in v.tags:
-                    v_data['tags'].append(i.to_json())
+        results, errors = [], []
 
-                # skip if parent_entity_id in meta
-                if 'parent_entity_id' not in v_data.get('meta', {}):
-                    shared_id = v_data.get('shared_id')
-                    shared_owner_id = v_data.get('shared_owner_id')
+        for fork_input_prompt in fork_input.prompts:
+            with db.with_project_schema_session(fork_input_prompt.owner_id) as session:
+                original_prompt = session.query(Prompt).filter(Prompt.id == fork_input_prompt.id).first()
+                new_prompt = original_prompt.to_json()
+                new_prompt['versions'] = []
+                input_prompt_model_settings = {version.id: version.model_settings.dict()
+                                               for version in fork_input_prompt.versions}
 
-                    if shared_id and shared_owner_id:
-                        parent_entity_id = shared_id
-                        parent_project_id = shared_owner_id
-                    else:
-                        parent_entity_id = prompt_id
-                        parent_project_id = project_id
+                for original_prompt_version in original_prompt.versions:
+                    if original_prompt_version.id not in input_prompt_model_settings.keys():
+                        continue
 
-                    meta = v_data.get('meta', {})
-                    meta.update({
-                        'parent_entity_id': parent_entity_id,
-                        'parent_project_id': parent_project_id
-                    })
-                    v_data['meta'] = meta
+                    new_prompt_version = original_prompt_version.to_json()
+                    new_prompt_version.pop('id')
 
-                prompt_with_versions['versions'].append(v_data)
+                    new_prompt_version['tags'] = []
+                    for i in original_prompt_version.tags:
+                        new_prompt_version['tags'].append(i.to_json())
 
-        result, errors = self.module.context.rpc_manager.call.prompt_lib_import_prompt(
-            prompt_with_versions, model.target_project_id, author_id
-        )
-        # TODO add if in "publish prompt" to create new copy in fork original prompt
-        return {'result': result, 'errors': errors}, 201
+                    new_prompt_version['model_settings'] = input_prompt_model_settings.get(
+                        original_prompt_version.id
+                    )
+
+                    if 'parent_entity_id' not in new_prompt_version.get('meta', {}):
+                        shared_id = new_prompt_version.get('shared_id')
+                        shared_owner_id = new_prompt_version.get('shared_owner_id')
+
+                        if shared_id and shared_owner_id:
+                            parent_entity_id = shared_id
+                            parent_project_id = shared_owner_id
+                        else:
+                            parent_entity_id = fork_input_prompt.id
+                            parent_project_id = fork_input_prompt.owner_id
+
+                        meta = new_prompt_version.get('meta', {})
+                        meta.update({
+                            'parent_entity_id': parent_entity_id,
+                            'parent_project_id': parent_project_id
+                        })
+                        new_prompt_version['meta'] = meta
+                    new_prompt['versions'].append(new_prompt_version)
+
+                new_prompt.pop('id')
+                result, error = self.module.context.rpc_manager.call.prompt_lib_import_prompt(
+                    new_prompt, project_id, author_id
+                )
+                results.append(result)
+                results.extend(error)
+
+        return {'result': results, 'errors': errors}, 201
 
 
 class API(api_tools.APIBase):
     url_params = api_tools.with_modes([
-        '<int:project_id>/<int:prompt_id>',
+        '<int:project_id>',
     ])
 
     mode_handlers = {
