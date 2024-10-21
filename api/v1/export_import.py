@@ -135,10 +135,17 @@ class PromptLibAPI(api_tools.APIModeHandler):
         }})
     @api_tools.endpoint_metrics
     def get(self, project_id: int, prompt_id: int = None, **kwargs):
-        if 'to_dial' in request.args:
+        forked = 'fork' in request.args
+        to_dial = 'to_dial' in request.args
+
+        if to_dial and forked:
+            return {'error': 'Can not use to_dial and fork at the same time'}, 400
+
+        if to_dial in request.args:
             result = prompts_export_to_dial(project_id, prompt_id)
         else:
-            result = prompts_export(project_id, prompt_id)
+            result = prompts_export(project_id, prompt_id, forked=forked)
+
         if 'as_file' in request.args:
             file = BytesIO()
             data = json.dumps(result, ensure_ascii=False, indent=4)

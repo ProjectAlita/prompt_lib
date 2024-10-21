@@ -7,7 +7,7 @@ from pylon.core.tools import log
 from ..models.all import Prompt, PromptVersion
 from ..models.pd.export_import import (
     PromptExportModel, DialExportModel,
-    DialPromptExportModel, DialModelExportModel,
+    DialPromptExportModel, DialModelExportModel, PromptForkModel,
 )
 from ..models.pd.model_settings import ModelSettingsBaseModel
 
@@ -41,8 +41,7 @@ def prompts_export_to_dial(project_id: int, prompt_id: int = None, session=None)
     return result.dict()
 
 
-
-def prompts_export(project_id: int, prompt_id: int = None, session=None) -> dict:
+def prompts_export(project_id: int, prompt_id: int = None, session=None, forked=False) -> dict:
     if session is None:
         session = db.get_project_schema_session(project_id)
 
@@ -62,7 +61,10 @@ def prompts_export(project_id: int, prompt_id: int = None, session=None) -> dict
     prompts: List[Prompt] = query.all()
     prompts_to_export = []
     for prompt in prompts:
-        prompt_data = PromptExportModel.from_orm(prompt)
+        if forked:
+            prompt_data = PromptForkModel.from_orm(prompt)
+        else:
+            prompt_data = PromptExportModel.from_orm(prompt)
         prompts_to_export.append(prompt_data.dict())
 
     session.close()
