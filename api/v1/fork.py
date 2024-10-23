@@ -1,12 +1,12 @@
+from typing import Tuple
+
 from flask import request, send_file
-
-from tools import api_tools, db, auth, config as c
-
 from pydantic import ValidationError
 from sqlalchemy.exc import ProgrammingError
+from tools import api_tools, db, auth, config as c
+
 from ...models.all import Prompt
 from ...models.pd.fork import ForkPromptInput
-
 from ...utils.constants import PROMPT_LIB_MODE
 
 
@@ -18,14 +18,14 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
     @api_tools.endpoint_metrics
-    def post(self, project_id: int, **kwargs):
+    def post(self, project_id: int, **kwargs) -> Tuple[dict, int]:
         fork_data = request.json
         author_id = auth.current_user().get("id")
 
         try:
             fork_input = ForkPromptInput.parse_obj(fork_data)
         except ValidationError as e:
-            return f'Validation error on item: {e}', 400
+            return {'result': None, 'errors': [f'Validation error on item: {e}']}, 400
 
         results, errors = [], []
 
@@ -76,6 +76,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
                                 new_prompt_version['meta'] = meta
                             new_prompt['versions'].append(new_prompt_version)
 
+                        if not new_prompt['versions']:
+                            return {'result': None, 'errors': [
+                                f'No versions were found for the prompt: {fork_input_prompt.id}'
+                            ]}, 400
                         new_prompt.pop('id')
                         result, error = self.module.context.rpc_manager.call.prompt_lib_import_prompt(
                             new_prompt, project_id, author_id
@@ -84,9 +88,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
                         results.extend(error)
             except ProgrammingError:
                 return {'result': None, 'errors': [
-                    f'The pproject with id {fork_input_prompt.owner_id} does not exist'
-                ]}
-        return {'result': results, 'errors': errors}, 201
+                    f'The project with id {fork_input_prompt.owner_id} does not exist'
+                ]}, 404
+        status_code: int = 201 if not errors else 400
+        return {'result': results, 'errors': errors}, status_code
 
 
 class API(api_tools.APIBase):
