@@ -42,7 +42,7 @@ class PromptExportModel(BaseModel):
 class PromptVersionForkModel(PromptVersionExportModel):
     id: int
     name: Optional[str]
-    author_id: Optional[str]
+    author_id: Optional[int]
 
 
 class PromptForkModel(PromptExportModel):
