@@ -52,6 +52,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
                             for i in original_prompt_version.tags:
                                 new_prompt_version['tags'].append(i.to_json())
 
+                            new_prompt_version['messages'] = [msg.to_json() for msg in original_prompt_version.messages]
+
                             new_prompt_version['model_settings'] = input_prompt_model_settings.get(
                                 original_prompt_version.id
                             )
