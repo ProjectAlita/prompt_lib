@@ -22,7 +22,6 @@ class PromptVersionExportModel(BaseModel):
     type: Optional[PromptVersionType] = PromptVersionType.chat
     conversation_starters: Optional[List] = []
     welcome_message: Optional[str] = ''
-    author_id: int
     meta: Optional[dict]
 
     class Config:
@@ -33,7 +32,6 @@ class PromptExportModel(BaseModel):
     name: str
     description: Optional[str]
     versions: Optional[List[PromptVersionExportModel]]
-    collection_id: Optional[int] = None
 
     class Config:
         orm_mode = True

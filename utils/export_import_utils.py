@@ -68,4 +68,4 @@ def prompts_export(project_id: int, prompt_id: int = None, session=None, forked=
         prompts_to_export.append(prompt_data.dict())
 
     session.close()
-    return {'prompts': prompts_to_export, 'collections': []}
+    return {'prompts': prompts_to_export}
