@@ -12,7 +12,7 @@ from ...utils.constants import PROMPT_LIB_MODE
 
 class PromptLibAPI(api_tools.APIModeHandler):
     @auth.decorators.check_api({
-        "permissions": ["models.prompt_lib.export_import.import"],
+        "permissions": ["models.prompt_lib.fork.post"],
         "recommended_roles": {
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
@@ -30,6 +30,13 @@ class PromptLibAPI(api_tools.APIModeHandler):
         results, errors = [], []
 
         for fork_input_prompt in fork_input.prompts:
+            check_owner_permission, status_code = auth.decorators.check_api({
+                "permissions": ["models.prompt_lib.fork.post"]
+            }, project_id=fork_input_prompt.owner_id)(
+                lambda: ({'ok': True}, 200)
+            )()
+            if status_code != 200:
+                return check_owner_permission
             try:
                 with db.with_project_schema_session(fork_input_prompt.owner_id) as session:
                     original_prompt = session.query(Prompt).filter(Prompt.id == fork_input_prompt.id).first()
