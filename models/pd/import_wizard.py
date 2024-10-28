@@ -20,13 +20,13 @@ class DatasourcesImport(ImportData):
     collection_id: Optional[int]
     embedding_model: str
     embedding_model_settings: dict
-    storage: str
-    storage_settings: dict = {}
+    storage: Optional[str]
+    storage_settings: Optional[dict] = {}
 
 
 class AgentsImport(ImportData):
     versions: List[dict]
-    owner_id: int
+    owner_id: Optional[int]
     shared_id: int = None
     shared_owner_id: int = None
 
