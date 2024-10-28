@@ -28,6 +28,10 @@ class PromptVersionExportModel(BaseModel):
         orm_mode = True
 
 
+class PromptVersionImportModel(PromptVersionExportModel):
+    author_id: int
+
+
 class PromptExportModel(BaseModel):
     name: str
     description: Optional[str]
@@ -52,6 +56,7 @@ class PromptForkModel(PromptExportModel):
 
 class PromptImportModel(PromptExportModel):
     owner_id: Optional[int]
+    versions: Optional[List[PromptVersionImportModel]]
 
 
 class DialModelExportModel(BaseModel):
