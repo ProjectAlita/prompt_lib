@@ -18,19 +18,22 @@ _ENTITIES_INFO_IN = (
         "prompt",
         "prompts",
         _RPC_CALL.prompt_lib_get_prompt_model,
-        _RPC_CALL.prompt_lib_get_version_model
+        _RPC_CALL.prompt_lib_get_version_model,
+        _RPC_CALL.prompt_lib_export_prompt
     ),
     (
         "datasource",
         "datasources",
         _RPC_CALL.datasources_get_datasource_model,
-        _RPC_CALL.datasources_get_version_model
+        _RPC_CALL.datasources_get_version_model,
+        _RPC_CALL.datasources_export_datasource
     ),
     (
         "application",
         "applications",
         _RPC_CALL.applications_get_application_model,
-        _RPC_CALL.applications_get_version_model
+        _RPC_CALL.applications_get_version_model,
+        _RPC_CALL.applications_export_application
     ),
 )
 #####################################################################
@@ -54,7 +57,7 @@ def _make_entity_registry():
         return wrapper
 
     ret = []
-    for entity_name, entities_name, model_rpc, version_rpc in _ENTITIES_INFO_IN:
+    for entity_name, entities_name, model_rpc, version_rpc, export_rpc in _ENTITIES_INFO_IN:
         reg_dict = {
             "entity_name":  entity_name,
             "entities_name": entities_name,
@@ -62,6 +65,7 @@ def _make_entity_registry():
             "get_entity_version_type": _rpc_wrapper(version_rpc, entity_name),
             "get_entity_field": attrgetter(entity_name),
             "get_entities_field": attrgetter(entities_name),
+            "entity_export": _rpc_wrapper(export_rpc, entity_name),
         }
         ret.append(make_dataclass("EntityReg_"+entity_name, reg_dict)(**reg_dict))
 

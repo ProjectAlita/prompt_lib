@@ -24,6 +24,7 @@ from ..utils.conversation import prepare_payload, prepare_conversation, CustomTe
 from ..utils.create_utils import create_prompt
 from ...promptlib_shared.utils.constants import PredictionEvents
 from ...promptlib_shared.utils.sio_utils import SioValidationError, get_event_room, SioEvents
+from ..utils.export_import_utils import prompts_export
 
 
 class RPC:
@@ -336,3 +337,15 @@ class RPC:
             session.commit()
 
             return json.loads(PromptDetailModel.from_orm(prompt).json()), errors
+
+    @web.rpc("prompt_lib_export_prompt")
+    def export_prompt(self, prompts_grouped: dict, forked: bool = False) -> dict:
+        result = {
+            'prompts': []
+        }
+        for project_id, prompt_ids in prompts_grouped.items():
+            for prompt_id in prompt_ids:
+                result['prompts'].extend(
+                    prompts_export(project_id, prompt_id, forked=forked).get('prompts', [])
+                )
+        return result
