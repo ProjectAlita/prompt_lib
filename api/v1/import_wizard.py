@@ -48,7 +48,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 r, e = getattr(self.module.context.rpc_manager.call, rpc_func)(
                     model, project_id, author_id
                 )
-                result[entity].append(r)
+                if r:
+                    result[entity].append(r)
                 errors[entity].extend(e)
 
         has_results = any(result[key] for key in result if result[key])
