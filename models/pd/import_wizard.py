@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from openai import BaseModel
+from pydantic import BaseModel
 
 
 class ImportData(BaseModel):
