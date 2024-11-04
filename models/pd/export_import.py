@@ -1,6 +1,7 @@
 from typing import Optional, List
+import uuid
 
-from pydantic import AnyUrl, BaseModel
+from pydantic import AnyUrl, BaseModel, Field
 
 from .model_settings import ModelSettingsBaseModel
 from .prompt_message import PromptMessageBaseModel
@@ -12,6 +13,7 @@ from .collections import CollectionModel, CollectionItem
 
 
 class PromptVersionExportModel(BaseModel):
+    import_version_uuid: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     commit_message: Optional[str] = None
     context: Optional[str] = ''
@@ -33,6 +35,7 @@ class PromptVersionImportModel(PromptVersionExportModel):
 
 
 class PromptExportModel(BaseModel):
+    import_uuid: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     description: Optional[str]
     versions: Optional[List[PromptVersionExportModel]]
@@ -46,12 +49,22 @@ class PromptVersionForkModel(PromptVersionExportModel):
     name: Optional[str]
     author_id: Optional[int]
 
+    class Config:
+        fields = {
+            'import_version_uuid': {'exclude': True},
+        }
+
 
 class PromptForkModel(PromptExportModel):
     id: int
     owner_id: int
     name: Optional[str]
     versions: List[PromptVersionForkModel]
+
+    class Config:
+        fields = {
+            'import_uuid': {'exclude': True},
+        }
 
 
 class PromptImportModel(PromptExportModel):
