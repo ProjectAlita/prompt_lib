@@ -14,6 +14,7 @@ from .collections import CollectionModel, CollectionItem
 
 class PromptVersionExportModel(BaseModel):
     import_version_uuid: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    id: int
     name: str
     commit_message: Optional[str] = None
     context: Optional[str] = ''
@@ -31,11 +32,18 @@ class PromptVersionExportModel(BaseModel):
 
 
 class PromptVersionImportModel(PromptVersionExportModel):
+    id: Optional[int]
     author_id: int
+
+    class Config:
+        fields = {
+            'id': {'exclude': True},
+        }
 
 
 class PromptExportModel(BaseModel):
     import_uuid: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    id: int
     name: str
     description: Optional[str]
     versions: Optional[List[PromptVersionExportModel]]
@@ -56,7 +64,6 @@ class PromptVersionForkModel(PromptVersionExportModel):
 
 
 class PromptForkModel(PromptExportModel):
-    id: int
     owner_id: int
     name: Optional[str]
     versions: List[PromptVersionForkModel]
@@ -68,8 +75,14 @@ class PromptForkModel(PromptExportModel):
 
 
 class PromptImportModel(PromptExportModel):
+    id: Optional[int]
     owner_id: Optional[int]
     versions: Optional[List[PromptVersionImportModel]]
+
+    class Config:
+        fields = {
+            'id': {'exclude': True},
+        }
 
 
 class DialModelExportModel(BaseModel):
