@@ -1,7 +1,7 @@
 from typing import Optional, List
 import uuid
 
-from pydantic import AnyUrl, BaseModel, Field
+from pydantic import AnyUrl, BaseModel, Field, root_validator
 
 from .model_settings import ModelSettingsBaseModel
 from .prompt_message import PromptMessageBaseModel
@@ -13,8 +13,9 @@ from .collections import CollectionModel, CollectionItem
 
 
 class PromptVersionExportModel(BaseModel):
-    import_version_uuid: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    import_version_uuid: str = None
     id: int
+    author_id: int
     name: str
     commit_message: Optional[str] = None
     context: Optional[str] = ''
@@ -27,8 +28,17 @@ class PromptVersionExportModel(BaseModel):
     welcome_message: Optional[str] = ''
     meta: Optional[dict]
 
+    @root_validator
+    def validate_repeatable_uuid(cls, values):
+        hash_ = hash((values['id'], values['author_id'], values['name']))
+        values['import_version_uuid'] = str(uuid.UUID(int=abs(hash_)))
+        return values
+
     class Config:
         orm_mode = True
+        fields = {
+            'author_id': {'exclude': True},
+        }
 
 
 class PromptVersionImportModel(PromptVersionExportModel):
@@ -42,14 +52,24 @@ class PromptVersionImportModel(PromptVersionExportModel):
 
 
 class PromptExportModel(BaseModel):
-    import_uuid: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    import_uuid: str = None
     id: int
+    owner_id: int
     name: str
     description: Optional[str]
     versions: Optional[List[PromptVersionExportModel]]
 
+    @root_validator
+    def validate_repeatable_uuid(cls, values):
+        hash_ = hash((values['id'], values['owner_id'], values['name']))
+        values['import_uuid'] = str(uuid.UUID(int=abs(hash_)))
+        return values
+
     class Config:
         orm_mode = True
+        fields = {
+            'owner_id': {'exclude': True},
+        }
 
 
 class PromptVersionForkModel(PromptVersionExportModel):

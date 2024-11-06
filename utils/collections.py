@@ -1033,3 +1033,24 @@ def get_include_entity_flag(
                 )
                 return bool(q.first())
     return False
+
+
+def deep_merge_collection_export_results(d1, d2):
+    if not d1:
+        return copy.deepcopy(d2)
+
+    res = copy.deepcopy(d1)
+
+    for key in d2.keys():
+       already_exported = [x['import_uuid'] for x in d1.get(key, [])]
+       for entity in d2[key]:
+           if entity['import_uuid'] not in already_exported:
+               res.setdefault(key, []).append(entity)
+           elif entity['original_exported']:
+               # when we merge same entity from collection and from agent-deps
+               # original_exported flag must be always True in such case
+               for saved_entity in d1[key]:
+                   if saved_entity['import_uuid'] == entity['import_uuid']:
+                       saved_entity['original_exported'] = True
+                       break
+    return res

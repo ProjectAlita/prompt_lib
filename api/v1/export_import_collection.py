@@ -10,7 +10,7 @@ from tools import api_tools, db, auth, config as c
 
 from ...models.all import Collection
 from ...models.pd.export_import import DialFolderExportModel
-from ...utils.collections import group_by_project_id
+from ...utils.collections import group_by_project_id, deep_merge_collection_export_results
 from ...utils.export_import_utils import prompts_export_to_dial, prompts_export
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.collection_registry import ENTITY_REG
@@ -36,9 +36,14 @@ class PromptLibAPI(api_tools.APIModeHandler):
             entities = ent.get_entities_field(collection)
             if not entities:
                 continue
-            result.update(
-                ent.entity_export(group_by_project_id(entities), forked=forked)
-            )
+
+            exported_data = ent.entity_export(group_by_project_id(entities), forked=forked)
+
+            for entity in exported_data[ent.entities_name]:
+                if 'original_exported' not in entity:
+                    entity['original_exported'] = True
+
+            result = deep_merge_collection_export_results(result, exported_data)
 
         if request.args.get('as_file', False):
             file = BytesIO()
