@@ -86,18 +86,21 @@ def _postponed_app_tools_import(postponed_application_tools: List[ApplicationImp
     errors = []
     results = {}
     for tool in postponed_application_tools:
-        app_ver_id, payload = tool.generate_create_payload(postponed_id_mapper)
-        result = rpc_call.applications_add_application_tool(
-            payload,
-            project_id,
-            app_ver_id,
-            return_details=True
-        )
-        if not result['ok']:
-            errors.append(result['error'])
-        else:
-            # the most recent tools update overwrites result with the most actual data
-            results[app_ver_id] = result['details']
+        try:
+            app_ver_id, payload = tool.generate_create_payload(postponed_id_mapper)
+            result = rpc_call.applications_add_application_tool(
+                payload,
+                project_id,
+                app_ver_id,
+                return_details=True
+            )
+            if not result['ok']:
+                errors.append(result['error'])
+            else:
+                # the most recent tools update overwrites result with the most actual data
+                results[app_ver_id] = result['details']
+        except Exception as ex:
+            errors.append(str(ex))
 
     return results.values(), errors
 

@@ -114,13 +114,18 @@ class ApplicationImportCompoundTool(BaseModel):
         tool_type = tool['type']
         tool_id_key = f'{tool_type}_id'
         tool_version_id_key = f'{tool_type}_version_id'
-        tool['settings'][tool_id_key] = postponed_id_mapper[tool_id_key].get(
-            tool['settings'].pop('import_uuid')
-        )
-        if tool['settings'].get('import_version_uuid'):
-            tool['settings'][tool_version_id_key] = postponed_id_mapper[tool_version_id_key].get(
-            tool['settings'].pop('import_version_uuid')
-        )
+
+        import_uuid = tool['settings'].pop('import_uuid')
+        import_version_uuid = tool['settings'].get('import_version_uuid')
+        try:
+            tool['settings'][tool_id_key] = postponed_id_mapper[tool_id_key].get(import_uuid)
+            if import_version_uuid:
+                tool['settings'][tool_version_id_key] = postponed_id_mapper[tool_version_id_key].get(
+                import_version_uuid
+            )
+        except KeyError:
+            raise RuntimeError(
+               f"Unable to link tool {import_uuid=}({import_version_uuid=}) with {tool_type}, possibly invalid input payload") from None
 
         return app_ver_id, tool
 
