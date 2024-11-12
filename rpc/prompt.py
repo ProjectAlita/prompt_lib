@@ -126,15 +126,18 @@ class RPC:
             messages = [example.to_json() for example in prompt_version.messages]
             examples = []
             for idx in range(0, len(messages), 2):
-                if messages[idx]['role'] == 'user' and messages[idx + 1]['role'] == 'assistant':
-                    examples.append({
-                        "id": None,  # TODO: We have no example id anymore. Need to be fixed somehow.
-                        "prompt_id": result.get('prompt_id'),
-                        "input": messages[idx]['content'],
-                        "output": messages[idx + 1]['content'],
-                        "is_active": True,
-                        "created_at": messages[idx + 1]['created_at']
-                    })
+                try:
+                    if messages[idx]['role'] == 'user' and messages[idx + 1]['role'] == 'assistant':
+                        examples.append({
+                            "id": None,  # TODO: We have no example id anymore. Need to be fixed somehow.
+                            "prompt_id": result.get('prompt_id'),
+                            "input": messages[idx]['content'],
+                            "output": messages[idx + 1]['content'],
+                            "is_active": True,
+                            "created_at": messages[idx + 1]['created_at']
+                        })
+                except IndexError:
+                    ...
 
             result['examples'] = examples
             result['variables'] = [var.to_json() for var in prompt_version.variables]
