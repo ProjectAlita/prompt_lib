@@ -80,27 +80,40 @@ def prompts_export(project_id: int, prompt_id: int = None, session=None, forked=
     return {'prompts': prompts_to_export}
 
 
+def _wrap_import_error(ind, msg):
+    return {
+        "index": ind,
+        "msg": msg
+    }
+
+
+def _wrap_import_result(ind, result):
+    result['index'] = ind
+    return result
+
+
 def _postponed_app_tools_import(postponed_application_tools: List[ApplicationImportCompoundTool], postponed_id_mapper, project_id):
     rpc_call = rpc_tools.RpcMixin().rpc.call
 
     errors = []
     results = {}
-    for tool in postponed_application_tools:
-        try:
-            app_ver_id, payload = tool.generate_create_payload(postponed_id_mapper)
-            result = rpc_call.applications_add_application_tool(
-                payload,
-                project_id,
-                app_ver_id,
-                return_details=True
-            )
-            if not result['ok']:
-                errors.append(result['error'])
-            else:
-                # the most recent tools update overwrites result with the most actual data
-                results[app_ver_id] = result['details']
-        except Exception as ex:
-            errors.append(str(ex))
+    for original_entity_index, tools in postponed_application_tools:
+        for tool in tools:
+            try:
+                app_ver_id, payload = tool.generate_create_payload(postponed_id_mapper)
+                result = rpc_call.applications_add_application_tool(
+                    payload,
+                    project_id,
+                    app_ver_id,
+                    return_details=True
+                )
+                if not result['ok']:
+                    errors.append(_wrap_import_error(original_entity_index, result['error']))
+                else:
+                    # the most recent tools update overwrites result with the most actual data
+                    results[app_ver_id] = _wrap_import_result(original_entity_index, result['details'])
+            except Exception as ex:
+                errors.append(_wrap_import_error(original_entity_index, str(ex)))
 
     return results.values(), errors
 
@@ -119,7 +132,7 @@ def import_wizard(import_data: dict, project_id: int, author_id: int):
     postponed_application_tools = []
     # map exported import_uuid/import_version_uuid with real id's of saved entities
     postponed_id_mapper = {}
-    for item in import_data:
+    for item_index, item in enumerate(import_data):
         postponed_tools = []
         entity = item['entity']
         entity_model = IMPORT_MODEL_ENTITY_MAPPER.get(entity)
@@ -127,13 +140,13 @@ def import_wizard(import_data: dict, project_id: int, author_id: int):
             try:
                 model = entity_model.parse_obj(item)
             except ValidationError as e:
-                return result, {entity: [f'Validation error on item {entity}: {e}']}
+                return result, {entity: [_wrap_import_error(item_index, f'Validation error: {e}')]}
         else:
-            return result, {entity: [f'No such {entity} in import entity mapper']}
+            return result, {entity: [_wrap_import_error(item_index, f'No such {entity} in import entity mapper')]}
 
         if entity == 'agents':
             postponed_tools = model.postponed_tools
-            postponed_application_tools.extend(postponed_tools)
+            postponed_application_tools.append((item_index, postponed_tools))
 
         model_data = model.dict()
 
@@ -145,13 +158,14 @@ def import_wizard(import_data: dict, project_id: int, author_id: int):
             if r:
                 # result will be appended later when all tools will be added to agent
                 if not postponed_tools:
-                    result[entity].append(r)
+                    result[entity].append(_wrap_import_result(item_index, r))
                 postponed_id_mapper = deep_update(
                     postponed_id_mapper,
                     model.map_postponed_ids(imported_entity=r)
                 )
 
-            errors[entity].extend(e)
+            for er in e:
+                errors[entity].append(_wrap_import_error(item_index, er))
 
     if postponed_application_tools:
         tool_results, tool_errors = _postponed_app_tools_import(

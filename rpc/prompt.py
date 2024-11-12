@@ -331,7 +331,7 @@ class RPC:
             try:
                 prompt_data = PromptImportModel.parse_obj(raw)
             except ValidationError as e:
-                errors.append(e.errors())
+                errors.append(str(e))
                 return '', errors
             prompt = create_prompt(prompt_data, session)
             session.commit()
