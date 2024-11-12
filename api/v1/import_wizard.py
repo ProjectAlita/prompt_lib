@@ -3,7 +3,6 @@ from flask import request
 from tools import api_tools, auth, config as c
 
 from ...utils.constants import PROMPT_LIB_MODE
-from ...utils.export_import_utils import import_wizard
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
@@ -17,7 +16,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def post(self, project_id: int, **kwargs):
         import_data = request.json
         author_id = auth.current_user().get("id")
-        result, errors = import_wizard(import_data, project_id, author_id)
+
+        result, errors = self.module.context.rpc_manager.call.prompt_lib_import_wizard(
+            import_data, project_id, author_id
+        )
 
         has_results = any(result[key] for key in result if result[key])
         has_errors = any(errors[key] for key in errors if errors[key])
