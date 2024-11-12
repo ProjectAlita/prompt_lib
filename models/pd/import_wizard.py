@@ -22,6 +22,13 @@ class ImportData(BaseModel):
 class PromptImport(ImportData):
     versions: List[dict]
 
+    @root_validator(pre=True)
+    def validate_import_version_uuid(cls, values):
+        for version in values['versions']:
+            assert 'import_version_uuid' in version, "Missing import_version_uuid"
+
+        return values
+
     def dict(self, **kwargs):
         res = super().dict(**kwargs)
         for v in res['versions']:
@@ -98,6 +105,7 @@ class ApplicationImportCompoundTool(BaseModel):
     application_import_version_uuid: Optional[str] = None
     settings: PromptImportToolSettings | SelfImportToolSettings | DatasourceImportToolSettings | DatasourceSelfImportToolSettings | ApplicationImportToolSettings
 
+
     @property
     def not_imported_yet_tool(self):
         return hasattr(self.settings, 'import_uuid')
@@ -138,6 +146,13 @@ class AgentsImport(ImportData):
             'import_uuid': {'exclude': True},
             'postponed_tools': {'exclude': True},
         }
+
+    @root_validator(pre=True)
+    def validate_import_version_uuid(cls, values):
+        for version in values['versions']:
+            assert 'import_version_uuid' in version, "Missing import_version_uuid"
+
+        return values
 
     @root_validator(pre=True)
     def validate_compound_tool(cls, values):
