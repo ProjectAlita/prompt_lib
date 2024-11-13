@@ -102,6 +102,7 @@ class ApplicationImportCompoundTool(BaseModel):
     name: str
     description: Optional[str]
     type: Literal['application', 'datasource', 'prompt']
+    application_import_uuid: Optional[str] = None
     application_import_version_uuid: Optional[str] = None
     settings: PromptImportToolSettings | SelfImportToolSettings | DatasourceImportToolSettings | DatasourceSelfImportToolSettings | ApplicationImportToolSettings
 
@@ -110,9 +111,23 @@ class ApplicationImportCompoundTool(BaseModel):
     def not_imported_yet_tool(self):
         return hasattr(self.settings, 'import_uuid')
 
-    def generate_create_payload(self, postponed_id_mapper):
+    def get_real_application_ids(self, postponed_id_mapper):
+        assert self.application_import_uuid is not None
         assert self.application_import_version_uuid is not None
 
+        try:
+            app_id = postponed_id_mapper['application_id'][self.application_import_uuid]
+            app_ver_id = postponed_id_mapper['application_version_id'][self.application_import_version_uuid]
+        except KeyError:
+            tool_type = self.type
+            import_uuid = self.application_import_uuid
+            import_version_uuid = self.application_import_version_uuid
+            raise RuntimeError(
+               f"Unable to find parent application {import_uuid=}({import_version_uuid=}) for application tool of type {tool_type}") from None
+
+        return app_id, app_ver_id
+
+    def generate_create_payload(self, postponed_id_mapper):
         tool = self.dict()
 
         import_uuid = tool['settings'].pop('import_uuid')
@@ -121,16 +136,15 @@ class ApplicationImportCompoundTool(BaseModel):
         tool_id_key = f'{tool_type}_id'
         tool_version_id_key = f'{tool_type}_version_id'
         try:
-            app_ver_id = postponed_id_mapper['application_version_id'][self.application_import_version_uuid]
 
             tool['settings'][tool_id_key] = postponed_id_mapper[tool_id_key][import_uuid]
             if import_version_uuid:
                 tool['settings'][tool_version_id_key] = postponed_id_mapper[tool_version_id_key][import_version_uuid]
         except KeyError:
             raise RuntimeError(
-               f"Unable to link application tool {import_uuid=}({import_version_uuid=}) with {tool_type}, possibly invalid input payload") from None
+               f"Unable to link application tool {import_uuid=}({import_version_uuid=}) with {tool_type}") from None
 
-        return app_ver_id, tool
+        return tool
 
 
 class AgentsImport(ImportData):
@@ -163,6 +177,7 @@ class AgentsImport(ImportData):
                 if tool['type'] in ('application', 'datasource', 'prompt'):
                     t = ApplicationImportCompoundTool.parse_obj(tool)
                     if t.not_imported_yet_tool:
+                        t.application_import_uuid = values['import_uuid']
                         t.application_import_version_uuid = version['import_version_uuid']
                         postponed_tools.append(t)
                     else:

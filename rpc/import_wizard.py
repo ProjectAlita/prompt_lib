@@ -48,9 +48,13 @@ class RPC:
 
             rpc_func = ENTITY_IMPORT_MAPPER.get(entity)
             if rpc_func:
-                r, e = getattr(rpc_call, rpc_func)(
-                    model_data, project_id, author_id
-                )
+                r = e = None
+                try:
+                    r, e = getattr(rpc_call, rpc_func)(
+                        model_data, project_id, author_id
+                    )
+                except Exception as ex:
+                    e = [str(ex)]
                 if r:
                     # result will be appended later when all tools will be added to agent
                     if not postponed_tools:
