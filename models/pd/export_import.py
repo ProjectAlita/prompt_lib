@@ -1,7 +1,7 @@
 from typing import Optional, List
 import uuid
 
-from pydantic import AnyUrl, BaseModel, Field, root_validator
+from pydantic import AnyUrl, BaseModel, root_validator
 
 from .model_settings import ModelSettingsBaseModel
 from .prompt_message import PromptMessageBaseModel
@@ -11,7 +11,6 @@ from ....promptlib_shared.models.pd.base import TagBaseModel
 from ....promptlib_shared.models.pd.chat import IntegrationDataMixin
 from .collections import CollectionModel, CollectionItem
 
-from pylon.core.tools import log
 
 class PromptVersionExportModel(BaseModel):
     import_version_uuid: str = None
@@ -62,16 +61,9 @@ class PromptExportModel(BaseModel):
 
     @root_validator
     def validate_repeatable_uuid(cls, values):
-        log.debug(f'{values=}')
         hash_ = hash((values['id'], values['owner_id'], values['name']))
         values['import_uuid'] = str(uuid.UUID(int=abs(hash_)))
         return values
-
-    class Config:
-        orm_mode = True
-        fields = {
-            'owner_id': {'exclude': True},
-        }
 
 
 class PromptVersionForkModel(PromptVersionExportModel):
