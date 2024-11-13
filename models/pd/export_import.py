@@ -11,6 +11,7 @@ from ....promptlib_shared.models.pd.base import TagBaseModel
 from ....promptlib_shared.models.pd.chat import IntegrationDataMixin
 from .collections import CollectionModel, CollectionItem
 
+from pylon.core.tools import log
 
 class PromptVersionExportModel(BaseModel):
     import_version_uuid: str = None
@@ -61,6 +62,7 @@ class PromptExportModel(BaseModel):
 
     @root_validator
     def validate_repeatable_uuid(cls, values):
+        log.debug(f'{values=}')
         hash_ = hash((values['id'], values['owner_id'], values['name']))
         values['import_uuid'] = str(uuid.UUID(int=abs(hash_)))
         return values
@@ -77,21 +79,11 @@ class PromptVersionForkModel(PromptVersionExportModel):
     name: Optional[str]
     author_id: Optional[int]
 
-    class Config:
-        fields = {
-            'import_version_uuid': {'exclude': True},
-        }
-
 
 class PromptForkModel(PromptExportModel):
     owner_id: int
     name: Optional[str]
     versions: List[PromptVersionForkModel]
-
-    class Config:
-        fields = {
-            'import_uuid': {'exclude': True},
-        }
 
 
 class PromptImportModel(PromptExportModel):
