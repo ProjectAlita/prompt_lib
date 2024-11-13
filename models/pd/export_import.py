@@ -65,6 +65,9 @@ class PromptExportModel(BaseModel):
         values['import_uuid'] = str(uuid.UUID(int=abs(hash_)))
         return values
 
+    class Config:
+        orm_mode = True
+
 
 class PromptVersionForkModel(PromptVersionExportModel):
     id: int
@@ -76,6 +79,9 @@ class PromptForkModel(PromptExportModel):
     owner_id: int
     name: Optional[str]
     versions: List[PromptVersionForkModel]
+
+    class Config:
+        orm_mode = True
 
 
 class PromptImportModel(PromptExportModel):
