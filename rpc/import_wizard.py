@@ -1,9 +1,9 @@
-from pylon.core.tools import web, log
+from pylon.core.tools import web
 
 from pydantic import ValidationError
 from pydantic.utils import deep_update
 
-from tools import db, rpc_tools
+from tools import rpc_tools
 
 from ..models.pd.import_wizard import IMPORT_MODEL_ENTITY_MAPPER
 from ..utils.export_import_utils import (
@@ -40,10 +40,6 @@ class RPC:
             else:
                 return result, {entity: [_wrap_import_error(item_index, f'No such {entity} in import entity mapper')]}
 
-            if entity == 'agents':
-                postponed_tools = model.postponed_tools
-                postponed_application_tools.append((item_index, postponed_tools))
-
             model_data = model.dict()
 
             rpc_func = ENTITY_IMPORT_MAPPER.get(entity)
@@ -56,6 +52,9 @@ class RPC:
                 except Exception as ex:
                     e = [str(ex)]
                 if r:
+                    if entity == 'agents':
+                        postponed_tools = model.postponed_tools
+                        postponed_application_tools.append((item_index, postponed_tools))
                     # result will be appended later when all tools will be added to agent
                     if not postponed_tools:
                         result[entity].append(_wrap_import_result(item_index, r))
