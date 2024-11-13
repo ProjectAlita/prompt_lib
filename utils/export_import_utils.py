@@ -120,7 +120,14 @@ def _postponed_app_tools_import(postponed_application_tools: List[ApplicationImp
                     try:
                         if rpc_call.applications_delete_application(project_id, app_id):
                             deleted_incomplete_apps.add(app_id)
-                            # TODO: delete from postponed_id_mapper
+                            # remove from mapping, so next referenced tools and their apps will fail
+                            # TODO: but tools processed before in this cycle may still have dangling references
+                            postponed_id_mapper['application_id'] = {
+                                k:v for k,v in postponed_id_mapper.get('application_id',{}).items() if v != app_id
+                            }
+                            postponed_id_mapper['application_version_id'] = {
+                                k:v for k,v in postponed_id_mapper.get('application_version_id',{}).items() if v != app_ver_id
+                            }
                     except Exception as ex2:
                         errors.append(_wrap_import_error(original_entity_index, str(ex2)))
 

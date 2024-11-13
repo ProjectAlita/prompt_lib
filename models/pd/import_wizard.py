@@ -170,6 +170,8 @@ class AgentsImport(ImportData):
 
     @root_validator(pre=True)
     def validate_compound_tool(cls, values):
+        assert 'import_uuid' in values, "Missing import_uuid"
+
         postponed_tools = []
         for version in values['versions']:
             clean_tools = []
