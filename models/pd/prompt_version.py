@@ -95,6 +95,15 @@ class PromptVersionDetailModel(PromptVersionBaseModel):
     messages: Optional[List[PromptMessageDetailModel]]
     author: Optional[AuthorBaseModel]
     tags: Optional[List[TagDetailModel]]
+    meta: Optional[dict] = {}
+    is_forked: bool = False
+
+    @validator('is_forked', always=True)
+    def set_is_forked(cls, v, values):
+        meta = values['meta']
+        if 'parent_entity_id' in meta and 'parent_project_id' in meta:
+            return True
+        return v
 
     @validator('author', always=True)
     def add_author_data(cls, value: dict, values: dict) -> AuthorBaseModel:
