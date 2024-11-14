@@ -81,6 +81,8 @@ class PromptListModel(BaseModel):
     authors: List[AuthorBaseModel] = []
     tags: Optional[TagBaseModel]
     status: Optional[PublishStatus]
+    meta: Optional[dict] = dict()
+    is_forked: bool = False
 
     class Config:
         orm_mode = True
@@ -114,6 +116,13 @@ class PromptListModel(BaseModel):
         if value:
             return value[:64]
         return value
+
+    @validator('is_forked', always=True)
+    def set_is_forked(cls, v, values):
+        meta = values['meta'] or {}
+        if 'parent_entity_id' in meta and 'parent_project_id' in meta:
+            return True
+        return v
 
 
 class PublishedPromptListModel(PromptListModel):

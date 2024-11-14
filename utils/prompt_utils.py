@@ -416,6 +416,13 @@ def list_prompts_api(
     if search_data:
         fire_searched_event(project_id, search_data)
 
+    for prompt in prompts:
+        try:
+            latest_version = prompt.get_latest_version()
+            prompt.meta = latest_version.meta
+        except StopIteration:
+            pass
+
     return {
         'total': total,
         'prompts': prompts,
