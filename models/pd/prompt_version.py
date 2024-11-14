@@ -100,7 +100,7 @@ class PromptVersionDetailModel(PromptVersionBaseModel):
 
     @validator('is_forked', always=True)
     def set_is_forked(cls, v, values):
-        meta = values['meta']
+        meta = values['meta'] or {}
         if 'parent_entity_id' in meta and 'parent_project_id' in meta:
             return True
         return v
