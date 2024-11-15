@@ -57,7 +57,7 @@ class DatasourcesImport(ImportData):
     versions: List[dict]
     embedding_model: str
     embedding_model_settings: dict
-    storage: Optional[str]
+    storage: str
     storage_settings: Optional[dict] = {}
 
     def map_postponed_ids(self, imported_entity):
@@ -144,7 +144,10 @@ class ApplicationImportCompoundTool(BaseModel):
             raise RuntimeError(
                f"Unable to link application tool {import_uuid=}({import_version_uuid=}) with {tool_type}") from None
 
-        return tool
+        connected_app_id = None
+        if tool_type == 'application':
+            connected_app_id = tool['settings'][tool_id_key]
+        return tool, connected_app_id
 
 
 class AgentsImport(ImportData):

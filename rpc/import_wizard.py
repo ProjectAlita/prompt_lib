@@ -36,9 +36,11 @@ class RPC:
                 try:
                     model = entity_model.parse_obj(item)
                 except ValidationError as e:
-                    return result, {entity: [_wrap_import_error(item_index, f'Validation error: {e}')]}
+                    errors[entity].append(_wrap_import_error(item_index, f'Validation error: {e}'))
+                    continue
             else:
-                return result, {entity: [_wrap_import_error(item_index, f'No such {entity} in import entity mapper')]}
+                errors[entity].append(_wrap_import_error(item_index, f'No such {entity} in import entity mapper'))
+                continue
 
             model_data = model.dict()
 
