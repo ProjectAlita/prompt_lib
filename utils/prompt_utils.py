@@ -419,7 +419,10 @@ def list_prompts_api(
     for prompt in prompts:
         try:
             latest_version = prompt.get_latest_version()
-            prompt.meta = latest_version.meta
+            if latest_version:
+                prompt.meta = latest_version.meta
+            else:
+                prompt.meta = {}
         except StopIteration:
             pass
 
