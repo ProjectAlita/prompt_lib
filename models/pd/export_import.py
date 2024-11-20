@@ -30,7 +30,7 @@ class PromptVersionExportModel(BaseModel):
 
     @root_validator
     def validate_repeatable_uuid(cls, values):
-        hash_ = hash((values['id'], values['author_id'], values['name']))
+        hash_ = hash((cls.__name__, values['id'], values['author_id'], values['name']))
         values['import_version_uuid'] = str(uuid.UUID(int=abs(hash_)))
         return values
 
@@ -51,7 +51,7 @@ class PromptVersionImportModel(PromptVersionExportModel):
         }
 
 
-class PromptExportModel(BaseModel):
+class PromptExportBaseModel(BaseModel):
     import_uuid: str = None
     id: int
     owner_id: int
@@ -61,12 +61,20 @@ class PromptExportModel(BaseModel):
 
     @root_validator
     def validate_repeatable_uuid(cls, values):
-        hash_ = hash((values['id'], values['owner_id'], values['name']))
+        hash_ = hash((cls.__name__, values['id'], values['owner_id'], values['name']))
         values['import_uuid'] = str(uuid.UUID(int=abs(hash_)))
         return values
 
     class Config:
         orm_mode = True
+
+
+class PromptExportModel(PromptExportBaseModel):
+    class Config:
+        orm_mode = True
+        fields = {
+            'owner_id': {'exclude': True},
+        }
 
 
 class PromptVersionForkModel(PromptVersionExportModel):
@@ -75,7 +83,7 @@ class PromptVersionForkModel(PromptVersionExportModel):
     author_id: Optional[int]
 
 
-class PromptForkModel(PromptExportModel):
+class PromptForkModel(PromptExportBaseModel):
     owner_id: int
     name: Optional[str]
     versions: List[PromptVersionForkModel]

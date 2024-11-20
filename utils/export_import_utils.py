@@ -136,7 +136,7 @@ def _postponed_app_tools_import(postponed_application_tools: List[ApplicationImp
                     raise RuntimeError(result['error'])
                 else:
                     # the most recent tools update overwrites result with the most actual data
-                    result_candidates[app_ver_id] = _wrap_import_result(original_entity_index, result['details'])
+                    result_candidates[app_id] = _wrap_import_result(original_entity_index, result['details'])
                     if connected_app_id is not None:
                         already_connected_info.append((app_id, connected_app_id, original_entity_index))
             except Exception as ex:
