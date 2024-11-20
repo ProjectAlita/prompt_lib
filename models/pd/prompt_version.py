@@ -59,7 +59,7 @@ class PromptVersionListModel(BaseModel):
 
 class PromptVersionCreateModel(PromptVersionBaseModel):
     type: PromptVersionType = PromptVersionType.chat
-    model_settings = ModelSettingsCreateModel
+    model_settings: ModelSettingsCreateModel
 
     @validator('name')
     def check_latest(cls, value: str) -> str:
@@ -70,7 +70,7 @@ class PromptVersionCreateModel(PromptVersionBaseModel):
 class PromptVersionLatestCreateModel(PromptVersionBaseModel):
     type: PromptVersionType = PromptVersionType.chat
     name: Literal['latest'] = 'latest'
-    model_settings = ModelSettingsCreateModel
+    model_settings: ModelSettingsCreateModel
 
 
 class PromptVersionUpdateModel(PromptVersionBaseModel):
