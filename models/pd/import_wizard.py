@@ -59,6 +59,7 @@ class DatasourcesImport(ImportData):
     embedding_model_settings: dict
     storage: str
     storage_settings: Optional[dict] = {}
+    meta: Optional[dict] = {}
 
     def map_postponed_ids(self, imported_entity):
         postponed_id_mapper = {
@@ -213,8 +214,6 @@ class AgentsImport(ImportData):
                     break
 
         return postponed_id_mapper
-
-
 
 
 IMPORT_MODEL_ENTITY_MAPPER = {

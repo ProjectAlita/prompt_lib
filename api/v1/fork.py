@@ -1,3 +1,4 @@
+import uuid
 from typing import Tuple
 
 from flask import request, send_file
@@ -21,13 +22,13 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def post(self, project_id: int, **kwargs) -> Tuple[dict, int]:
         fork_data = request.json
         author_id = auth.current_user().get("id")
+        results, errors = {'prompts': []}, {'prompts': []}
 
         try:
             fork_input = ForkPromptInput.parse_obj(fork_data)
         except ValidationError as e:
-            return {'result': None, 'errors': [f'Validation error on item: {e}']}, 400
-
-        results, errors = [], []
+            errors['prompts'].append(f'Validation error on item: {e}')
+            return {'result': results, 'errors': errors}, 400
 
         for fork_input_prompt in fork_input.prompts:
             check_owner_permission, status_code = auth.decorators.check_api({
@@ -41,7 +42,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 with db.with_project_schema_session(fork_input_prompt.owner_id) as session:
                     original_prompt = session.query(Prompt).filter(Prompt.id == fork_input_prompt.id).first()
                     if not original_prompt:
-                        errors.append(f'Prompt with id {fork_input_prompt.id} does not exist')
+                        errors['prompts'].append(f'Prompt with id {fork_input_prompt.id} does not exist')
+                        return {'result': results, 'errors': errors}, 400
                     else:
                         new_prompt = original_prompt.to_json()
                         new_prompt['versions'] = []
@@ -53,6 +55,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
                                 continue
 
                             new_prompt_version = original_prompt_version.to_json()
+                            hash_ = hash((new_prompt_version['id'], new_prompt_version['author_id'], new_prompt_version['name']))
+                            new_prompt_version['import_version_uuid'] = str(uuid.UUID(int=abs(hash_)))
                             new_prompt_version.pop('id')
 
                             new_prompt_version['tags'] = []
@@ -86,20 +90,32 @@ class PromptLibAPI(api_tools.APIModeHandler):
                             new_prompt['versions'].append(new_prompt_version)
 
                         if not new_prompt['versions']:
-                            return {'result': None, 'errors': [
+                            return {'result': results, 'errors': [
                                 f'No versions were found for the prompt: {fork_input_prompt.id}'
                             ]}, 400
+
+                        new_prompt['entity'] = 'prompts'
+                        hash_ = hash((new_prompt['id'], new_prompt['owner_id'], new_prompt['name']))
+                        new_prompt['import_uuid'] = str(uuid.UUID(int=abs(hash_)))
                         new_prompt.pop('id')
-                        result, error = self.module.context.rpc_manager.call.prompt_lib_import_prompt(
-                            new_prompt, project_id, author_id
-                        )
-                        results.append(result)
-                        results.extend(error)
+                        results['prompts'].append(new_prompt)
             except ProgrammingError:
-                return {'result': None, 'errors': [
-                    f'The project with id {fork_input_prompt.owner_id} does not exist'
-                ]}, 404
-        status_code: int = 201 if not errors else 400
+                errors['prompts'].append(f'The project with id {fork_input_prompt.owner_id} does not exist')
+                return {'result': results, 'errors': errors}, 404
+
+        result, errors = self.module.context.rpc_manager.call.prompt_lib_import_wizard(
+            results['prompts'], project_id, author_id
+        )
+
+        has_results = any(result[key] for key in result if result[key])
+        has_errors = any(errors[key] for key in errors if errors[key])
+
+        if not has_errors and has_results:
+            status_code = 201
+        elif has_errors and has_results:
+            status_code = 207
+        else:
+            status_code = 400
         return {'result': results, 'errors': errors}, status_code
 
 
