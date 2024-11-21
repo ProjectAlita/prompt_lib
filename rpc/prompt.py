@@ -328,7 +328,11 @@ class RPC:
         with db.with_project_schema_session(project_id) as session:
             raw['owner_id'] = project_id
             for version in raw.get("versions", []):
-                version["author_id"] = author_id
+                meta = version.get('meta') or {}
+                if 'parent_author_id' in meta:
+                    version["author_id"] = meta.get('parent_author_id')
+                else:
+                    version["author_id"] = author_id
                 if not version.get('name'):
                     version['name'] = 'latest'
             try:

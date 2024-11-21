@@ -84,7 +84,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
                                 meta.update({
                                     'parent_entity_id': parent_entity_id,
-                                    'parent_project_id': parent_project_id
+                                    'parent_project_id': parent_project_id,
+                                    'parent_author_id': original_prompt_version.author_id,
                                 })
                                 new_prompt_version['meta'] = meta
                             new_prompt['versions'].append(new_prompt_version)
