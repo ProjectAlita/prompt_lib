@@ -60,8 +60,12 @@ class PromptLibAPI(api_tools.APIModeHandler):
                             new_prompt_version.pop('id')
 
                             new_prompt_version['tags'] = []
-                            for i in original_prompt_version.tags:
-                                new_prompt_version['tags'].append(i.to_json())
+                            for tag in original_prompt_version.tags:
+                                new_prompt_version['tags'].append(tag.to_json())
+
+                            new_prompt_version['variables'] = []
+                            for var in original_prompt_version.variables:
+                                new_prompt_version['variables'].append(var.to_json())
 
                             new_prompt_version['messages'] = [msg.to_json() for msg in original_prompt_version.messages]
 
