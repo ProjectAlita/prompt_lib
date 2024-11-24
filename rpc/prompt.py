@@ -1,4 +1,5 @@
 import json
+import traceback
 
 from typing import List, Optional, Tuple
 from uuid import uuid4
@@ -224,28 +225,65 @@ class RPC:
         #
         from tools import worker_client  # pylint: disable=E0401,C0415
         #
-        for chunk in worker_client.chat_model_stream(
-            integration_name=payload.integration.name,
-            settings=payload,
-            messages=conversation,
-        ):
-            full_result += chunk["content"]
-            #
-            chunk_data = {
-                "type": "AIMessageChunk",
-                "content": chunk["content"],
-                "response_metadata": {},
-            }
-            #
-            chunk_data['stream_id'] = payload.stream_id
-            chunk_data['message_id'] = payload.message_id
-            #
-            if payload.type == PromptVersionType.freeform:
-                chunk_data['message_type'] = PromptVersionType.freeform
+        try:
+            for chunk in worker_client.chat_model_stream(
+                integration_name=payload.integration.name,
+                settings=payload,
+                messages=conversation,
+            ):
+                full_result += chunk["content"]
+                #
+                chunk_data = {
+                    "type": "AIMessageChunk",
+                    "content": chunk["content"],
+                    "response_metadata": {},
+                }
+                #
+                chunk_data['stream_id'] = payload.stream_id
+                chunk_data['message_id'] = payload.message_id
+                #
+                if payload.type == PromptVersionType.freeform:
+                    chunk_data['message_type'] = PromptVersionType.freeform
+                #
+                self.context.sio.emit(
+                    event=sio_event,
+                    data=chunk_data,
+                    room=room,
+                )
+        except:  # pylint: disable=W0702
+            exception_info = traceback.format_exc()
+            exception_uid = str(uuid4())
             #
             self.context.sio.emit(
                 event=sio_event,
-                data=chunk_data,
+                data={
+                    "type": "agent_tool_start",
+                    "content": "",
+                    "response_metadata": {
+                        "tool_name": "Predict Exception",
+                        "tool_run_id": exception_uid,
+                        "tool_meta": "",
+                        "tool_inputs": "",
+                    },
+                    "stream_id": payload.stream_id,
+                    "message_id": payload.stream_id,
+                },
+                room=room,
+            )
+            #
+            self.context.sio.emit(
+                event=sio_event,
+                data={
+                    "type": "agent_tool_end",
+                    "content": exception_info,
+                    "response_metadata": {
+                        "tool_name": "Predict Exception",
+                        "tool_run_id": exception_uid,
+                        "finish_reason": "stop",
+                    },
+                    "stream_id": payload.stream_id,
+                    "message_id": payload.stream_id,
+                },
                 room=room,
             )
         #
