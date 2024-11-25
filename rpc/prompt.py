@@ -252,40 +252,54 @@ class RPC:
                 )
         except:  # pylint: disable=W0702
             exception_info = traceback.format_exc()
-            exception_uid = str(uuid4())
+            # exception_uid = str(uuid4())
             #
             self.context.sio.emit(
-                event="application_predict",
+                event=sio_event,
                 data={
-                    "type": "agent_tool_start",
-                    "content": "",
-                    "response_metadata": {
-                        "tool_name": "Predict Exception",
-                        "tool_run_id": exception_uid,
-                        "tool_meta": "",
-                        "tool_inputs": "",
-                    },
+                    "type": "AIMessageChunk",
+                    "content": f"⚠ Predict exception: {exception_info}",
+                    "response_metadata": {},
                     "stream_id": payload.stream_id,
-                    "message_id": payload.stream_id,
+                    "message_id": payload.message_id,
                 },
                 room=room,
             )
             #
-            self.context.sio.emit(
-                event="application_predict",
-                data={
-                    "type": "agent_tool_end",
-                    "content": exception_info,
-                    "response_metadata": {
-                        "tool_name": "Predict Exception",
-                        "tool_run_id": exception_uid,
-                        "finish_reason": "stop",
-                    },
-                    "stream_id": payload.stream_id,
-                    "message_id": payload.stream_id,
-                },
-                room=room,
-            )
+
+            #
+            # self.context.sio.emit(
+            #     event=sio_event,
+            #     data={
+            #         "type": "agent_tool_start",
+            #         "content": "",
+            #         "response_metadata": {
+            #             "tool_name": "Predict Exception",
+            #             "tool_run_id": exception_uid,
+            #             "tool_meta": "",
+            #             "tool_inputs": "",
+            #         },
+            #         "stream_id": payload.stream_id,
+            #         "message_id": payload.stream_id,
+            #     },
+            #     room=room,
+            # )
+            #
+            # self.context.sio.emit(
+            #     event=sio_event,
+            #     data={
+            #         "type": "agent_tool_end",
+            #         "content": exception_info,
+            #         "response_metadata": {
+            #             "tool_name": "Predict Exception",
+            #             "tool_run_id": exception_uid,
+            #             "finish_reason": "stop",
+            #         },
+            #         "stream_id": payload.stream_id,
+            #         "message_id": payload.stream_id,
+            #     },
+            #     room=room,
+            # )
         #
         self.context.sio.emit(
             event=sio_event,
