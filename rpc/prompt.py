@@ -266,8 +266,6 @@ class RPC:
                 room=room,
             )
             #
-
-            #
             # self.context.sio.emit(
             #     event=sio_event,
             #     data={
