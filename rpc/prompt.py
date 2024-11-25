@@ -255,7 +255,7 @@ class RPC:
             exception_uid = str(uuid4())
             #
             self.context.sio.emit(
-                event=sio_event,
+                event="application_predict",
                 data={
                     "type": "agent_tool_start",
                     "content": "",
@@ -272,7 +272,7 @@ class RPC:
             )
             #
             self.context.sio.emit(
-                event=sio_event,
+                event="application_predict",
                 data={
                     "type": "agent_tool_end",
                     "content": exception_info,
