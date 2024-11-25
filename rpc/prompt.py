@@ -250,9 +250,8 @@ class RPC:
                     data=chunk_data,
                     room=room,
                 )
-        except:  # pylint: disable=W0702
-            exception_info = traceback.format_exc()
-            # exception_uid = str(uuid4())
+        except BaseException as exception:  # pylint: disable=W0718
+            exception_info = str(exception)
             #
             self.context.sio.emit(
                 event=sio_event,
@@ -265,39 +264,6 @@ class RPC:
                 },
                 room=room,
             )
-            #
-            # self.context.sio.emit(
-            #     event=sio_event,
-            #     data={
-            #         "type": "agent_tool_start",
-            #         "content": "",
-            #         "response_metadata": {
-            #             "tool_name": "Predict Exception",
-            #             "tool_run_id": exception_uid,
-            #             "tool_meta": "",
-            #             "tool_inputs": "",
-            #         },
-            #         "stream_id": payload.stream_id,
-            #         "message_id": payload.stream_id,
-            #     },
-            #     room=room,
-            # )
-            #
-            # self.context.sio.emit(
-            #     event=sio_event,
-            #     data={
-            #         "type": "agent_tool_end",
-            #         "content": exception_info,
-            #         "response_metadata": {
-            #             "tool_name": "Predict Exception",
-            #             "tool_run_id": exception_uid,
-            #             "finish_reason": "stop",
-            #         },
-            #         "stream_id": payload.stream_id,
-            #         "message_id": payload.stream_id,
-            #     },
-            #     room=room,
-            # )
         #
         self.context.sio.emit(
             event=sio_event,
