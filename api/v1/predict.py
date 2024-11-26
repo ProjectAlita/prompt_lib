@@ -205,6 +205,13 @@ class PromptLibAPI(api_tools.APIModeHandler):
         from tools import worker_client  # pylint: disable=E0401,C0415
         #
         try:
+            token_limit, max_tokens = self.module.get_limits_from_payload(payload)  # pylint: disable=E1101
+            conversation = worker_client.limit_tokens(
+                data=conversation,
+                token_limit=token_limit,
+                max_tokens=max_tokens,
+            )
+            #
             result = worker_client.chat_model_invoke(
                 integration_name=payload.integration.name,
                 settings=payload,
