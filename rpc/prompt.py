@@ -372,3 +372,36 @@ class RPC:
                     prompts_export(project_id, prompt_id, forked=forked).get('prompts', [])
                 )
         return result
+
+    @web.rpc("prompt_lib_update_tool_with_existing_fork", "update_tool_with_existing_fork")
+    def prompt_lib_update_tool_with_existing_fork(
+            self, target_project_id: int, input_tool: dict,
+            tool_parent_entity_id: int, tool_parent_project_id: int
+    ) -> Tuple[dict, str]:
+        with db.get_session(target_project_id) as session:
+            is_forked_subquery = (
+                session.query(PromptVersion.prompt_id)
+                .filter(PromptVersion.meta.op('->>')('parent_entity_id').isnot(None),
+                        PromptVersion.meta.op('->>')('parent_project_id').isnot(None))
+                .subquery()
+            )
+            target_project_forked_prompts = session.query(Prompt).filter(
+                Prompt.id.in_(is_forked_subquery)
+            ).all()
+
+            for forked_prompt in target_project_forked_prompts:
+                for version in forked_prompt.versions:
+                    forked_version_meta = version.meta or {}
+                    forked_version_parent_entity_id = forked_version_meta.get('parent_entity_id')
+                    forked_version_parent_project_id = forked_version_meta.get('parent_project_id')
+                    if tool_parent_entity_id == forked_version_parent_entity_id \
+                            and tool_parent_project_id == forked_version_parent_project_id:
+                        input_tool['settings'].pop('import_uuid')
+                        import_version_uuid = input_tool['settings'].pop('import_version_uuid')
+                        input_tool.update({
+                            'prompt_version_id': version.id,
+                            'prompt_id': forked_prompt.id,
+                        })
+                        return input_tool, import_version_uuid
+            else:
+                return input_tool, str()
