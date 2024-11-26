@@ -405,7 +405,7 @@ class RPC:
                             and tool_parent_project_id == forked_version_parent_project_id:
                         input_tool['settings'].pop('import_uuid')
                         import_version_uuid = input_tool['settings'].pop('import_version_uuid')
-                        input_tool.update({
+                        input_tool['settings'].update({
                             'prompt_version_id': version.id,
                             'prompt_id': forked_prompt.id,
                         })
