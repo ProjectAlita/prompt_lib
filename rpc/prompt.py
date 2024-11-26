@@ -226,6 +226,14 @@ class RPC:
         from tools import worker_client  # pylint: disable=E0401,C0415
         #
         try:
+            log.debug(f"{=payload.merged_settings}")
+            log.debug(f"{=payload.model_settings.max_tokens}")
+            # conversation = worker_client.limit_tokens(
+            #     data=conversation,
+            #     token_limit=None,
+            #     max_tokens=None,
+            # )
+            #
             for chunk in worker_client.chat_model_stream(
                 integration_name=payload.integration.name,
                 settings=payload,
