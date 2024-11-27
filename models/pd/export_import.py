@@ -26,7 +26,7 @@ class PromptVersionExportModel(BaseModel):
     type: Optional[PromptVersionType] = PromptVersionType.chat
     conversation_starters: Optional[List] = []
     welcome_message: Optional[str] = ''
-    meta: Optional[dict]
+    meta: Optional[dict] = {}
 
     @root_validator
     def validate_repeatable_uuid(cls, values):
