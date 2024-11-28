@@ -186,6 +186,7 @@ class AgentsImport(ImportData):
                     log.debug(f'{tool=}')
                     t = ApplicationImportCompoundTool.parse_obj(tool)
                     if t.not_imported_yet_tool:
+                        log.debug(f'{t=}')
                         t.application_import_uuid = values['import_uuid']
                         t.application_import_version_uuid = version['import_version_uuid']
                         postponed_tools.append(t)
@@ -193,9 +194,11 @@ class AgentsImport(ImportData):
                         clean_tools.append(tool)
                 else:
                     clean_tools.append(tool)
+                log.debug(f'{clean_tools=}')
 
             version['tools'] = clean_tools
         values['postponed_tools'] = postponed_tools
+        log.debug(f'{postponed_tools=}')
 
         return values
 
