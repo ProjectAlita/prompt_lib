@@ -157,9 +157,14 @@ def _postponed_app_tools_import(postponed_application_tools: List[ApplicationImp
             errors.append(_wrap_import_error(original_entity_index, str(ex2)))
 
     results = []
-    for app_id, _, original_entity_index in good:
-        for details in result_candidates.values():
+    for candidate_app_id, details in result_candidates.items():
+        for app_id, _, original_entity_index in good:
             if details['index'] == original_entity_index:
+                results.append(details)
+                break
+        else:
+            # prompts and datasources not calculated in good, but exist in failed
+            if candidate_app_id not in failed:
                 results.append(details)
 
     return results, errors
