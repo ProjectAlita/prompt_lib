@@ -2,6 +2,8 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, root_validator
 
+from pylon.core.tools import log
+
 
 class ImportData(BaseModel):
     import_uuid: str
@@ -181,6 +183,7 @@ class AgentsImport(ImportData):
             clean_tools = []
             for tool in version.get('tools', []):
                 if tool['type'] in ('application', 'datasource', 'prompt'):
+                    log.debug(f'{tool=}')
                     t = ApplicationImportCompoundTool.parse_obj(tool)
                     if t.not_imported_yet_tool:
                         t.application_import_uuid = values['import_uuid']
