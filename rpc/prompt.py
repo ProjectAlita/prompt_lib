@@ -1,5 +1,4 @@
 import json
-import traceback
 
 from typing import List, Optional, Tuple
 from uuid import uuid4
@@ -13,9 +12,10 @@ from ..models.enums.all import PromptVersionType
 from ..models.pd.export_import import PromptImportModel
 from ..models.pd.predict import PromptVersionPredictModel
 from ..models.pd.prompt import PromptDetailModel
+from ..models.pd.prompt_version import PromptVersionDetailModel
 from ..utils.ai_providers import AIProvider
 from ..models.pd.v1_structure import PromptV1Model, TagV1Model
-from tools import rpc_tools, db, auth
+from tools import db, auth
 from ..models.all import (
     Prompt,
     PromptVersion,
@@ -29,7 +29,7 @@ from ..utils.export_import_utils import prompts_export
 
 
 class RPC:
-    @web.rpc(f'prompt_lib_get_all', "get_all")
+    @web.rpc('prompt_lib_get_all', "get_all")
     def prompt_lib_get_all(self, project_id: int, with_versions: bool = False, **kwargs) -> List[dict]:
         # TODO: Support with_versions flag if we still need it
         with db.with_project_schema_session(project_id) as session:
@@ -366,7 +366,12 @@ class RPC:
             prompt = create_prompt(prompt_data, session)
             session.commit()
 
-            return json.loads(PromptDetailModel.from_orm(prompt).json()), errors
+            result = PromptDetailModel.from_orm(prompt)
+            result.version_details = PromptVersionDetailModel.from_orm(
+                prompt.versions[0]
+            )
+
+            return json.loads(result.json()), errors
 
     @web.rpc("prompt_lib_export_prompt")
     def export_prompt(self, prompts_grouped: dict, forked: bool = False) -> dict:
