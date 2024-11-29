@@ -2,8 +2,6 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, root_validator
 
-from pylon.core.tools import log
-
 
 class ImportData(BaseModel):
     import_uuid: str
@@ -183,10 +181,8 @@ class AgentsImport(ImportData):
             clean_tools = []
             for tool in version.get('tools', []):
                 if tool['type'] in ('application', 'datasource', 'prompt'):
-                    log.debug(f'{tool=}')
                     t = ApplicationImportCompoundTool.parse_obj(tool)
                     if t.not_imported_yet_tool:
-                        log.debug(f'{t=}')
                         t.application_import_uuid = values['import_uuid']
                         t.application_import_version_uuid = version['import_version_uuid']
                         postponed_tools.append(t)
@@ -194,11 +190,9 @@ class AgentsImport(ImportData):
                         clean_tools.append(tool)
                 else:
                     clean_tools.append(tool)
-                log.debug(f'{clean_tools=}')
 
             version['tools'] = clean_tools
         values['postponed_tools'] = postponed_tools
-        log.debug(f'{postponed_tools=}')
 
         return values
 

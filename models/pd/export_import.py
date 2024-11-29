@@ -77,10 +77,32 @@ class PromptExportModel(PromptExportBaseModel):
         }
 
 
-class PromptVersionForkModel(PromptVersionExportModel):
+class PromptVersionForkModel(BaseModel):
+    import_version_uuid: str = None
     id: int
-    name: Optional[str]
-    author_id: Optional[int]
+    author_id: int
+    shared_id: Optional[int] = None
+    shared_owner_id: Optional[int] = None
+    name: str
+    commit_message: Optional[str] = None
+    context: Optional[str] = ''
+    variables: Optional[List[PromptVariableBaseModel]]
+    messages: Optional[List[PromptMessageBaseModel]]
+    tags: Optional[List[TagBaseModel]]
+    model_settings: Optional[ModelSettingsBaseModel]
+    type: Optional[PromptVersionType] = PromptVersionType.chat
+    conversation_starters: Optional[List] = []
+    welcome_message: Optional[str] = ''
+    meta: Optional[dict] = {}
+
+    @root_validator
+    def validate_repeatable_uuid(cls, values):
+        hash_ = hash((cls.__name__, values['id'], values['author_id'], values['name']))
+        values['import_version_uuid'] = str(uuid.UUID(int=abs(hash_)))
+        return values
+
+    class Config:
+        orm_mode = True
 
 
 class PromptForkModel(PromptExportBaseModel):
