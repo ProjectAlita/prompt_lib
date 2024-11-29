@@ -385,11 +385,10 @@ class RPC:
                 )
         return result
 
-    @web.rpc("prompt_lib_update_tool_with_existing_fork", "update_tool_with_existing_fork")
-    def prompt_lib_update_tool_with_existing_fork(
-            self, target_project_id: int, input_tool: dict,
-            tool_parent_entity_id: int, tool_parent_project_id: int
-    ) -> Tuple[dict, str]:
+    @web.rpc("prompt_lib_find_existing_fork", "find_existing_fork")
+    def prompt_lib_find_existing_fork(
+            self, target_project_id: int, parent_entity_id: int, parent_project_id: int
+    ) -> tuple[int, int] | tuple[None, None]:
         with db.get_session(target_project_id) as session:
             is_forked_subquery = (
                 session.query(PromptVersion.prompt_id)
@@ -406,14 +405,26 @@ class RPC:
                     forked_version_meta = version.meta or {}
                     forked_version_parent_entity_id = forked_version_meta.get('parent_entity_id')
                     forked_version_parent_project_id = forked_version_meta.get('parent_project_id')
-                    if tool_parent_entity_id == forked_version_parent_entity_id \
-                            and tool_parent_project_id == forked_version_parent_project_id:
-                        input_tool['settings'].pop('import_uuid')
-                        import_version_uuid = input_tool['settings'].pop('import_version_uuid')
-                        input_tool['settings'].update({
-                            'prompt_version_id': version.id,
-                            'prompt_id': forked_prompt.id,
-                        })
-                        return input_tool, import_version_uuid
-            else:
-                return input_tool, str()
+                    if parent_entity_id == forked_version_parent_entity_id \
+                            and parent_project_id == forked_version_parent_project_id:
+                        return forked_prompt.id, version.id
+            return None, None
+
+    @web.rpc("prompt_lib_update_tool_with_existing_fork", "update_tool_with_existing_fork")
+    def prompt_lib_update_tool_with_existing_fork(
+            self, target_project_id: int, input_tool: dict,
+            tool_parent_entity_id: int, tool_parent_project_id: int
+    ) -> Tuple[dict, str]:
+        forked_prompt_id, forked_version_id = self.find_existing_fork(
+            target_project_id, tool_parent_entity_id, tool_parent_project_id
+        )
+        if forked_prompt_id and forked_version_id:
+            input_tool['settings'].pop('import_uuid')
+            import_version_uuid = input_tool['settings'].pop('import_version_uuid')
+            input_tool['settings'].update({
+                'prompt_version_id': forked_prompt_id,
+                'prompt_id': forked_version_id,
+            })
+            return input_tool, import_version_uuid
+        else:
+            return input_tool, str()

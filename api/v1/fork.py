@@ -4,11 +4,12 @@ from typing import Tuple
 from flask import request, send_file
 from pydantic import ValidationError
 from sqlalchemy.exc import ProgrammingError
-from tools import api_tools, db, auth, config as c
+from tools import api_tools, rpc_tools, db, auth, config as c
 
 from ...models.all import Prompt
 from ...models.pd.fork import ForkPromptInput
 from ...utils.constants import PROMPT_LIB_MODE
+from ....promptlib_shared.utils.permissions import ProjectPermissionChecker
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
@@ -23,6 +24,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         fork_data = request.json
         author_id = auth.current_user().get("id")
         results, errors = {'prompts': []}, {'prompts': []}
+        already_exists = {'prompts': []}
 
         try:
             fork_input = ForkPromptInput.parse_obj(fork_data)
@@ -31,13 +33,21 @@ class PromptLibAPI(api_tools.APIModeHandler):
             return {'result': results, 'errors': errors}, 400
 
         for fork_input_prompt in fork_input.prompts:
-            check_owner_permission, status_code = auth.decorators.check_api({
-                "permissions": ["models.prompt_lib.fork.post"]
-            }, project_id=fork_input_prompt.owner_id)(
-                lambda: ({'ok': True}, 200)
-            )()
+            permission_checker = ProjectPermissionChecker(fork_input_prompt.owner_id)
+            check_owner_permission, status_code = permission_checker.check_permissions(
+                ["models.applications.fork.post"]
+            )
             if status_code != 200:
-                return check_owner_permission
+                return check_owner_permission, status_code
+            forked_prompt_id, forked_prompt_version_id = self.module.context.rpc_manager.call.prompt_lib_find_existing_fork(
+                project_id, fork_input_prompt.id, fork_input_prompt.owner_id
+            )
+            if forked_prompt_id and forked_prompt_version_id:
+                forked_prompt_details = rpc_tools.RpcMixin().rpc.call.prompt_lib_get_by_id(
+                    project_id, forked_prompt_id
+                )
+                already_exists['prompts'].append(forked_prompt_details)
+                continue
             try:
                 with db.with_project_schema_session(fork_input_prompt.owner_id) as session:
                     original_prompt = session.query(Prompt).filter(Prompt.id == fork_input_prompt.id).first()
@@ -108,20 +118,25 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 errors['prompts'].append(f'The project with id {fork_input_prompt.owner_id} does not exist')
                 return {'result': results, 'errors': errors}, 404
 
-        result, errors = self.module.context.rpc_manager.call.prompt_lib_import_wizard(
-            results['prompts'], project_id, author_id
-        )
+        if results['prompts']:
+            import_wizard_result, errors = self.module.context.rpc_manager.call.prompt_lib_import_wizard(
+                results['prompts'], project_id, author_id
+            )
+        else:
+            import_wizard_result = results
 
-        has_results = any(result[key] for key in result if result[key])
+        has_results = any(import_wizard_result[key] for key in import_wizard_result if import_wizard_result[key])
         has_errors = any(errors[key] for key in errors if errors[key])
 
         if not has_errors and has_results:
             status_code = 201
         elif has_errors and has_results:
             status_code = 207
+        elif not has_errors and not has_errors:
+            status_code = 200
         else:
             status_code = 400
-        return {'result': results, 'errors': errors}, status_code
+        return {'result': results, 'already_exists': already_exists, 'errors': errors}, status_code
 
 
 class API(api_tools.APIBase):
