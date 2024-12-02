@@ -85,7 +85,7 @@ class SelfImportToolSettings(BaseModel):
 
 class DatasourceImportToolSettings(BaseModel):
     datasource_id: int
-    selected_tools: dict
+    selected_tools: list
 
 
 class DatasourceSelfImportToolSettings(BaseModel):
