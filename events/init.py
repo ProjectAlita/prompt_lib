@@ -105,14 +105,15 @@ class Event:
                     "models.datasources.versions.create",
                     "models.datasources.versions.get",
                     *applications_roles
-                ]
+                ],
+                "monitor": ["monitoring.monitorable"],
             }
             #
             setup_secrets = {
                 "ai_project_allowed_domains": self.descriptor.config.get(
                     "ai_project_allowed_domains", ""
                 ),
-                "ai_project_roles": "prompt_lib_public",  # change to viewer after redo
+                "ai_project_roles": "prompt_lib_public,monitor",  # change to viewer after redo
                 "ai_public_admin_role": "public_admin",  # change to editor after redo
                 "ai_project_api_url": "",
                 "ai_storage_quota": json.dumps({
