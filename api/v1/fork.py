@@ -46,6 +46,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 forked_prompt_details = rpc_tools.RpcMixin().rpc.call.prompt_lib_get_by_id(
                     project_id, forked_prompt_id
                 )
+                forked_prompt_details['import_uuid'] = fork_input_prompt.import_uuid
                 already_exists['prompts'].append(forked_prompt_details)
                 continue
             try:
@@ -98,6 +99,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
                                 meta.update({
                                     'parent_entity_id': parent_entity_id,
+                                    'parent_entity_version_id': original_prompt_version.id,
                                     'parent_project_id': parent_project_id,
                                     'parent_author_id': original_prompt_version.author_id,
                                 })

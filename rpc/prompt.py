@@ -146,7 +146,8 @@ class RPC:
             result['versions'] = [{
                 'id': version.id,
                 'version': version.name,
-                'tags': [tag.name for tag in version.tags]
+                'tags': [tag.name for tag in version.tags],
+                'meta': version.meta,
             } for version in prompt_version.prompt.versions]
 
             return result
