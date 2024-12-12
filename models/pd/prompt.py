@@ -39,6 +39,7 @@ class PromptDetailModel(PromptBaseModel):
     version_details: Optional[PromptVersionDetailModel]
     created_at: datetime
     collections: Optional[list]
+    owner_id: int
 
 
 class PublishedPromptDetailModel(PromptDetailModel):

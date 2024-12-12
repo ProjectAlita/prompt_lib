@@ -111,6 +111,7 @@ class RPC:
             result = prompt_version.to_json()
             result['version_id'] = prompt_version.id
             result['id'] = prompt_version.prompt.id
+            result['owner_id'] = prompt_version.prompt.owner_id
             result['version'] = result['name']
             result['name'] = prompt_version.prompt.name
             result['prompt'] = result.pop('context')

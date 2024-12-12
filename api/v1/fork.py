@@ -138,7 +138,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             status_code = 200
         else:
             status_code = 400
-        return {'result': results, 'already_exists': already_exists, 'errors': errors}, status_code
+        return {'result': import_wizard_result, 'already_exists': already_exists, 'errors': errors}, status_code
 
 
 class API(api_tools.APIBase):
