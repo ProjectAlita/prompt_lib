@@ -226,7 +226,10 @@ def list_prompts(project_id: int,
         # Apply sorting
         if not sort_by_likes:
             sort_fn = asc if sort_order.lower() == "asc" else desc
-            query = query.order_by(sort_fn(getattr(Prompt, sort_by, sort_by)))
+            id_subquery = query.distinct(Prompt.id).subquery()
+            query = query.order_by(sort_fn(getattr(Prompt, sort_by, sort_by))).join(
+                id_subquery, Prompt.id == id_subquery.c.id
+            )
 
         total = query.count()
 
