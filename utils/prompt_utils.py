@@ -225,11 +225,16 @@ def list_prompts(project_id: int,
 
         # Apply sorting
         if not sort_by_likes:
-            sort_fn = asc if sort_order.lower() == "asc" else desc
-            id_subquery = query.distinct(Prompt.id).subquery()
-            query = query.order_by(sort_fn(getattr(Prompt, sort_by, sort_by))).join(
-                id_subquery, Prompt.id == id_subquery.c.id
-            )
+            if sort_by != 'id':
+                sort_fn_primary = asc if sort_order.lower() == "asc" else desc
+                sort_fn_secondary = asc
+                # always ascending for the secondary unique field
+                query = query.order_by(
+                    sort_fn_primary(getattr(Prompt, sort_by)), sort_fn_secondary(Prompt.id)
+                )
+            else:
+                sort_fn = asc if sort_order.lower() == "asc" else desc
+                query = query.order_by(sort_fn(Prompt.id))
 
         total = query.count()
 
