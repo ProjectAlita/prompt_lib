@@ -1,4 +1,5 @@
 import json
+import traceback
 
 from typing import List, Optional, Tuple
 from uuid import uuid4
@@ -260,6 +261,8 @@ class RPC:
                     room=room,
                 )
         except BaseException as exception:  # pylint: disable=W0718
+            log.debug("Predict exception: %s", traceback.format_exc())
+            #
             exception_info = str(exception)
             #
             self.context.sio.emit(
