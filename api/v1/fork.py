@@ -39,8 +39,19 @@ class PromptLibAPI(api_tools.APIModeHandler):
             )
             if status_code != 200:
                 return check_owner_permission, status_code
+
+            parent_entity_id = fork_input_prompt.id
+            parent_project_id = fork_input_prompt.owner_id
+            for fork_input_prompt_version in fork_input_prompt.versions:
+                if fork_input_prompt_version.meta:
+                    parent_entity_id = fork_input_prompt_version.meta.get('parent_entity_id', fork_input_prompt.id)
+                    parent_project_id = fork_input_prompt_version.meta.get('parent_project_id', fork_input_prompt.owner_id)
+
+
             forked_prompt_id, forked_prompt_version_id = self.module.context.rpc_manager.call.prompt_lib_find_existing_fork(
-                project_id, fork_input_prompt.id, fork_input_prompt.owner_id
+                target_project_id=project_id,
+                parent_entity_id=parent_entity_id,
+                parent_project_id=parent_project_id
             )
             if forked_prompt_id and forked_prompt_version_id:
                 forked_prompt_details = rpc_tools.RpcMixin().rpc.call.prompt_lib_get_by_id(
