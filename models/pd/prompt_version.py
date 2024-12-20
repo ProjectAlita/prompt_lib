@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, List, Literal
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, validator, Field
 from .model_settings import ModelSettingsCreateModel, ModelSettingsBaseModel
 from .prompt_message import PromptMessageBaseModel, PromptMessageDetailModel, PromptMessageUpdateModel
 from .prompt_variable import PromptVariableBaseModel, PromptVariableDetailModel, PromptVariableUpdateModel
@@ -43,6 +43,7 @@ class PromptVersionListModel(BaseModel):
     author_id: int
     tags: List[PromptTagListModel]
     author: Optional[AuthorBaseModel]
+    meta: Optional[dict] = Field(default_factory=dict)
 
     @validator('author', always=True)
     def add_author_data(cls, value: dict, values: dict) -> AuthorBaseModel:
