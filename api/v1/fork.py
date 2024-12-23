@@ -7,8 +7,6 @@ from pydantic import ValidationError
 from sqlalchemy.exc import ProgrammingError
 from tools import api_tools, rpc_tools, db, auth, config as c
 
-from pylon.core.tools import log
-
 from ...models.all import Prompt
 from ...models.pd.fork import ForkPromptInput
 from ...utils.constants import PROMPT_LIB_MODE
@@ -163,8 +161,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         for entity in import_wizard_result:
             for i in chain(import_wizard_result[entity], errors[entity]):
-                log.debug(f'{i["index"]}')
-                log.debug(f'{new_idxs}')
                 i['index'] = new_idxs[i['index']]
 
         return {'result': import_wizard_result, 'already_exists': already_exists, 'errors': errors}, status_code
