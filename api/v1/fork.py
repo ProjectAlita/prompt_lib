@@ -1,10 +1,13 @@
 import uuid
+from itertools import chain
 from typing import Tuple
 
 from flask import request, send_file
 from pydantic import ValidationError
 from sqlalchemy.exc import ProgrammingError
 from tools import api_tools, rpc_tools, db, auth, config as c
+
+from pylon.core.tools import log
 
 from ...models.all import Prompt
 from ...models.pd.fork import ForkPromptInput
@@ -32,7 +35,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
             errors['prompts'].append(f'Validation error on item: {e}')
             return {'result': results, 'errors': errors}, 400
 
-        for fork_input_prompt in fork_input.prompts:
+        new_idxs = []
+
+        for idx, fork_input_prompt in enumerate(fork_input.prompts):
             permission_checker = ProjectPermissionChecker(fork_input_prompt.owner_id)
             check_owner_permission, status_code = permission_checker.check_permissions(
                 ["models.applications.fork.post"]
@@ -58,6 +63,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                     project_id, forked_prompt_id
                 )
                 forked_prompt_details['import_uuid'] = fork_input_prompt.import_uuid
+                forked_prompt_details['index'] = idx
                 already_exists['prompts'].append(forked_prompt_details)
                 continue
             try:
@@ -126,9 +132,14 @@ class PromptLibAPI(api_tools.APIModeHandler):
                         hash_ = hash((new_prompt['id'], new_prompt['owner_id'], new_prompt['name']))
                         new_prompt['import_uuid'] = str(uuid.UUID(int=abs(hash_)))
                         new_prompt.pop('id')
+                        new_prompt['index'] = idx
+                        new_idxs.append(idx)
                         results['prompts'].append(new_prompt)
             except ProgrammingError:
-                errors['prompts'].append(f'The project with id {fork_input_prompt.owner_id} does not exist')
+                errors['prompts'].append({
+                    'index': idx,
+                    'msg': f'The project with id {fork_input_prompt.owner_id} does not exist'
+                })
                 return {'result': results, 'errors': errors}, 404
 
         if results['prompts']:
@@ -149,6 +160,13 @@ class PromptLibAPI(api_tools.APIModeHandler):
             status_code = 200
         else:
             status_code = 400
+
+        for entity in import_wizard_result:
+            for i in chain(import_wizard_result[entity], errors[entity]):
+                log.debug(f'{i["index"]}')
+                log.debug(f'{new_idxs}')
+                i['index'] = new_idxs[i['index']]
+
         return {'result': import_wizard_result, 'already_exists': already_exists, 'errors': errors}, status_code
 
 
