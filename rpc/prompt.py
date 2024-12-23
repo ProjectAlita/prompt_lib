@@ -388,6 +388,8 @@ class RPC:
 
             raw['versions'] = versions
 
+            log.debug(f'{raw=}')
+
             try:
                 prompt_data = PromptImportModel.parse_obj(raw)
             except ValidationError as e:
