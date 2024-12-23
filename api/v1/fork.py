@@ -50,7 +50,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
                     parent_entity_id = fork_input_prompt_version.meta.get('parent_entity_id', fork_input_prompt.id)
                     parent_project_id = fork_input_prompt_version.meta.get('parent_project_id', fork_input_prompt.owner_id)
 
-
             forked_prompt_id, forked_prompt_version_id = self.module.context.rpc_manager.call.prompt_lib_find_existing_fork(
                 target_project_id=project_id,
                 parent_entity_id=parent_entity_id,

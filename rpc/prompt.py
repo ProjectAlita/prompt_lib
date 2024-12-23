@@ -1,5 +1,7 @@
 import json
 import traceback
+from copy import deepcopy
+from dateutil import parser
 
 from typing import List, Optional, Tuple
 from uuid import uuid4
@@ -355,14 +357,37 @@ class RPC:
 
         with db.with_project_schema_session(project_id) as session:
             raw['owner_id'] = project_id
-            for version in raw.get("versions", []):
+            versions = deepcopy(
+                raw.get("versions", []),
+            )
+
+            def set_latest(version_: dict):
+                version_['name'] = 'latest'
+                version_['meta'].pop('parent_entity_version_id', None)
+                version_['meta'].pop('parent_author_id', None)
+
+            for version in versions:
                 meta = version.get('meta') or {}
                 if 'parent_author_id' in meta:
                     version["author_id"] = meta.get('parent_author_id')
                 else:
                     version["author_id"] = author_id
                 if not version.get('name'):
-                    version['name'] = 'latest'
+                    set_latest(version)
+
+            if not any(v['name'] == 'latest' for v in versions):
+                latest_version = deepcopy(
+                    sorted(
+                        versions,
+                        key=lambda x: parser.parse(x['created_at']),
+                        reverse=False
+                    )[-1]
+                )
+                set_latest(latest_version)
+                versions.append(latest_version)
+
+            raw['versions'] = versions
+
             try:
                 prompt_data = PromptImportModel.parse_obj(raw)
             except ValidationError as e:
