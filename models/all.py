@@ -66,7 +66,7 @@ class PromptVersion(db_tools.AbstractBaseMixin, db.Base):
     shared_id: Mapped[int] = mapped_column(Integer, nullable=True)
     conversation_starters: Mapped[dict] = mapped_column(JSON, default=list)
     welcome_message: Mapped[str] = mapped_column(String, default='')
-    meta: Mapped[dict] = mapped_column(JSON, default=dict)
+    meta: Mapped[dict] = mapped_column(JSONB, default=dict)
 
 
 class PromptVariable(db_tools.AbstractBaseMixin, db.Base):
