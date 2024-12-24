@@ -79,6 +79,9 @@ class Event:
                     "models.prompt_lib.feedbacks.create",
                     #
                     "models.applications.public_applications.list",
+                    "models.applications.public_application.details",
+                    "configuration.integrations.integrations.view",
+                    "models.applications.task.delete",
                     # "models.chat.conversations.list",
                 ],
                 "public_admin": [
