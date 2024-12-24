@@ -9,7 +9,7 @@ from uuid import uuid4
 from pylon.core.tools import web, log
 
 from pydantic import parse_obj_as, ValidationError
-from sqlalchemy import desc
+from sqlalchemy import desc, Integer
 from sqlalchemy.orm import joinedload
 from ..models.enums.all import PromptVersionType
 from ..models.pd.export_import import PromptImportModel
@@ -423,25 +423,10 @@ class RPC:
             self, target_project_id: int, parent_entity_id: int, parent_project_id: int
     ) -> tuple[int, int] | tuple[None, None]:
         with db.get_session(target_project_id) as session:
-            is_forked_subquery = (
-                session.query(PromptVersion.prompt_id)
-                .filter(PromptVersion.meta.op('->>')('parent_entity_id').isnot(None),
-                        PromptVersion.meta.op('->>')('parent_project_id').isnot(None))
-                .subquery()
-            )
-            target_project_forked_prompts = session.query(Prompt).filter(
-                Prompt.id.in_(is_forked_subquery)
-            ).all()
-
-            for forked_prompt in target_project_forked_prompts:
-                for version in forked_prompt.versions:
-                    forked_version_meta = version.meta or {}
-                    forked_version_parent_entity_id = forked_version_meta.get('parent_entity_id')
-                    forked_version_parent_project_id = forked_version_meta.get('parent_project_id')
-                    if parent_entity_id == forked_version_parent_entity_id \
-                            and parent_project_id == forked_version_parent_project_id:
-                        return forked_prompt.id, version.id
-            return None, None
+            return session.query(PromptVersion.prompt_id, PromptVersion.id).where(
+                PromptVersion.meta['parent_entity_id'].astext.cast(Integer) == parent_entity_id,
+                PromptVersion.meta['parent_project_id'].astext.cast(Integer) == parent_project_id,
+            ).first()
 
     @web.rpc("prompt_lib_update_tool_with_existing_fork", "update_tool_with_existing_fork")
     def prompt_lib_update_tool_with_existing_fork(
@@ -452,8 +437,8 @@ class RPC:
             target_project_id, tool_parent_entity_id, tool_parent_project_id
         )
         if forked_prompt_id and forked_version_id:
-            input_tool['settings'].pop('import_uuid')
-            import_version_uuid = input_tool['settings'].pop('import_version_uuid')
+            input_tool['settings'].pop('import_uuid', None)
+            import_version_uuid = input_tool['settings'].pop('import_version_uuid', None)
             input_tool['settings'].update({
                 'prompt_version_id': forked_prompt_id,
                 'prompt_id': forked_version_id,
