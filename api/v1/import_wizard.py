@@ -1,3 +1,5 @@
+from itertools import chain
+
 from flask import request
 
 from tools import api_tools, auth, config as c
@@ -14,8 +16,14 @@ class PromptLibAPI(api_tools.APIModeHandler):
         }})
     @api_tools.endpoint_metrics
     def post(self, project_id: int, **kwargs):
-        import_data = request.json
+        import_data = dict(request.json)
         author_id = auth.current_user().get("id")
+
+        for entity in chain(import_data.get('prompts', []), import_data.get('agents', [])):
+            if isinstance(entity, dict):
+                for v in entity.get('versions', []):
+                    if isinstance(v, dict):
+                        v.pop('meta', None)
 
         result, errors = self.module.context.rpc_manager.call.prompt_lib_import_wizard(
             import_data, project_id, author_id
