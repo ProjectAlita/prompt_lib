@@ -426,7 +426,7 @@ class RPC:
             return session.query(PromptVersion.prompt_id, PromptVersion.id).where(
                 PromptVersion.meta['parent_entity_id'].astext.cast(Integer) == parent_entity_id,
                 PromptVersion.meta['parent_project_id'].astext.cast(Integer) == parent_project_id,
-            ).first()
+            ).first() or None, None
 
     @web.rpc("prompt_lib_update_tool_with_existing_fork", "update_tool_with_existing_fork")
     def prompt_lib_update_tool_with_existing_fork(
