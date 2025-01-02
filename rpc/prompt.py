@@ -423,10 +423,11 @@ class RPC:
             self, target_project_id: int, parent_entity_id: int, parent_project_id: int
     ) -> tuple[int, int] | tuple[None, None]:
         with db.get_session(target_project_id) as session:
-            return session.query(PromptVersion.prompt_id, PromptVersion.id).where(
+            result = session.query(PromptVersion.prompt_id, PromptVersion.id).where(
                 PromptVersion.meta['parent_entity_id'].astext.cast(Integer) == parent_entity_id,
                 PromptVersion.meta['parent_project_id'].astext.cast(Integer) == parent_project_id,
-            ).first() or None, None
+            ).first()
+            return result[0] if result else None, None
 
     @web.rpc("prompt_lib_update_tool_with_existing_fork", "update_tool_with_existing_fork")
     def prompt_lib_update_tool_with_existing_fork(
