@@ -422,12 +422,27 @@ class RPC:
     def prompt_lib_find_existing_fork(
             self, target_project_id: int, parent_entity_id: int, parent_project_id: int
     ) -> tuple[int, int] | tuple[None, None]:
+        # optimized implementation always returns none in version id
         with db.get_session(target_project_id) as session:
-            result = session.query(PromptVersion.prompt_id, PromptVersion.id).where(
-                PromptVersion.meta['parent_entity_id'].astext.cast(Integer) == parent_entity_id,
-                PromptVersion.meta['parent_project_id'].astext.cast(Integer) == parent_project_id,
-            ).first()
-            return result[0] if result else None, None
+            is_forked_subquery = (
+                session.query(PromptVersion.prompt_id)
+                .filter(PromptVersion.meta.op('->>')('parent_entity_id').isnot(None),
+                        PromptVersion.meta.op('->>')('parent_project_id').isnot(None))
+                .subquery()
+            )
+            target_project_forked_prompts = session.query(Prompt).filter(
+                Prompt.id.in_(is_forked_subquery)
+            ).all()
+
+            for forked_prompt in target_project_forked_prompts:
+                for version in forked_prompt.versions:
+                    forked_version_meta = version.meta or {}
+                    forked_version_parent_entity_id = forked_version_meta.get('parent_entity_id')
+                    forked_version_parent_project_id = forked_version_meta.get('parent_project_id')
+                    if parent_entity_id == forked_version_parent_entity_id \
+                            and parent_project_id == forked_version_parent_project_id:
+                        return forked_prompt.id, version.id
+            return None, None
 
     @web.rpc("prompt_lib_update_tool_with_existing_fork", "update_tool_with_existing_fork")
     def prompt_lib_update_tool_with_existing_fork(
