@@ -1,5 +1,4 @@
 import copy
-from itertools import chain
 
 from flask import request
 
@@ -20,7 +19,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         import_data = copy.copy(request.json)
         author_id = auth.current_user().get("id")
 
-        for entity in chain(import_data.get('prompts', []), import_data.get('agents', [])):
+        for entity in import_data:
             if isinstance(entity, dict):
                 for v in entity.get('versions', []):
                     if isinstance(v, dict):
