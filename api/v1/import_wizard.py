@@ -1,3 +1,4 @@
+import copy
 from itertools import chain
 
 from flask import request
@@ -16,7 +17,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         }})
     @api_tools.endpoint_metrics
     def post(self, project_id: int, **kwargs):
-        import_data = dict(request.json)
+        import_data = copy.copy(request.json)
         author_id = auth.current_user().get("id")
 
         for entity in chain(import_data.get('prompts', []), import_data.get('agents', [])):
