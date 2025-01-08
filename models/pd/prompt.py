@@ -8,6 +8,7 @@ from ....prompt_lib.models.pd.prompt_version import PromptVersionBaseModel, \
 from ....prompt_lib.utils.utils import determine_prompt_status
 from ....promptlib_shared.models.enums.all import PublishStatus
 from ....promptlib_shared.models.pd.base import AuthorBaseModel, TagBaseModel
+from ....promptlib_shared.utils.constants import ENTITY_DESCRIPTION_LEN_LIMITATION_4_LIST_API
 
 from tools import rpc_tools
 
@@ -115,7 +116,7 @@ class PromptListModel(BaseModel):
     @validator('description')
     def truncate_long_description(cls, value: Optional[str]) -> Optional[str]:
         if value:
-            return value[:64]
+            return value[:ENTITY_DESCRIPTION_LEN_LIMITATION_4_LIST_API]
         return value
 
     @validator('is_forked', always=True)

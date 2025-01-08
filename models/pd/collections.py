@@ -10,6 +10,7 @@ from .prompt import PromptListModel
 from ....promptlib_shared.models.pd.base import AuthorBaseModel
 from ....promptlib_shared.models.pd.entity import EntityListModel
 from ....promptlib_shared.models.pd.tag import TagDetailModel
+from ....promptlib_shared.utils.constants import ENTITY_DESCRIPTION_LEN_LIMITATION_4_LIST_API
 from ..enums.all import CollectionPatchOperations
 from ...utils.publish_utils import get_public_project_id
 
@@ -156,7 +157,7 @@ class CollectionListModel(BaseModel):
     @validator('description')
     def truncate_long_description(cls, value: Optional[str]) -> Optional[str]:
         if value:
-            return value[:64]
+            return value[:ENTITY_DESCRIPTION_LEN_LIMITATION_4_LIST_API]
         return value
 
 
