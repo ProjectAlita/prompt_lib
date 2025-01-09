@@ -67,6 +67,10 @@ def prompts_export(project_id: int, prompt_id: int = None, session=None, forked=
         )
     )
     prompts: List[Prompt] = query.all()
+    if not prompts:
+        raise RuntimeError(
+            f"No prompt found: {project_id=} {prompt_id=}"
+        )
     prompts_to_export = []
     for prompt in prompts:
         if forked:
