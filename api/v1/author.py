@@ -2,7 +2,7 @@ from queue import Empty
 
 from pylon.core.tools import log
 
-from tools import api_tools, auth, config as c
+from tools import api_tools, auth, config as c, rpc_tools
 
 from ...utils.utils import get_author_data
 from ...utils.constants import PROMPT_LIB_MODE
@@ -31,6 +31,32 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 author['id'])
             stats = get_stats(author_project_id, author['id'])
             author.update(stats)
+
+            rpc_timeout = rpc_tools.RpcMixin().rpc.timeout
+            res = {'total_datasources': 0, 'public_datasources': 0}
+            try:
+                res = rpc_timeout(5).datasources_get_stats(author_project_id, author_id)
+            except Empty:
+                log.warning("datasources plugin is not available, related stats will be empty")
+            finally:
+                author.update(res)
+
+            res = {'total_applications': 0, 'public_applications': 0}
+            try:
+                res = rpc_timeout(5).applications_get_stats(author_project_id, author_id)
+            except Empty:
+                log.warning("applications plugin is not available, related stats will be empty")
+            finally:
+                author.update(res)
+
+            res = {'total_conversations': 0}
+            try:
+                res = rpc_timeout(5).chat_get_stats(author_project_id, author_id)
+            except Empty:
+                log.warning("chat plugin is not available, related stats will be empty")
+            finally:
+                author.update(res)
+
         except Empty:
             ...
         return author, 200
