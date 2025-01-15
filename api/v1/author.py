@@ -49,7 +49,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             finally:
                 author.update(res)
 
-            res = {'total_conversations': 0}
+            res = {'total_conversations': 0, 'public_conversations': 0}
             try:
                 res = rpc_timeout(5).chat_get_stats(author_project_id, author_id)
             except Empty:
