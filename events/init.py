@@ -85,7 +85,11 @@ class Event:
                     # "models.chat.conversations.list",
                     "models.applications.trending_authors.list",
                     "models.applications.export_import.export",
-                    "models.datasources.export_import.export"
+                    "models.datasources.export_import.export",
+                    "models.prompt_lib.fork.post",
+                    "models.applications.fork.post",
+                    "models.datasources.fork.post",
+
                 ],
                 "public_admin": [
                     "models.datasource",
