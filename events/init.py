@@ -62,7 +62,7 @@ class Event:
                     "models.prompt_lib.collection.details",
                     "models.prompt_lib.collections.list",
                     "models.prompt_lib.export_import.export",
-                    "models.prompt_lib.export_import.import",
+                    # "models.prompt_lib.export_import.import",
                     "models.prompt_lib.predict.post",
                     "models.prompt_lib.prompt.details",
                     # "models.prompt_lib.prompts.list",
@@ -83,6 +83,9 @@ class Event:
                     "configuration.integrations.integrations.view",
                     "models.applications.task.delete",
                     # "models.chat.conversations.list",
+                    "models.applications.trending_authors.list",
+                    "models.applications.export_import.export",
+                    "models.datasources.export_import.export"
                 ],
                 "public_admin": [
                     "models.datasource",
