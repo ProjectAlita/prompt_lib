@@ -89,7 +89,7 @@ class Event:
                     "models.prompt_lib.fork.post",
                     "models.applications.fork.post",
                     "models.datasources.fork.post",
-
+                    "models.chat.participants.create",
                 ],
                 "public_admin": [
                     "models.datasource",
