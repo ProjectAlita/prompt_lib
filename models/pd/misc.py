@@ -1,6 +1,6 @@
 from typing import List
 
-from pydantic import BaseModel, root_validator
+from pydantic.v1 import BaseModel, root_validator
 from ....prompt_lib.models.pd.prompt import PromptListModel, PublishedPromptListModel
 from ....prompt_lib.models.pd.search import PromptSearchModel
 from ....prompt_lib.models.pd.tag import PromptTagListModel

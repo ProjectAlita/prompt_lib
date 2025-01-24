@@ -1,6 +1,6 @@
 from flask import g
 from typing import List
-from pydantic import parse_obj_as
+from pydantic.v1 import parse_obj_as
 from pylon.core.tools import web, log
 
 from ..models.pd.legacy.tag import PromptTagModel

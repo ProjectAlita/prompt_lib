@@ -1,5 +1,5 @@
 from flask import request
-from pydantic import ValidationError
+from pydantic.v1 import ValidationError
 from tools import api_tools, auth, VaultClient, serialize, config as c
 from pylon.core.tools import log
 

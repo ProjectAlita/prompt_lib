@@ -1,7 +1,7 @@
 import json
 
 from flask import request
-from pydantic import ValidationError
+from pydantic.v1 import ValidationError
 from pylon.core.tools import log
 
 

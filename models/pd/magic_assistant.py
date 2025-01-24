@@ -1,6 +1,6 @@
 from typing import Optional, List, Dict
 
-from pydantic import BaseModel, Extra
+from pydantic.v1 import BaseModel, Extra
 
 
 class MagicAssistantPredict(BaseModel):

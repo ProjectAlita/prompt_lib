@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional, List, Any
 
-from pydantic import BaseModel, validator, Field
+from pydantic.v1 import BaseModel, validator, Field
 from ....promptlib_shared.models.pd.utils import deep_merge
 from .model_settings import ModelSettingsBaseModel
 from .prompt_message import PromptMessageBaseModel

@@ -1,7 +1,7 @@
 from pylon.core.tools import web
 
-from pydantic import ValidationError
-from pydantic.utils import deep_update
+from pydantic.v1 import ValidationError
+from pydantic.v1.utils import deep_update
 
 from tools import rpc_tools
 

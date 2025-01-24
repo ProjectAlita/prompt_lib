@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from pylon.core.tools import web, log
 
-from pydantic import parse_obj_as, ValidationError
+from pydantic.v1 import parse_obj_as, ValidationError
 from sqlalchemy import desc, Integer
 from sqlalchemy.orm import joinedload
 from ..models.enums.all import PromptVersionType

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, List, Literal
 
-from pydantic import BaseModel, validator, Field
+from pydantic.v1 import BaseModel, validator, Field
 from .model_settings import ModelSettingsCreateModel, ModelSettingsBaseModel
 from .prompt_message import PromptMessageBaseModel, PromptMessageDetailModel, PromptMessageUpdateModel
 from .prompt_variable import PromptVariableBaseModel, PromptVariableDetailModel, PromptVariableUpdateModel

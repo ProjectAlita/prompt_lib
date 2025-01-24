@@ -3,7 +3,7 @@ from itertools import chain
 from typing import Tuple
 
 from flask import request, send_file
-from pydantic import ValidationError
+from pydantic.v1 import ValidationError
 from sqlalchemy.exc import ProgrammingError
 from tools import api_tools, rpc_tools, db, auth, config as c
 
