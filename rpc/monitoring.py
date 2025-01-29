@@ -32,7 +32,7 @@ class RPC:
         with db.get_session(project_id) as session:
             if predict_source in (SioEvents.chat_predict,):
                 # not handling prompt usage in chats
-                raise NotImplementedError
+                raise NotImplementedError('not handling prompt usage in chats')
             else:
                 if len(chat_history) == 0:
                     log.info('return True - chat history is empty')

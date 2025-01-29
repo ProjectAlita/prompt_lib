@@ -66,7 +66,7 @@ class Event:
                     "models.prompt_lib.predict.post",
                     "models.prompt_lib.prompt.details",
                     # "models.prompt_lib.prompts.list",
-                    # "models.prompt_lib.prompts.search",
+                    "models.prompt_lib.prompts.search",
                     "models.prompt_lib.public_collection.details",
                     "models.prompt_lib.public_prompt.details",
                     "models.prompt_lib.public_prompts.list",
