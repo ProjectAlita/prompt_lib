@@ -335,7 +335,8 @@ class RPC:
             'model_settings': payload.merged_settings,
             'tokens_in': tokens_in,
             'tokens_out': tokens_out,
-            'interaction_uuid': payload.interaction_uuid
+            'interaction_uuid': payload.interaction_uuid,
+            'message_id': payload.message_id
         }
         #
         self.context.event_manager.fire_event(
