@@ -705,6 +705,42 @@ def get_collection_public_twin(private_project_id, private_collection_id, public
         return collection
 
 
+def check_addability_for_entity(
+    project_id,
+    collection_id,
+    entity_name,
+    entity_id,
+    entity_owner_id
+):
+    entity_data_in = {
+        entity_name: {
+            "id": entity_id,
+            'owner_id': entity_owner_id
+        }
+    }
+    data_in = CollectionPatchModel(
+        project_id=project_id,
+        collection_id=collection_id,
+        operation=CollectionPatchOperations.add,
+        **entity_data_in
+    )
+    new_private_data, new_public_data = get_entity_private_public_counterpart(data_in)
+    for data in (new_private_data, new_public_data):
+        if data:
+            for entity_info in ENTITY_REG:
+                if entity_data := entity_info.get_entity_field(data):
+                    break
+            else:
+                raise RuntimeError("empty input in check addability collection items")
+            with db.get_project_schema_session(data.project_id) as session:
+                if collection := session.query(Collection).get(data.collection_id):
+                    if not check_addability(entity_data.owner_id, collection.author_id):
+                        return False
+                else:
+                    return False
+    return True
+
+
 def do_patch_collection(data: CollectionPatchModel, session, return_data):
     op_map = {
         CollectionPatchOperations.add: add_entity_to_collection,

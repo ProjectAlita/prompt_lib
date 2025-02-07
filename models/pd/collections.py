@@ -120,6 +120,9 @@ class CollectionListModel(BaseModel):
     includes_prompt: Optional[bool] = None
     includes_datasource: Optional[bool] = None
     includes_application: Optional[bool] = None
+    prompt_addability: Optional[bool] = None
+    datasource_addability: Optional[bool] = None
+    application_addability: Optional[bool] = None
     prompt_count: int = 0
     datasource_count: int = 0
     application_count: int = 0

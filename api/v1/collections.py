@@ -12,6 +12,7 @@ from ...utils.collections import (
     create_collection,
     get_detail_collection,
     get_include_entity_flag,
+    check_addability_for_entity
 )
 from ....promptlib_shared.utils.exceptions import (
     EntityInaccessableError,
@@ -61,14 +62,38 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 col_model.includes_prompt = get_include_entity_flag(
                     'prompt', col_model, int(prompt_id), int(prompt_owner_id)
                 )
+                col_model.prompt_addability = check_addability_for_entity(
+                    project_id=project_id,
+                    collection_id=col_model.id,
+                    entity_name='prompt',
+                    entity_id=int(prompt_id),
+                    entity_owner_id=int(prompt_owner_id)
+                )
+
             if datasource_id and datasource_owner_id:
                 col_model.includes_datasource = get_include_entity_flag(
                     'datasource', col_model, int(datasource_id), int(datasource_owner_id)
                 )
+                col_model.datasource_addability = check_addability_for_entity(
+                    project_id=project_id,
+                    collection_id=col_model.id,
+                    entity_name='datasource',
+                    entity_id=int(datasource_id),
+                    entity_owner_id=int(datasource_owner_id)
+                )
+
             if application_id and application_owner_id:
                 col_model.includes_application = get_include_entity_flag(
                     'application', col_model, int(application_id), int(application_owner_id)
                 )
+                col_model.application_addability = check_addability_for_entity(
+                    project_id=project_id,
+                    collection_id=col_model.id,
+                    entity_name='application',
+                    entity_id=int(application_id),
+                    entity_owner_id=int(application_owner_id)
+                )
+
             parsed.append(col_model)
 
         return {
