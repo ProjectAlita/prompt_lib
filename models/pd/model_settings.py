@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import Field, BaseModel, confloat, conint, PositiveInt
+from pydantic.v1 import Field, BaseModel, confloat, conint, PositiveInt
 from ....promptlib_shared.models.pd.chat import IntegrationDataMixin
 
 

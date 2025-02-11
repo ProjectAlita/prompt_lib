@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import BaseModel, validator, root_validator
+from pydantic.v1 import BaseModel, validator, root_validator
 from pylon.core.tools import log
 
 from ....utils.ai_providers import AIProvider

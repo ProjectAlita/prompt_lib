@@ -2,7 +2,7 @@ from datetime import datetime
 from itertools import groupby
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic.v1 import BaseModel
 
 
 class TokenPD(BaseModel):

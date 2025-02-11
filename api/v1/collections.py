@@ -4,7 +4,7 @@ from ...utils.constants import PROMPT_LIB_MODE
 
 from flask import request
 from tools import api_tools, config as c, auth
-from pydantic import ValidationError
+from pydantic.v1 import ValidationError
 from ...models.pd.collections import CollectionListModel
 from ...utils.collections import (
     get_collection_tags,

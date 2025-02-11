@@ -5,7 +5,7 @@ from io import BytesIO
 from typing import Tuple
 
 from flask import request, send_file
-from pydantic import ValidationError
+from pydantic.v1 import ValidationError
 from pylon.core.tools import log
 
 from ...models.all import Prompt

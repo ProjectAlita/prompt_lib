@@ -2,7 +2,7 @@ from datetime import datetime
 from queue import Empty
 from typing import Optional, List
 
-from pydantic import BaseModel, validator, root_validator
+from pydantic.v1 import BaseModel, validator, root_validator
 from ....prompt_lib.models.pd.prompt_version import PromptVersionBaseModel, \
     PromptVersionLatestCreateModel, PromptVersionListModel, PromptVersionDetailModel, PublishedPromptVersionListModel
 from ....prompt_lib.utils.utils import determine_prompt_status

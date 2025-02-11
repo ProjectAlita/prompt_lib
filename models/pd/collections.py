@@ -1,7 +1,7 @@
 from datetime import datetime
 from queue import Empty
 from typing import Optional, List
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic.v1 import BaseModel, Field, root_validator, validator
 
 from pylon.core.tools import log
 from tools import rpc_tools

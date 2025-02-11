@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic.v1 import BaseModel
 from ....prompt_lib.models.enums.all import MessageRoles
 
 

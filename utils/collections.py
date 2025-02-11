@@ -7,7 +7,7 @@ from itertools import chain
 from typing import Dict, List, Union
 
 from flask import request
-from pydantic import ValidationError
+from pydantic.v1 import ValidationError
 from sqlalchemy import and_, desc, or_
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import exists

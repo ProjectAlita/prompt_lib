@@ -1,7 +1,7 @@
 from typing import Optional, List
 import uuid
 
-from pydantic import AnyUrl, BaseModel, root_validator
+from pydantic.v1 import AnyUrl, BaseModel, root_validator
 
 from .model_settings import ModelSettingsBaseModel
 from .prompt_message import PromptMessageBaseModel
