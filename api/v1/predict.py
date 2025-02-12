@@ -13,7 +13,6 @@ try:
 except:
     from langchain.chat_models import AzureChatOpenAI
 from pydantic.v1 import ValidationError
-from ....integrations.models.pd.integration import SecretField
 from ...models.all import PromptVersion, Prompt
 from ...models.pd.legacy.prompts_pd import PredictPostModel
 from ...utils.ai_providers import AIProvider
