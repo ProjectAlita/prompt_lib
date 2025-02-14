@@ -141,10 +141,13 @@ class PromptLibAPI(api_tools.APIModeHandler):
         if to_dial and forked:
             return {'error': 'Can not use to_dial and fork at the same time'}, 400
 
-        if to_dial:
-            result = prompts_export_to_dial(project_id, prompt_id)
-        else:
-            result = prompts_export(project_id, prompt_id, forked=forked)
+        try:
+            if to_dial:
+                result = prompts_export_to_dial(project_id, prompt_id)
+            else:
+                result = prompts_export(project_id, prompt_id, forked=forked)
+        except Exception as ex:
+            return {'error': str(ex)}, 400
 
         if 'as_file' in request.args:
             file = BytesIO()
