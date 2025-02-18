@@ -46,6 +46,7 @@ class PromptVersionExportModel(BaseModel):
 class PromptVersionImportModel(PromptVersionExportModel):
     id: Optional[int]
     author_id: int
+    created_at: Optional[datetime] = None
 
     class Config:
         fields = {

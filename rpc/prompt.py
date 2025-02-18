@@ -19,7 +19,7 @@ from ..models.pd.prompt import PromptDetailModel
 from ..models.pd.prompt_version import PromptVersionDetailModel
 from ..utils.ai_providers import AIProvider
 from ..models.pd.v1_structure import PromptV1Model, TagV1Model
-from tools import db, auth
+from tools import db, auth, serialize
 from ..models.all import (
     Prompt,
     PromptVersion,
@@ -377,21 +377,21 @@ class RPC:
                 if not version.get('name'):
                     set_latest(version)
 
+            latest_version_by_created_at = deepcopy(
+                sorted(
+                    versions,
+                    key=lambda x: parser.parse(
+                        x.pop(
+                            'created_at',
+                            str(datetime.now().isoformat(timespec='microseconds'))
+                        )
+                    ),
+                    reverse=False
+                )[-1]
+            )
             if not any(v['name'] == 'latest' for v in versions):
-                latest_version = deepcopy(
-                    sorted(
-                        versions,
-                        key=lambda x: parser.parse(
-                            x.get(
-                                'created_at',
-                                str(datetime.now().isoformat(timespec='microseconds'))
-                            )
-                        ),
-                        reverse=False
-                    )[-1]
-                )
-                set_latest(latest_version)
-                versions.append(latest_version)
+                set_latest(latest_version_by_created_at)
+                versions.append(latest_version_by_created_at)
 
             raw['versions'] = versions
 
@@ -422,7 +422,7 @@ class RPC:
                 result['prompts'].extend(
                     prompts_export(project_id, prompt_id, forked=forked).get('prompts', [])
                 )
-        return result
+        return serialize(result)
 
     @web.rpc("prompt_lib_find_existing_fork", "find_existing_fork")
     def prompt_lib_find_existing_fork(
