@@ -10,7 +10,7 @@ from pylon.core.tools import log
 
 from ...models.all import Prompt
 from ...models.pd.collections import CollectionItem, CollectionModel
-from tools import api_tools, db, auth, config as c
+from tools import api_tools, db, auth, config as c, serialize
 
 from ...models.pd.export_import import DialImportModel, PromptImportModel
 from ...models.pd.prompt import PromptDetailModel
@@ -149,6 +149,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         except Exception as ex:
             return {'error': str(ex)}, 400
 
+        result = serialize(result)
         if 'as_file' in request.args:
             file = BytesIO()
             data = json.dumps(result, ensure_ascii=False, indent=4)

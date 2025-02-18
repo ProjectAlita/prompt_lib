@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional, List
 import uuid
 
@@ -27,6 +28,7 @@ class PromptVersionExportModel(BaseModel):
     conversation_starters: Optional[List] = []
     welcome_message: Optional[str] = ''
     meta: Optional[dict] = {}
+    created_at: datetime
 
     @root_validator
     def validate_repeatable_uuid(cls, values):

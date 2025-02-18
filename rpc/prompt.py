@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import traceback
 from copy import deepcopy
@@ -9,7 +10,7 @@ from uuid import uuid4
 from pylon.core.tools import web, log
 
 from pydantic.v1 import parse_obj_as, ValidationError
-from sqlalchemy import desc, Integer
+from sqlalchemy import desc
 from sqlalchemy.orm import joinedload
 from ..models.enums.all import PromptVersionType
 from ..models.pd.export_import import PromptImportModel
@@ -364,7 +365,7 @@ class RPC:
 
             def set_latest(version_: dict):
                 version_['name'] = 'latest'
-                version_['meta'].pop('parent_entity_version_id', None)
+                version_.setdefault('meta', {}).pop('parent_entity_version_id', None)
                 version_['meta'].pop('parent_author_id', None)
 
             for version in versions:
@@ -380,7 +381,12 @@ class RPC:
                 latest_version = deepcopy(
                     sorted(
                         versions,
-                        key=lambda x: parser.parse(x['created_at']),
+                        key=lambda x: parser.parse(
+                            x.get(
+                                'created_at',
+                                str(datetime.now().isoformat(timespec='microseconds'))
+                            )
+                        ),
                         reverse=False
                     )[-1]
                 )
@@ -390,7 +396,6 @@ class RPC:
             raw['versions'] = versions
 
             log.debug(f'{raw=}')
-
 
             try:
                 prompt_data = PromptImportModel.parse_obj(raw)
