@@ -1,6 +1,6 @@
 from typing import List
 
-from openai import BaseModel
+from pydantic.v1 import BaseModel
 
 
 class PullRequestCompare(BaseModel):
