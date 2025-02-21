@@ -13,6 +13,7 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import exists
 from werkzeug.datastructures import MultiDict
 
+from pylon.core.tools import log
 from tools import VaultClient, db, rpc_tools
 
 from .collection_registry import (
@@ -724,7 +725,14 @@ def check_addability_for_entity(
         operation=CollectionPatchOperations.add,
         **entity_data_in
     )
-    new_private_data, new_public_data = get_entity_private_public_counterpart(data_in)
+    try:
+        new_private_data, new_public_data = get_entity_private_public_counterpart(data_in)
+    except Exception as ex:
+        log.debug((
+            f"{entity_name=} {entity_id=} {entity_owner_id=} not addable "
+            f"to {collection_id=} of {project_id=}: {ex}"
+        ))
+        return False
     for data in (new_private_data, new_public_data):
         if data:
             for entity_info in ENTITY_REG:
