@@ -468,3 +468,26 @@ class RPC:
             return input_tool, import_version_uuid
         else:
             return input_tool, str()
+
+    @web.rpc("prompt_lib_get_prompt_ids_to_name")
+    def get_prompt_ids_to_name(self, project_id: int, prompt_ids: List[int]):
+        result = {
+            "entity": {},
+            "entity_versions": {}
+        }
+        with db.get_session(project_id) as session:
+            prompts = session.query(
+                Prompt
+            ).filter(
+                Prompt.id.in_(prompt_ids),
+            ).options(
+                joinedload(Prompt.versions)
+            ).all()
+
+            for app in prompts:
+                result['entity'][app.id] = app.name
+                result['entity_versions'].update({
+                    version.id: version.name for version in app.versions
+                })
+
+        return result
