@@ -20,6 +20,7 @@ applications_roles = [
     "models.applications.tool.update",
     "models.applications.tools.list",
     "models.applications.tools.create",
+    "models.applications.toolkits.details",
     "models.applications.versions.get",
     "models.applications.versions.create"
 ]
