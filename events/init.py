@@ -83,6 +83,9 @@ class Event:
                     "models.applications.public_application.details",
                     "configuration.integrations.integrations.view",
                     "models.applications.task.delete",
+                    #
+                    "models.applications.toolkits.details",
+                    #
                     # "models.chat.conversations.list",
                     "models.applications.trending_authors.list",
                     "models.applications.export_import.export",
