@@ -1,5 +1,6 @@
 from traceback import format_exc
 
+from flask import request
 from queue import Empty
 from tools import api_tools, auth, config as c
 from pylon.core.tools import log
@@ -23,17 +24,16 @@ def _merge_search_options_results(search_results):
             "rows": []
         }
     }
-    for search_result in search_results:
-        for entity_name, entity_result in search_result.items():
-            if entity_name in ('collection', 'tag'):
-                for item in entity_result['rows']:
-                    if item not in res[entity_name]['rows']:
-                        res[entity_name]['rows'].append(item)
-                res[entity_name]['total'] = len(res[entity_name]['rows'])
-            elif entity_name not in res:
-                res[entity_name] = entity_result
-            else:
-                continue
+    for entity_name, entity_result in search_results.items():
+        if entity_name in ('collection', 'tag'):
+            for item in entity_result['rows']:
+                if item not in res[entity_name]['rows']:
+                    res[entity_name]['rows'].append(item)
+            res[entity_name]['total'] = len(res[entity_name]['rows'])
+        elif entity_name not in res:
+            res[entity_name] = entity_result
+        else:
+            continue
 
     return res
 
@@ -50,33 +50,50 @@ class PromptLibAPI(api_tools.APIModeHandler):
     )
     @api_tools.endpoint_metrics
     def get(self, project_id: int):
-        results = []
+        results = {}
+        entities = set(request.args.getlist('entities[]'))
+
+        for entity in ('prompt', 'application', 'datasource', 'pipeline'):
+            results[entity] = {"total": 0, "rows": []}
 
         try:
-            res = get_search_options_one_entity(
-                project_id,
-                'prompt',
-                Prompt,
-                PromptVersion,
-                MultiplePromptSearchModel,
-                PromptVersionTagAssociation
-            )
-            results.append(res)
+            if "prompt" in entities:
+                res = get_search_options_one_entity(
+                    project_id,
+                    'prompt',
+                    Prompt,
+                    PromptVersion,
+                    MultiplePromptSearchModel,
+                    PromptVersionTagAssociation
+                )
+                results.update(res)
 
-            try:
-                res = self.module.context.rpc_manager.timeout(2).datasources_get_search_options(project_id)
-            except Empty:
-                log.warning("Datasource plugin is not available, skipping for search_options")
-            else:
-                results.append(res)
+            if "datasource" in entities:
+                try:
+                    res = self.module.context.rpc_manager.timeout(2).datasources_get_search_options(project_id)
+                except Empty:
+                    log.warning("Datasource plugin is not available, skipping for search_options")
+                else:
+                    results.update(res)
 
-            try:
-                res = self.module.context.rpc_manager.timeout(2).applications_get_search_options(project_id)
-            except Empty:
-                log.warning("Application plugin is not available, skipping for search_options")
-            else:
-                results.append(res)
+            if "application" in entities:
+                try:
+                    res = self.module.context.rpc_manager.timeout(2).applications_get_search_options(project_id)
+                except Empty:
+                    log.warning("Application plugin is not available, skipping for search_options")
+                else:
+                    results.update(res)
 
+            if "pipeline" in entities:
+                try:
+                    res = self.module.context.rpc_manager.timeout(2).applications_get_search_options(
+                       project_id,
+                       pipeline=True
+                    )
+                except Empty:
+                    log.warning("Application plugin is not available, skipping for search_options")
+                else:
+                    results.update(res)
         except AttributeError as ex:
             log.error(ex)
             return {"error": f"One of the search conditions has invalid value: {ex.name}"}, 400

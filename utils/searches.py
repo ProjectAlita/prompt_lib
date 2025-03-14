@@ -12,7 +12,7 @@ from ..models.all import (
 )
 from ..models.pd.collections import MultipleCollectionSearchModel
 from ..models.pd.misc import MultiplePromptTagListModel
-from sqlalchemy import desc, asc, or_, and_, func, distinct
+from sqlalchemy import desc, asc, or_, and_, func, distinct, not_
 from tools import api_tools
 from flask import request
 from sqlalchemy.orm import joinedload
@@ -72,20 +72,23 @@ def get_search_options_one_entity(
     Model,
     ModelVersion,
     MultipleSearchModel,
-    ModelVersionTagAssociation
+    ModelVersionTagAssociation,
+    args_prefix=None
 ):
     result = {}
-    entities = request.args.getlist('entities[]')
+    entities = set(request.args.getlist('entities[]'))
     tags = tuple(set(int(tag) for tag in request.args.getlist('tags[]')))
     statuses = request.args.getlist('statuses[]')
     author_id = request.args.get("author_id", type=int)
+    if args_prefix is None:
+        args_prefix = entity_name
 
     meta_data = {
         entity_name: {
             "Model": Model,
             "PDModel": MultipleSearchModel,
             "joinedload_": [Model.versions],
-            "args_prefix": entity_name,
+            "args_prefix": args_prefix,
             "filters": [],
         },
         "collection": {
@@ -118,6 +121,16 @@ def get_search_options_one_entity(
         entities_subq = get_entities_by_tags(project_id, tags, Model, ModelVersion)
         meta_data[entity_name]['filters'].append(
             Model.id.in_(entities_subq)
+        )
+
+    # pipeline hardcode
+    if args_prefix == "pipeline":
+        meta_data[entity_name]['filters'].append(
+            Model.versions.any(ModelVersion.agent_type == args_prefix)
+        )
+    if args_prefix == "application":
+        meta_data[entity_name]['filters'].append(
+            not_(Model.versions.any(ModelVersion.agent_type == 'pipeline'))
         )
 
     if author_id:
@@ -154,6 +167,8 @@ def get_search_options_one_entity(
     for section, data in meta_data.items():
         if section in entities:
             result[section] = get_search_options(project_id, **data)
+
+    result[args_prefix] = result.pop(entity_name)
 
     return result
 
