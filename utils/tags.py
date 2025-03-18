@@ -255,6 +255,26 @@ class ApplicationTagList(TagList):
         self.count_name = "application_count"
 
 
+class PipelineTagList(TagList):
+    def __init__(self, project_id, args):
+        super().__init__(project_id, args)
+        self.rpc = rpc_tools.RpcMixin().rpc.call
+
+    def set_related_entity_info(self):
+        self.Entity = self.rpc.applications_get_application_model()
+        self.Version = self.rpc.applications_get_version_model()
+        self.VersionTagAssociation = self.rpc.applications_get_version_association_model()
+        self.foriegn_key = 'application_id'
+        self.count_name = "application_count"
+
+    def get_related_entity_filters(self):
+        filters = super().get_related_entity_filters()
+        filters.append(
+            self.Entity.versions.any(self.Version.agent_type == "pipeline")
+        )
+        return filters
+
+
 class CollectionTagList(TagList):
     def set_related_entity_info(self):
         self._is_collection = True
