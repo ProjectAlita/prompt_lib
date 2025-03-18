@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 from json import loads
 from datetime import datetime
 from typing import List, Dict
-from sqlalchemy import func, cast, String, or_
+from sqlalchemy import func, cast, String, or_, not_
 from sqlalchemy.orm import joinedload
 
 from tools import db, rpc_tools
@@ -253,6 +253,13 @@ class ApplicationTagList(TagList):
         self.VersionTagAssociation = self.rpc.applications_get_version_association_model()
         self.foriegn_key = 'application_id'
         self.count_name = "application_count"
+
+    def get_related_entity_filters(self):
+        filters = super().get_related_entity_filters()
+        filters.append(
+            not_(self.Entity.versions.any(self.Version.agent_type == 'pipeline'))
+        )
+        return filters
 
 
 class PipelineTagList(TagList):
