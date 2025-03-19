@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pylon.core.tools import module, log
 
 from tools import db, theme, VaultClient
@@ -7,6 +9,13 @@ class Module(module.ModuleModel):
     def __init__(self, context, descriptor):
         self.context = context
         self.descriptor = descriptor
+
+        config = self.descriptor.config
+        base_path = Path(__file__).parent.joinpath("data")
+
+        self.prompt_icon_path = Path(
+            config.get("prompt_icon_path", base_path.joinpath("prompt_icon"))
+        )
 
     def init(self):
         log.info("Initializing")
@@ -64,6 +73,7 @@ class Module(module.ModuleModel):
         )
 
         self.init_flows()
+        self.prompt_icon_path.mkdir(parents=True, exist_ok=True)
 
     def deinit(self):
         log.info('De-initializing')

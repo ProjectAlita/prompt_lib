@@ -7,6 +7,7 @@ from .enums.all import PromptVersionType, MessageRoles
 from sqlalchemy import Integer, String, DateTime, func, ForeignKey, JSON, Table, Column, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.mutable import MutableDict
 from ...promptlib_shared.models.all import AbstractLikesMixin, Tag
 from ...promptlib_shared.models.enums.all import PublishStatus
 
@@ -66,7 +67,7 @@ class PromptVersion(db_tools.AbstractBaseMixin, db.Base):
     shared_id: Mapped[int] = mapped_column(Integer, nullable=True)
     conversation_starters: Mapped[dict] = mapped_column(JSON, default=list)
     welcome_message: Mapped[str] = mapped_column(String, default='')
-    meta: Mapped[dict] = mapped_column(JSONB, default=dict)
+    meta: Mapped[dict] = mapped_column(MutableDict.as_mutable(JSONB), default=dict)
 
 
 class PromptVariable(db_tools.AbstractBaseMixin, db.Base):

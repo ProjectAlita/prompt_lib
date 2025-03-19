@@ -85,6 +85,7 @@ class PromptListModel(BaseModel):
     status: Optional[PublishStatus]
     # meta: Optional[dict] = dict()
     is_forked: bool = False
+    icon_meta: dict = dict()
 
     class Config:
         orm_mode = True
@@ -127,6 +128,31 @@ class PromptListModel(BaseModel):
             if 'parent_entity_id' in meta and 'parent_project_id' in meta:
                 return True
         return False
+
+    @validator('icon_meta', always=True)
+    def set_icon_meta(cls, v, values):
+        versions = values.get('versions', [])
+        if not versions:
+            return v
+
+        latest_version, oldest_version = None, None
+
+        for version in versions:
+            if version.name == 'latest':
+                latest_version = version
+                break
+
+        if not latest_version:
+            oldest_version = min(versions, key=lambda version: version.created_at)
+
+        selected_version = latest_version or oldest_version
+
+        meta = selected_version.meta or {}
+
+        if 'icon_meta' in meta:
+            return meta['icon_meta']
+
+        return v
 
 
 class PublishedPromptListModel(PromptListModel):
