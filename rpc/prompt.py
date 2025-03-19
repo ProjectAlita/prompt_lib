@@ -326,6 +326,7 @@ class RPC:
         event_payload = {
             'pylon': str(self.context.id),
             'project_id': payload.project_id,
+            'chat_project_id': chat_project_id,
             'user_id': current_user["id"],
             'predict_source': str(sio_event),
             'entity_type': 'prompt',
