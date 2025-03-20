@@ -9,7 +9,6 @@ from tools import config as c, api_tools, auth, db
 from ...models.all import PromptVersion
 from ....promptlib_shared.utils.constants import PROMPT_LIB_MODE, ICON_PATH_DELIMITER
 from ....promptlib_shared.models.pd.icon_meta import UpdateIcon
-from ...utils.prompt_icon_utils import change_prompt_icon
 
 
 # routes/prompt_icon
@@ -24,21 +23,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.DEFAULT_MODE: {"admin": True, "editor": False, "viewer": False},
         }})
     def get(self, project_id: int, **kwargs):
-        results = list()
-        for icon in self.module.prompt_icon_path.iterdir():
-            icon_name: str = icon.name
-            icon_split: list = icon_name.split(ICON_PATH_DELIMITER)
-            must_include: bool = icon_split[0] == str(project_id) or len(icon_split) < 2
-
-            if must_include:
-                results.append({
-                    'name': icon_name,
-                    'url': url_for(
-                        FLASK_ROUTE_URL,
-                        sub_path=icon_name,
-                        _external=True
-                    )
-                })
+        results = self.module.context.rpc_manager.call.social_get_icons_list(
+            project_id, FLASK_ROUTE_URL, self.module.prompt_icon_path
+        )
         return results, 200
 
     @auth.decorators.check_api({
@@ -73,8 +60,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
         )
         if result['ok']:
             if prompt_version_id:
-                change_prompt_icon(
-                    project_id, prompt_version_id, self.module.prompt_icon_path, result['data']
+                self.module.context.rpc_manager.call.social_update_icon_with_entity(
+                    project_id, prompt_version_id, self.module.prompt_icon_path, result['data'], PromptVersion
                 )
             return result['data'], 200
         else:
@@ -113,8 +100,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
     def delete(self, project_id, prompt_version_id, **kwargs):
-        result = change_prompt_icon(
-            project_id, prompt_version_id, self.module.prompt_icon_path, {}
+        result = self.module.context.rpc_manager.call.social_update_icon_with_entity(
+            project_id, prompt_version_id, self.module.prompt_icon_path, {}, PromptVersion
         )
         if result['ok']:
             return result['data'], 200
