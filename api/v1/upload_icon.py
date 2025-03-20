@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from tools import config as c, api_tools, auth, db
 
 from ...models.all import PromptVersion
-from ....promptlib_shared.utils.constants import PROMPT_LIB_MODE
+from ....promptlib_shared.utils.constants import PROMPT_LIB_MODE, ICON_PATH_DELIMITER
 from ....promptlib_shared.models.pd.icon_meta import UpdateIcon
 from ...utils.prompt_icon_utils import change_prompt_icon
 
@@ -23,17 +23,23 @@ class PromptLibAPI(api_tools.APIModeHandler):
         "recommended_roles": {
             c.DEFAULT_MODE: {"admin": True, "editor": False, "viewer": False},
         }})
-    def get(self, **kwargs):
-        return [
-            {
-                'name': i.name,
-                'url': url_for(
-                    FLASK_ROUTE_URL,
-                    sub_path=f'{i.name}',
-                    _external=True
-                )
-            } for i in self.module.prompt_icon_path.iterdir()
-        ], 200
+    def get(self, project_id: int, **kwargs):
+        results = list()
+        for icon in self.module.prompt_icon_path.iterdir():
+            icon_name: str = icon.name
+            icon_split: list = icon_name.split(ICON_PATH_DELIMITER)
+            must_include: bool = icon_split[0] == str(project_id) or len(icon_split) < 2
+
+            if must_include:
+                results.append({
+                    'name': icon_name,
+                    'url': url_for(
+                        FLASK_ROUTE_URL,
+                        sub_path=icon_name,
+                        _external=True
+                    )
+                })
+        return results, 200
 
     @auth.decorators.check_api({
         "permissions": ["models.prompt_lib.upload_icon.post"],
@@ -59,7 +65,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         final_width = int(request.form.get('width', 64))
         final_height = int(request.form.get('height', 64))
-        file_name = f'{uuid4()}.png'
+        file_name = f'{project_id}{ICON_PATH_DELIMITER}{uuid4()}.png'
         file_path: Path = self.module.prompt_icon_path.joinpath(file_name)
 
         result = self.module.context.rpc_manager.call.social_save_image(
