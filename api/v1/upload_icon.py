@@ -23,8 +23,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.DEFAULT_MODE: {"admin": True, "editor": False, "viewer": False},
         }})
     def get(self, project_id: int, **kwargs):
+        skip = int(request.args.get('skip', 0))
+        limit = int(request.args.get('limit', 200))
         results = self.module.context.rpc_manager.call.social_get_icons_list(
-            project_id, FLASK_ROUTE_URL, self.module.prompt_icon_path
+            project_id, FLASK_ROUTE_URL, self.module.prompt_icon_path, skip, limit
         )
         return results, 200
 
