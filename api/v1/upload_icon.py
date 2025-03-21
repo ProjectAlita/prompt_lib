@@ -10,6 +10,7 @@ from ...models.all import PromptVersion
 from ....promptlib_shared.utils.constants import PROMPT_LIB_MODE, ICON_PATH_DELIMITER
 from ....promptlib_shared.models.pd.icon_meta import UpdateIcon
 
+from pylon.core.tools import log
 
 # routes/prompt_icon
 FLASK_ROUTE_URL: str = 'prompt_lib.prompt_icon'
@@ -101,14 +102,12 @@ class PromptLibAPI(api_tools.APIModeHandler):
         "recommended_roles": {
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
-    def delete(self, project_id, prompt_version_id, **kwargs):
-        result = self.module.context.rpc_manager.call.social_update_icon_with_entity(
-            project_id, prompt_version_id, self.module.prompt_icon_path, {}, PromptVersion
-        )
-        if result['ok']:
-            return result['data'], 200
-        else:
-            return result['error'], 400
+    def delete(self, project_id, icon_name: str, **kwargs):
+        icon_path = self.module.prompt_icon_path
+
+        return self.module.context.rpc_manager.call.social_delete_icon_from_entity(
+            project_id, icon_name, icon_path, PromptVersion
+        ), 200
 
 
 class API(api_tools.APIBase):
@@ -117,6 +116,7 @@ class API(api_tools.APIBase):
         '<string:mode>/<string:file_name>',
         '<string:mode>/<int:project_id>',
         '<string:mode>/<int:project_id>/<int:prompt_version_id>',
+        '<string:mode>/<int:project_id>/<string:icon_name>',
     ])
 
     mode_handlers = {
