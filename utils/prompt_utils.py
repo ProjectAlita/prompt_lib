@@ -469,3 +469,12 @@ def get_entity_diff(source, target) -> dict:
                 'new_value': target[key],
             }
     return key_diffs
+
+
+def set_icon_meta(version) -> dict:
+    meta = version.meta or {}
+
+    if 'icon_meta' in meta:
+        return meta['icon_meta']
+
+    return {}

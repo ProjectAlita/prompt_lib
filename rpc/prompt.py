@@ -27,6 +27,7 @@ from ..models.all import (
 from ..utils.conversation import prepare_payload, prepare_conversation, CustomTemplateError, \
     convert_messages_to_langchain
 from ..utils.create_utils import create_prompt
+from ..utils.prompt_utils import set_icon_meta
 from ...promptlib_shared.utils.constants import PredictionEvents
 from ...promptlib_shared.utils.sio_utils import SioValidationError, get_event_room, SioEvents
 from ..utils.export_import_utils import prompts_export
@@ -154,7 +155,7 @@ class RPC:
                 'tags': [tag.name for tag in version.tags],
                 'meta': version.meta,
             } for version in prompt_version.prompt.versions]
-
+            result['version_details'] = {'icon_meta': set_icon_meta(prompt_version)}
             return result
 
     @web.rpc("prompt_lib_predict_sio", "predict_sio")
