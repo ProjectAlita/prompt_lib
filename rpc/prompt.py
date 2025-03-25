@@ -155,7 +155,9 @@ class RPC:
                 'tags': [tag.name for tag in version.tags],
                 'meta': version.meta,
             } for version in prompt_version.prompt.versions]
+            # TODO remove version_details
             result['version_details'] = {'icon_meta': set_icon_meta(prompt_version)}
+            result['icon_meta'] = set_icon_meta(prompt_version)
             return result
 
     @web.rpc("prompt_lib_predict_sio", "predict_sio")
