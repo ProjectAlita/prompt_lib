@@ -36,6 +36,12 @@ class PromptVersionExportModel(BaseModel):
         values['import_version_uuid'] = str(uuid.UUID(int=abs(hash_)))
         return values
 
+    @root_validator
+    def exclude_icon_meta(cls, values):
+        if 'meta' in values:
+            values['meta']['icon_meta'] = {}
+        return values
+
     class Config:
         orm_mode = True
         fields = {
