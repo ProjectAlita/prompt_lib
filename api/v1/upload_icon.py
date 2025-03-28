@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from tools import config as c, api_tools, auth, db
 
 from ...models.all import PromptVersion
-from ....promptlib_shared.utils.constants import PROMPT_LIB_MODE, ICON_PATH_DELIMITER
+from ....promptlib_shared.utils.constants import PROMPT_LIB_MODE
 from ....promptlib_shared.models.pd.icon_meta import UpdateIcon
 
 from pylon.core.tools import log
@@ -26,8 +26,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def get(self, project_id: int, **kwargs):
         skip = int(request.args.get('skip', 0))
         limit = int(request.args.get('limit', 200))
+        folder_path: Path = self.module.prompt_icon_path.joinpath(str(project_id))
+        folder_path.mkdir(parents=True, exist_ok=True)
         results = self.module.context.rpc_manager.call.social_get_icons_list(
-            project_id, FLASK_ROUTE_URL, self.module.prompt_icon_path, skip, limit
+            project_id, FLASK_ROUTE_URL, folder_path, skip, limit
         )
         return results, 200
 
@@ -55,11 +57,12 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         final_width = int(request.form.get('width', 64))
         final_height = int(request.form.get('height', 64))
-        file_name = f'{project_id}{ICON_PATH_DELIMITER}{uuid4()}.png'
-        file_path: Path = self.module.prompt_icon_path.joinpath(file_name)
+        folder_path: Path = self.module.prompt_icon_path.joinpath(str(project_id))
+        folder_path.mkdir(parents=True, exist_ok=True)
+        file_path: Path = folder_path.joinpath(f'{uuid4()}.png')
 
         result = self.module.context.rpc_manager.call.social_save_image(
-            file, file_path, FLASK_ROUTE_URL, final_width, final_height
+            file, file_path, FLASK_ROUTE_URL, final_width, final_height, project_id
         )
         if result['ok']:
             if prompt_version_id:
@@ -103,10 +106,11 @@ class PromptLibAPI(api_tools.APIModeHandler):
             c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
     def delete(self, project_id, icon_name: str, **kwargs):
-        icon_path = self.module.prompt_icon_path
+        folder_path: Path = self.module.prompt_icon_path.joinpath(str(project_id))
+        folder_path.mkdir(parents=True, exist_ok=True)
 
         return self.module.context.rpc_manager.call.social_delete_icon_from_entity(
-            project_id, icon_name, icon_path, PromptVersion
+            project_id, icon_name, folder_path, PromptVersion
         ), 200
 
 
