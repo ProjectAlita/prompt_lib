@@ -1084,8 +1084,12 @@ def deep_merge_collection_export_results(d1, d2):
         return copy.deepcopy(d2)
 
     res = copy.deepcopy(d1)
+    auxiliary_data = {} # for the _metadata in export
 
     for key in d2.keys():
+       if key.startswith("_"):
+           auxiliary_data[key] = d2[key]
+           continue
        already_exported = [x['import_uuid'] for x in d1.get(key, [])]
        for entity in d2[key]:
            if entity['import_uuid'] not in already_exported:
@@ -1097,4 +1101,6 @@ def deep_merge_collection_export_results(d1, d2):
                    if saved_entity['import_uuid'] == entity['import_uuid']:
                        saved_entity['original_exported'] = True
                        break
+    if auxiliary_data:
+        res.update(auxiliary_data)
     return res
