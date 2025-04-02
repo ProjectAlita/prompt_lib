@@ -1,7 +1,6 @@
 from pylon.core.tools import web, log
 
-from pydantic.v1 import ValidationError
-from pydantic.v1.utils import deep_update
+from pydantic import ValidationError
 
 from tools import rpc_tools
 
@@ -69,10 +68,7 @@ class RPC:
                             postponed_applications.append((item_index, model))
                     if not has_postponed_toolkits:
                         result[entity].append(_wrap_import_result(item_index, r))
-                    postponed_id_mapper = deep_update(
-                        postponed_id_mapper,
-                        model.map_postponed_ids(imported_entity=r)
-                    )
+                    postponed_id_mapper.update(model.map_postponed_ids(imported_entity=r))
 
                 for er in e:
                     errors[entity].append(_wrap_import_error(item_index, er))
@@ -86,10 +82,7 @@ class RPC:
                     author_id=author_id
                 )
                 result['toolkits'].append(_wrap_import_result(item_index, r))
-                postponed_id_mapper = deep_update(
-                    postponed_id_mapper,
-                    toolkit.map_postponed_ids(imported_entity=r)
-                )
+                postponed_id_mapper.update(toolkit.map_postponed_ids(imported_entity=r))
             except Exception as ex:
                 errors['toolkits'].append(_wrap_import_error(item_index, str(ex)))
 

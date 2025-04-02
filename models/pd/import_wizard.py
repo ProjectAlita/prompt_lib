@@ -1,10 +1,10 @@
 from typing import List, Literal, Optional, Union
 
-from pydantic.v1 import BaseModel, root_validator, constr, Extra
+from pydantic import BaseModel, model_validator, Extra, Field, ConfigDict
 
 
 class ImportData(BaseModel):
-    import_uuid: str
+    import_uuid: str = Field(exclude=True)
     entity: str
     name: str
     description: str
@@ -13,21 +13,12 @@ class ImportData(BaseModel):
     def map_postponed_ids(self, imported_entity):
         return {}
 
-    class Config:
-        fields = {
-            'import_uuid': {'exclude': True},
-        }
-
 
 class ImportVersionModel(BaseModel):
     name: str
-    import_version_uuid: str
+    import_version_uuid: str = Field(exclude=True)
 
-    class Config:
-        fields = {
-            'import_version_uuid': {'exclude': True},
-        }
-        extra = Extra.allow
+    model_config = ConfigDict(extra='allow')
 
 
 class PromptImport(ImportData):
@@ -91,8 +82,8 @@ class ApplicationImportToolSettings(BaseModel):
 
 
 class ToolImportModelBase(ImportData):
-    name: Optional[str]
-    description: Optional[str]
+    name: Optional[str] = None
+    description: Optional[str] = None
 
     @property
     def not_imported_yet_tool(self):
@@ -141,14 +132,16 @@ class PromptToolImportModel(ToolImportModelBase):
 
 
 class OtherToolImportModel(ToolImportModelBase):
-    type: constr(regex=r'^(?!application|datasource|prompt).*')
+    type: str = Field(pattern=r'^(?!application|datasource|prompt).*')
     settings: dict
+
+    model_config = ConfigDict(regex_engine='python-re')
 
 
 class ToolImportModel(BaseModel):
-    import_data: ApplicationToolImportModel | DatasourceToolImportModel | PromptToolImportModel | OtherToolImportModel
+    import_data: ApplicationToolImportModel | DatasourceToolImportModel | PromptToolImportModel | OtherToolImportModel = Field(union_mode='left_to_right')
 
-    @root_validator(pre=True)
+    @model_validator(mode='before')
     def to_import_data(cls, values):
         return {'import_data': values}
 
@@ -162,22 +155,17 @@ class ApplicationExistingImportTool(BaseModel):
 
 
 class AgentsImportVersion(ImportVersionModel):
-    tools: List[Union[ApplicationSelfImportTool, ApplicationExistingImportTool]] = []
-    postponed_tools: List[ApplicationSelfImportTool] = []
+    tools: List[ApplicationExistingImportTool] = []
+    postponed_tools: List[ApplicationSelfImportTool] = Field(default_factory=list, exclude=True)
 
-    class Config:
-        fields = {
-            'postponed_tools': {'exclude': True},
-        }
-
-    @root_validator(pre=False)
+    @model_validator(mode='before')
     def split_tools_by_refs(cls, values):
         clean_tools = []
         postponed_tools = []
         for tool in values['tools']:
-            if isinstance(tool, ApplicationSelfImportTool):
+            if 'import_uuid' in tool:
                 postponed_tools.append(tool)
-            elif isinstance(tool, ApplicationExistingImportTool):
+            elif 'id' in tool:
                 clean_tools.append(tool)
             else:
                 raise ValueError(f"Unsupported tool type: {type(tool)}")
@@ -190,7 +178,7 @@ class AgentsImportVersion(ImportVersionModel):
 
 class AgentsImport(ImportData):
     versions: List[AgentsImportVersion]
-    owner_id: Optional[int]
+    owner_id: Optional[int] = None
     shared_id: int = None
     shared_owner_id: int = None
 
