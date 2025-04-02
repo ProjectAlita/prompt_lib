@@ -1,15 +1,13 @@
-import copy
 from typing import List
 from sqlalchemy.orm import joinedload
 
-from tools import db, rpc_tools
+from tools import db
 
 from ..models.all import Prompt, PromptVersion
 from ..models.pd.export_import import (
     PromptExportModel, DialExportModel,
     DialPromptExportModel, DialModelExportModel, PromptForkModel,
 )
-from ..models.pd.import_wizard import ApplicationImportCompoundTool
 from ..models.pd.model_settings import ModelSettingsBaseModel
 
 
@@ -17,6 +15,7 @@ ENTITY_IMPORT_MAPPER = {
     'prompts': 'prompt_lib_import_prompt',
     'datasources': 'datasources_import_datasource',
     'agents': 'applications_import_application',
+    'toolkits': 'applications_import_toolkit',
 }
 
 
@@ -93,82 +92,3 @@ def _wrap_import_error(ind, msg):
 def _wrap_import_result(ind, result):
     result['index'] = ind
     return result
-
-
-def _recalculate_failed_good_results(incomplete_apps, already_connected_info):
-    failed = copy.copy(incomplete_apps)
-    redo = False
-
-    good = []
-    for app_id, connected_app_id, original_entity_index in already_connected_info:
-        if connected_app_id in failed:
-            if app_id not in failed:
-                failed[app_id] = original_entity_index
-                redo = True
-        else:
-            good.append((app_id, connected_app_id, original_entity_index))
-
-    if redo:
-        failed_rec, good = _recalculate_failed_good_results(failed, good)
-        failed.update(failed_rec)
-
-    return failed, good
-
-
-def _postponed_app_tools_import(postponed_application_tools: List[ApplicationImportCompoundTool], postponed_id_mapper, project_id):
-    rpc_call = rpc_tools.RpcMixin().rpc.call
-
-    incomplete_apps = {}
-    already_connected_info = []
-    errors = []
-    result_candidates = {}
-    for original_entity_index, tools in postponed_application_tools:
-        for tool in tools:
-            app_id = app_ver_id = connected_app_id = None
-            try:
-                app_id, app_ver_id = tool.get_real_application_ids(postponed_id_mapper)
-                if app_id in incomplete_apps:
-                    continue
-                payload, connected_app_id = tool.generate_create_payload(postponed_id_mapper)
-                result = rpc_call.applications_add_application_tool(
-                    payload,
-                    project_id,
-                    app_ver_id,
-                    return_details=True
-                )
-                if not result['ok']:
-                    raise RuntimeError(result['error'])
-                else:
-                    # the most recent tools update overwrites result with the most actual data
-                    result_candidates[app_id] = _wrap_import_result(original_entity_index, result['details'])
-                    if connected_app_id is not None:
-                        already_connected_info.append((app_id, connected_app_id, original_entity_index))
-            except Exception as ex:
-                # if some tool can not be added to app, mark all app as failed and delete it
-                errors.append(_wrap_import_error(original_entity_index, str(ex)))
-                if app_id is not None:
-                    incomplete_apps[app_id] = original_entity_index
-
-    failed, good = _recalculate_failed_good_results(incomplete_apps, already_connected_info)
-
-    for app_id, original_entity_index in failed.items():
-        try:
-            if rpc_call.applications_delete_application(project_id, app_id):
-                errors.append(_wrap_import_error(original_entity_index, "Failed because of failed dependant tool"))
-            else:
-                raise RuntimeError(f"Can not delete {app_id=}")
-        except Exception as ex2:
-            errors.append(_wrap_import_error(original_entity_index, str(ex2)))
-
-    results = []
-    for candidate_app_id, details in result_candidates.items():
-        for app_id, _, original_entity_index in good:
-            if details['index'] == original_entity_index:
-                results.append(details)
-                break
-        else:
-            # prompts and datasources not calculated in good, but exist in failed
-            if candidate_app_id not in failed:
-                results.append(details)
-
-    return results, errors
