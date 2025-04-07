@@ -9,11 +9,11 @@ from pylon.core.tools import log
 from tools import api_tools, db, auth, config as c
 
 from ...models.all import Collection
-from ...models.pd.export_import import DialFolderExportModel
 from ...utils.collections import group_by_project_id, deep_merge_collection_export_results
-from ...utils.export_import_utils import prompts_export_to_dial, prompts_export
 from ...utils.constants import PROMPT_LIB_MODE
 from ...utils.collection_registry import ENTITY_REG
+
+from ....promptlib_shared.utils.exceptions import EntityNotAvailableCollectionError
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
@@ -30,27 +30,33 @@ class PromptLibAPI(api_tools.APIModeHandler):
         with db.with_project_schema_session(project_id) as session:
             collection = session.query(Collection).get(collection_id)
             if not collection:
-                raise Exception(f"Collection with id '{collection_id}' not found")
+                return {"error": f"Collection with id '{collection_id}' not found"}, 400
 
-        for ent in ENTITY_REG:
-            entities = ent.get_entities_field(collection)
-            if not entities:
-                continue
+        try:
+            for ent in ENTITY_REG:
+                entities = ent.get_entities_field(collection)
+                if not entities:
+                    continue
 
-            exported_data = ent.entity_export(group_by_project_id(entities), forked=forked)
+                exported_data = ent.entity_export(group_by_project_id(entities), forked=forked)
 
-            for entity in exported_data[ent.entities_name]:
-                if 'original_exported' not in entity:
-                    entity['original_exported'] = True
+                for entity in exported_data[ent.entities_name]:
+                    if 'original_exported' not in entity:
+                        entity['original_exported'] = True
 
-            result = deep_merge_collection_export_results(result, exported_data)
+                result = deep_merge_collection_export_results(result, exported_data)
 
-        if request.args.get('as_file', False):
-            file = BytesIO()
-            data = json.dumps(result, ensure_ascii=False, indent=4)
-            file.write(data.encode('utf-8'))
-            file.seek(0)
-            return send_file(file, download_name=f'alita_collection_{date.today()}.json', as_attachment=False)
+            if request.args.get('as_file', False):
+                file = BytesIO()
+                data = json.dumps(result, ensure_ascii=False, indent=4)
+                file.write(data.encode('utf-8'))
+                file.seek(0)
+                return send_file(file, download_name=f'alita_collection_{date.today()}.json', as_attachment=False)
+        except EntityNotAvailableCollectionError as ex:
+            return {"error": str(ex)}, 400
+        except Exception as ex:
+            log.error(ex)
+            return {"error": f"Can not export {collection_id=}"}
         return result, 200
 
 

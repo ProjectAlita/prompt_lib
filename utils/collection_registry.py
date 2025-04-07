@@ -49,6 +49,8 @@ def _make_entity_registry():
         def wrapper(*args, **kwargs):
             try:
                 return rpc_fun(*args, **kwargs)
+            except RuntimeError as ex:
+                raise EntityNotAvailableCollectionError(str(ex)) from None
             except Exception as ex:
                 log.error(ex)
                 raise EntityNotAvailableCollectionError(
