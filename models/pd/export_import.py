@@ -38,7 +38,7 @@ class PromptVersionExportModel(BaseModel):
 
     @root_validator
     def exclude_icon_meta(cls, values):
-        if 'meta' in values:
+        if values.get('meta') is not None:
             values['meta']['icon_meta'] = {}
         return values
 
