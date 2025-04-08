@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import datetime
 from functools import partial
 from itertools import chain
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 from flask import request
 from pydantic.v1 import ValidationError
@@ -38,6 +38,7 @@ from ..models.pd.collections import (
     PublishedCollectionDetailModel,
 )
 from ...promptlib_shared.models.enums.all import PublishStatus
+from ...promptlib_shared.models.enums.applications import AgentTypes
 from ...promptlib_shared.models.pd.base import TagBaseModel
 from ...promptlib_shared.models.pd.entity import EntityListModel, PublishedEntityListModel
 from ...promptlib_shared.utils.exceptions import (
@@ -62,7 +63,8 @@ def get_entities_for_collection(
         entity_type,
         entity_version_type,
         collection_entities: List[Dict[int, int]],
-        only_public: bool = False) -> list:
+        only_public: bool = False,
+        extra_filter_params: Optional[Dict[str, str]] = None) -> list:
 
     Entity = entity_type
     EntityVersion = entity_version_type
@@ -80,6 +82,17 @@ def get_entities_for_collection(
     if statuses := request.args.get('statuses'):
         statuses = statuses.split(',')
         filters.append(Entity.versions.any(EntityVersion.status.in_(statuses)))
+
+    # filter applications by type: agent or pipeline
+    agent_type_param = extra_filter_params.get("agent_type")
+    if agent_type_param:
+        pipeline_only_query = Entity.versions.any(
+        EntityVersion.agent_type == AgentTypes.pipeline.value)
+        
+        if agent_type_param == 'agent':
+            filters.append(~pipeline_only_query)
+        elif agent_type_param == 'pipeline':
+            filters.append(pipeline_only_query)
 
     # Search parameters
     if search := request.args.get('query'):
@@ -406,16 +419,36 @@ def get_detail_collection(collection: Collection, only_public: bool = False):
     result = json.loads(collection_data.json(exclude={"author_id"}))
 
     for entity_info, entities in collection_items:
-        if entities:
-            kwargs = {
-                'entity_type': entity_info.get_entity_type(),
-                'entity_version_type': entity_info.get_entity_version_type()
-            }
-            kwargs['collection_entities'] = entities
-            kwargs['only_public'] = only_public
+        if not entities:
+            continue
 
+        kwargs = {
+            'entity_type': entity_info.get_entity_type(),
+            'entity_version_type': entity_info.get_entity_version_type()
+        }
+        kwargs['collection_entities'] = entities
+        kwargs['only_public'] = only_public
+
+        if entity_info.entities_name == 'applications':
+            kwargs['extra_filter_params'] = { "agent_type": "pipeline" }
+            pipeline_entity_rows = get_entities_for_collection(**kwargs)
+            result["pipelines"] = {
+                "total": len(pipeline_entity_rows), 
+                "rows": pipeline_entity_rows
+            }
+
+            # agents - all applications except pipelines
+            kwargs['extra_filter_params'] = { "agent_type": "agent" }
+            agent_entity_rows = get_entities_for_collection(**kwargs)
+            result[entity_info.entities_name] = {
+                "total": len(agent_entity_rows),
+                "rows": agent_entity_rows
+            }
+        else:
             entity_rows = get_entities_for_collection(**kwargs)
-            result[entity_info.entities_name] = {"total": len(entities), "rows": entity_rows}
+            result[entity_info.entities_name] = {
+                "total": len(entities), "rows": entity_rows
+            }
 
     return result
 
