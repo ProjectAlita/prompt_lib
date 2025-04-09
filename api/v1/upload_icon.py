@@ -21,7 +21,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
     @auth.decorators.check_api({
         "permissions": ["models.prompt_lib.upload_icon.get"],
         "recommended_roles": {
-            c.DEFAULT_MODE: {"admin": True, "editor": False, "viewer": False},
+            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
         }})
     def get(self, project_id: int, **kwargs):
         skip = int(request.args.get('skip', 0))
