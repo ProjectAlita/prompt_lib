@@ -84,7 +84,7 @@ def get_entities_for_collection(
         filters.append(Entity.versions.any(EntityVersion.status.in_(statuses)))
 
     # filter applications by type: agent or pipeline
-    agent_type_param = extra_filter_params.get("agent_type")
+    agent_type_param = extra_filter_params and extra_filter_params.get("agent_type")
     if agent_type_param:
         pipeline_only_query = Entity.versions.any(
         EntityVersion.agent_type == AgentTypes.pipeline.value)
