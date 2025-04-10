@@ -292,7 +292,7 @@ class RPC:
                     "finish_reason": "stop",
                 },
                 "stream_id": payload.stream_id,
-                "message_id": payload.stream_id,
+                "message_id": payload.message_id,
             },
             room=room,
         )
