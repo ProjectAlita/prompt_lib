@@ -131,6 +131,9 @@ class PromptListModel(BaseModel):
 
     @validator('icon_meta', always=True)
     def set_icon_meta(cls, v, values):
+        """
+        represents icon from latest version
+        """
         versions = values.get('versions', [])
         if not versions:
             return v
@@ -150,7 +153,7 @@ class PromptListModel(BaseModel):
         meta = selected_version.meta or {}
 
         if 'icon_meta' in meta:
-            return meta['icon_meta']
+            return meta['icon_meta'] or {}
 
         return v
 
