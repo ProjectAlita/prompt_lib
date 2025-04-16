@@ -84,6 +84,7 @@ class ApplicationImportToolSettings(BaseModel):
 class ToolImportModelBase(ImportData):
     name: Optional[str] = None
     description: Optional[str] = None
+    meta: Optional[dict] = {}
 
     @property
     def not_imported_yet_tool(self):
@@ -179,8 +180,8 @@ class AgentsImportVersion(ImportVersionModel):
 class AgentsImport(ImportData):
     versions: List[AgentsImportVersion]
     owner_id: Optional[int] = None
-    shared_id: int = None
-    shared_owner_id: int = None
+    shared_id: Optional[int] = None
+    shared_owner_id: Optional[int] = None
 
     def has_postponed_toolkits(self):
         for version in self.versions:
