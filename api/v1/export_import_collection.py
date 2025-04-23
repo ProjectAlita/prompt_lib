@@ -38,7 +38,11 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 if not entities:
                     continue
 
-                exported_data = ent.entity_export(group_by_project_id(entities), forked=forked)
+                exported_data = ent.entity_export(
+                    group_by_project_id(entities),
+                    user_id=auth.current_user().get('id'),
+                    forked=forked
+                )
 
                 for entity in exported_data[ent.entities_name]:
                     if 'original_exported' not in entity:
