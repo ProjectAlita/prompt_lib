@@ -166,7 +166,8 @@ class RPC:
                     data: dict,
                     sio_event: str = SioEvents.promptlib_predict.value,
                     start_event_content: Optional[dict] = None,
-                    chat_project_id: Optional[int] = None
+                    chat_project_id: Optional[int] = None,
+                    **kwargs
                     ):
         #
         if start_event_content is None:
