@@ -167,7 +167,7 @@ class RPC:
                     sio_event: str = SioEvents.promptlib_predict.value,
                     start_event_content: Optional[dict] = None,
                     chat_project_id: Optional[int] = None,
-                    await_task_timeout: int = -1
+                    **kwargs
                     ):
         #
         if start_event_content is None:
@@ -353,8 +353,7 @@ class RPC:
             json.loads(json.dumps(event_payload))
         )
 
-        if await_task_timeout > 0:
-            return {"result": event_payload["predict_response"]}
+        return {"result": event_payload["predict_response"]}
 
     @web.rpc("prompt_lib_get_prompt_model", "get_prompt_model")
     def get_prompt_model(self):
