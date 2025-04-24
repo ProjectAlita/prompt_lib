@@ -162,7 +162,7 @@ class RPC:
 
     @web.rpc("prompt_lib_predict_sio", "predict_sio")
     def predict_sio(self,
-                    sid: str,
+                    sid: str | None,
                     data: dict,
                     sio_event: str = SioEvents.promptlib_predict.value,
                     start_event_content: Optional[dict] = None,
@@ -309,9 +309,12 @@ class RPC:
             }
             self.context.event_manager.fire_event('chat_message_stream_end', chat_payload)
         #
-        current_user = auth.current_user(
-            auth_data=auth.sio_users[sid]
-        )
+        if sid:
+            current_user = auth.current_user(
+                auth_data=auth.sio_users[sid]
+            )
+        else:
+            current_user = auth.current_user()
         #
         tokens_in = worker_client.ai_count_tokens(
             integration_name=payload.integration.name,
@@ -349,6 +352,8 @@ class RPC:
             PredictionEvents.prediction_done,
             json.loads(json.dumps(event_payload))
         )
+
+        return {"result": event_payload["predict_response"]}
 
     @web.rpc("prompt_lib_get_prompt_model", "get_prompt_model")
     def get_prompt_model(self):
