@@ -94,6 +94,7 @@ class Event:
                     "models.applications.fork.post",
                     "models.datasources.fork.post",
                     "models.chat.participants.create",
+                    "models.chat.folders.get"
                 ],
                 "public_admin": [
                     "models.datasource",
