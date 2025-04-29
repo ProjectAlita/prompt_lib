@@ -440,25 +440,35 @@ class RPC:
     ) -> tuple[int, int] | tuple[None, None]:
         # optimized implementation always returns none in version id
         with db.get_session(target_project_id) as session:
-            is_forked_subquery = (
-                session.query(PromptVersion.prompt_id)
-                .filter(PromptVersion.meta.op('->>')('parent_entity_id').isnot(None),
-                        PromptVersion.meta.op('->>')('parent_project_id').isnot(None))
-                .subquery()
-            )
-            target_project_forked_prompts = session.query(Prompt).filter(
-                Prompt.id.in_(is_forked_subquery)
-            ).all()
+            if parent_project_id == target_project_id:
+                target_project_forked_prompt = session.query(Prompt).filter(
+                    Prompt.id == parent_entity_id
+                ).first()
+                if target_project_forked_prompt:
+                    target_forked_latest_version = target_project_forked_prompt.get_latest_version()
+                    return target_project_forked_prompt.id, target_forked_latest_version.id
+                else:
+                    return None, None
+            else:
+                is_forked_subquery = (
+                    session.query(PromptVersion.prompt_id)
+                    .filter(PromptVersion.meta.op('->>')('parent_entity_id').isnot(None),
+                            PromptVersion.meta.op('->>')('parent_project_id').isnot(None))
+                    .subquery()
+                )
+                target_project_forked_prompts = session.query(Prompt).filter(
+                    Prompt.id.in_(is_forked_subquery)
+                ).all()
 
-            for forked_prompt in target_project_forked_prompts:
-                for version in forked_prompt.versions:
-                    forked_version_meta = version.meta or {}
-                    forked_version_parent_entity_id = forked_version_meta.get('parent_entity_id')
-                    forked_version_parent_project_id = forked_version_meta.get('parent_project_id')
-                    if parent_entity_id == forked_version_parent_entity_id \
-                            and parent_project_id == forked_version_parent_project_id:
-                        return forked_prompt.id, version.id
-            return None, None
+                for forked_prompt in target_project_forked_prompts:
+                    for version in forked_prompt.versions:
+                        forked_version_meta = version.meta or {}
+                        forked_version_parent_entity_id = forked_version_meta.get('parent_entity_id')
+                        forked_version_parent_project_id = forked_version_meta.get('parent_project_id')
+                        if parent_entity_id == forked_version_parent_entity_id \
+                                and parent_project_id == forked_version_parent_project_id:
+                            return forked_prompt.id, version.id
+                return None, None
 
     @web.rpc("prompt_lib_update_tool_with_existing_fork", "update_tool_with_existing_fork")
     def prompt_lib_update_tool_with_existing_fork(
