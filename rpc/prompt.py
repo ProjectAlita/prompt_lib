@@ -423,7 +423,7 @@ class RPC:
             return json.loads(result.json()), errors
 
     @web.rpc("prompt_lib_export_prompt")
-    def export_prompt(self, prompts_grouped: dict, forked: bool = False) -> dict:
+    def export_prompt(self, prompts_grouped: dict, forked: bool = False, **kwargs) -> dict:
         result = {
             'prompts': []
         }
