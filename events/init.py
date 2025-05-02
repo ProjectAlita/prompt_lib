@@ -94,7 +94,10 @@ class Event:
                     "models.applications.fork.post",
                     "models.datasources.fork.post",
                     "models.chat.participants.create",
-                    "models.chat.folders.get"
+
+                    "models.chat.folders.get",
+                    "models.chat.folders.update",
+                    "models.chat.folders.create"
                 ],
                 "public_admin": [
                     "models.datasource",
