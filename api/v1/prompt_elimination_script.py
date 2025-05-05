@@ -1,9 +1,11 @@
+import json
 from typing import List, Optional
 
 from flask import request
 from pydantic import BaseModel, ValidationError
 from tools import api_tools, auth, db, serialize, db_tools, config as c, rpc_tools
 from sqlalchemy import text
+from sqlalchemy.orm import selectinload
 
 from ...models.all import Prompt, Collection, PromptVersion
 
@@ -174,6 +176,106 @@ class PromptLibAPI(api_tools.APIModeHandler):
                             session.add(collection)
 
                     session.execute(application_tag_model.insert().values(application_tags))
+                    session.commit()
+                except Exception as e:
+                    session.rollback()
+                    log.error(f'Project ID {pid}, error: {str(e)}')
+                    errors.append({'project_id': pid, 'error': str(e)})
+
+        for pid in project_ids:
+            with db.get_session(pid) as session:
+                try:
+                    # Migrate forks
+                    prompt_version_query = session.query(PromptVersion)
+                    for prompt_version in prompt_version_query.all():
+                        # Check if the prompt version has fork metadata in its meta field
+                        if prompt_version.meta and "parent_project_id" in prompt_version.meta:
+                            parent_project_id = prompt_version.meta["parent_project_id"]
+                            parent_entity_id = prompt_version.meta["parent_entity_id"]
+                            parent_entity_version_id = prompt_version.meta["parent_entity_version_id"]
+                            parent_author_id = prompt_version.meta["parent_author_id"]
+
+                            # Fetch the parent application's new_agent_id and new_agent_version_id from the parent project
+                            parent_new_agent_id = None
+                            parent_new_agent_version_id = None
+                            with db.get_session(parent_project_id) as parent_session:
+                                # Fetch the parent prompt's new_agent_id
+                                parent_result = parent_session.execute(
+                                    text(f"""
+                                                    SELECT new_agent_id
+                                                    FROM p_{parent_project_id}.prompts
+                                                    WHERE id = :parent_entity_id
+                                                """),
+                                    {'parent_entity_id': parent_entity_id}
+                                ).fetchone()
+                                log.debug(f'{parent_result=}')
+
+                                # Fetch the parent prompt version's new_agent_version_id
+                                parent_version_result = parent_session.execute(
+                                    text(f"""
+                                                    SELECT new_agent_version_id
+                                                    FROM p_{parent_project_id}.prompt_versions
+                                                    WHERE id = :parent_entity_version_id
+                                                """),
+                                    {'parent_entity_version_id': parent_entity_version_id}
+                                ).fetchone()
+                                log.debug(f'{parent_version_result=}')
+
+                                if parent_result and parent_result.new_agent_id:
+                                    parent_new_agent_id = parent_result.new_agent_id
+                                    log.debug(f'{parent_new_agent_id=}')
+
+                                if parent_version_result and parent_version_result.new_agent_version_id:
+                                    parent_new_agent_version_id = parent_version_result.new_agent_version_id
+                                    log.debug(f'{parent_new_agent_version_id=}')
+
+                            # If the parent application exists, update the meta field of the current application version
+                            if parent_new_agent_id and parent_new_agent_version_id:
+                                # Fetch the existing application version for the current prompt version
+                                new_agent_version_id_q = session.execute(
+                                    text(f"""
+                                        SELECT new_agent_version_id
+                                        FROM p_{pid}.prompt_versions
+                                        WHERE id = :prompt_version_id
+                                    """),
+                                    {'prompt_version_id': prompt_version.id}
+                                ).fetchone()
+                                current_result = parent_session.execute(
+                                    text(f"""
+                                        SELECT id, meta
+                                        FROM p_{pid}.application_versions
+                                        WHERE id = :current_agent_version_id
+                                    """),
+                                    {'current_agent_version_id': new_agent_version_id_q.new_agent_version_id}
+                                ).fetchone()
+
+                                log.debug(f'{current_result=}')
+
+                                if current_result:
+                                    current_agent_version_id = current_result.id
+                                    current_meta = current_result.meta or {}
+
+                                    # Update the meta field with parent application version information
+                                    new_meta = {
+                                        "parent_entity_id": parent_new_agent_id,
+                                        "parent_entity_version_id": parent_new_agent_version_id,
+                                        "parent_author_id": parent_author_id,
+                                        "parent_project_id": parent_project_id,
+                                    }
+                                    current_meta.update(new_meta)
+                                    log.debug(f'{new_meta=}')
+
+                                    session.execute(
+                                        text(f"""
+                                                        UPDATE p_{pid}.application_versions
+                                                        SET meta = :meta
+                                                        WHERE id = :current_agent_version_id
+                                                    """),
+                                        {
+                                            'meta': json.dumps(current_meta),
+                                            'current_agent_version_id': current_agent_version_id
+                                        }
+                                    )
                     session.commit()
                 except Exception as e:
                     session.rollback()
