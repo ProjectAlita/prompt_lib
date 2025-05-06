@@ -176,6 +176,25 @@ class PromptLibAPI(api_tools.APIModeHandler):
                                             WHERE (entity_meta->>'id')::int = {prompt.id} AND entity_name = 'prompt';
                                         """)
                             )
+                            # Update alita_tools, change `type` column and modify the `settings` JSONB field
+                            session.execute(
+                                text(f"""
+                                    UPDATE p_{pid}.alita_tools
+                                    SET type = 'application',
+                                        settings = (
+                                            settings
+                                            || jsonb_build_object(
+                                                'application_version_id', '{str(application_version.id)}'::jsonb,
+                                                'application_id', '{str(application.id)}'::jsonb,
+                                                'selected_tools', '[]'::jsonb
+                                            )
+                                        )
+                                        - 'prompt_version_id'
+                                        - 'prompt_id'
+                                    WHERE type = 'prompt'
+                                      AND settings->>'prompt_version_id' = '{str(prompt_version.id)}';
+                                """)
+                            )
 
                         session.execute(
                             text(f"""
