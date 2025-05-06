@@ -5,7 +5,6 @@ from flask import request
 from pydantic import BaseModel, ValidationError
 from tools import api_tools, auth, db, serialize, db_tools, config as c, rpc_tools
 from sqlalchemy import text
-from sqlalchemy.orm import selectinload
 
 from ...models.all import Prompt, Collection, PromptVersion
 
@@ -134,6 +133,41 @@ class PromptLibAPI(api_tools.APIModeHandler):
                                     'new_agent_version_id': application_version.id,
                                     'prompt_version_id': prompt_version.id
                                 }
+                            )
+                            # First query: Update the `chat_participant_mapping` table
+                            # DO NOT CHANGE ORDER OF QUERIES
+                            session.execute(
+                                text(f"""
+                                    UPDATE p_{pid}.chat_participant_mapping
+                                    SET entity_settings = jsonb_build_object(
+                                        'icon_meta', entity_settings->'icon_meta',
+                                        'variables', entity_settings->'variables',
+                                        'version_id', {application_version.id},
+                                        'llm_settings', jsonb_build_object(
+                                            'top_k', entity_settings->'model_settings'->'top_k',
+                                            'top_p', entity_settings->'model_settings'->'top_p',
+                                            'max_tokens', entity_settings->'model_settings'->'max_tokens',
+                                            'model_name', entity_settings->'model_settings'->'model'->>'model_name',
+                                            'temperature', entity_settings->'model_settings'->'temperature',
+                                            'integration_uid', entity_settings->'model_settings'->'model'->>'integration_uid'
+                                        ),
+                                        'chat_history_template', COALESCE(entity_settings->>'chat_history_template', 'all')
+                                    )
+                                    WHERE participant_id IN (
+                                        SELECT id
+                                        FROM p_{pid}.chat_participants
+                                        WHERE (entity_meta->>'id')::int = {prompt.id} AND entity_name = 'prompt'
+                                    );
+                                """)
+                            )
+                            # Second query: Update the `chat_participants` table
+                            session.execute(
+                                text(f"""
+                                            UPDATE p_{pid}.chat_participants
+                                            SET entity_name = 'application',
+                                                entity_meta = jsonb_set(entity_meta, '{{id}}', '{json.dumps(application.id)}'::jsonb)
+                                            WHERE (entity_meta->>'id')::int = {prompt.id} AND entity_name = 'prompt';
+                                        """)
                             )
 
                         session.execute(
