@@ -1,9 +1,11 @@
 import json
+import os
+import shutil
 from typing import List, Optional
 
 from flask import request
 from pydantic import BaseModel, ValidationError
-from tools import api_tools, auth, db, serialize, db_tools, config as c, rpc_tools
+from tools import api_tools, auth, db, serialize, db_tools, config as c, rpc_tools, this
 from sqlalchemy import text
 
 from ...models.all import Prompt, Collection, PromptVersion
@@ -92,6 +94,11 @@ class PromptLibAPI(api_tools.APIModeHandler):
                             model_settings = llm_settings.pop('model')
                             llm_settings['model_name'] = model_settings['model_name']
                             llm_settings['integration_uid'] = model_settings['integration_uid']
+                            new_meta = prompt_version.meta or {}
+                            if "icon_meta" in new_meta and new_meta["icon_meta"]:
+                                new_meta["icon_meta"]["url"] = new_meta["icon_meta"]["url"].replace(
+                                    "prompt_lib/prompt_icon", "applications/application_icon"
+                                )
                             application_version = application_version_model(
                                 name=prompt_version.name,
                                 author_id=prompt_version.author_id,
@@ -103,7 +110,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                                 welcome_message=prompt_version.welcome_message,
                                 instructions=prompt_version.context,
                                 llm_settings=llm_settings,
-                                meta=prompt_version.meta,
+                                meta=new_meta,
                                 application=application,
                             )
                             application_variables = [
@@ -315,6 +322,33 @@ class PromptLibAPI(api_tools.APIModeHandler):
                     session.rollback()
                     log.error(f'Project ID {pid}, error: {str(e)}')
                     errors.append({'project_id': pid, 'error': str(e)})
+
+        for project_id in project_ids:
+            prompt_path = this.descriptor.config.get("prompt_icon_path", "/data/static/prompt_icon")
+            application_path = prompt_path.replace('prompt_icon', 'application_icon')
+            prompt_project_path = os.path.join(prompt_path, str(project_id))
+            application_project_path = os.path.join(application_path, str(project_id))
+
+            if not os.path.isdir(prompt_project_path):
+                continue
+
+            if not os.path.exists(application_project_path):
+                os.makedirs(application_project_path)
+                log.debug(f"Created project folder in application_icon: {application_project_path}")
+
+            for file_name in os.listdir(prompt_project_path):
+                prompt_file_path = os.path.join(prompt_project_path, file_name)
+                application_file_path = os.path.join(application_project_path, file_name)
+
+                if not os.path.isfile(prompt_file_path):
+                    continue
+
+                if os.path.exists(application_file_path):
+                    log.debug(f"File already exists, skipping: {application_file_path}")
+                    continue
+
+                shutil.copy2(prompt_file_path, application_file_path)
+                log.debug(f"Copied {prompt_file_path} to {application_file_path}")
 
         return {'results': serialize(results), 'errors': serialize(errors)}, 201
 
