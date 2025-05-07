@@ -46,7 +46,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         project_ids = eliminate_prompt_payload.project_ids or get_all_project_ids()
         project_ids.sort()
-        results = list()
         errors = list()
 
         rpc = rpc_tools.RpcMixin().rpc.call
@@ -99,6 +98,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                                 new_meta["icon_meta"]["url"] = new_meta["icon_meta"]["url"].replace(
                                     "prompt_lib/prompt_icon", "applications/application_icon"
                                 )
+                            # TODO migrate messages?
                             application_version = application_version_model(
                                 name=prompt_version.name,
                                 author_id=prompt_version.author_id,
@@ -143,6 +143,12 @@ class PromptLibAPI(api_tools.APIModeHandler):
                             )
                             # First query: Update the `chat_participant_mapping` table
                             # DO NOT CHANGE ORDER OF QUERIES
+                            # TODO migrate chat icon meta
+                            # new_meta = prompt_version.meta or {}
+                            # if "icon_meta" in new_meta and new_meta["icon_meta"]:
+                            #     new_meta["icon_meta"]["url"] = new_meta["icon_meta"]["url"].replace(
+                            #         "prompt_lib/prompt_icon", "applications/application_icon"
+                            #     )
                             session.execute(
                                 text(f"""
                                     UPDATE p_{pid}.chat_participant_mapping
@@ -369,7 +375,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 shutil.copy2(prompt_file_path, application_file_path)
                 log.debug(f"Copied {prompt_file_path} to {application_file_path}")
 
-        return {'results': serialize(results), 'errors': serialize(errors)}, 201
+        return {'errors': serialize(errors)}, 201
 
 
 class API(api_tools.APIBase):
