@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+from collections import defaultdict
 from typing import List, Optional
 
 from flask import request
@@ -15,7 +16,7 @@ from pylon.core.tools import log
 
 class EliminatePromptPayload(BaseModel):
     project_ids: Optional[List[int]] = None
-    flush: bool = False
+    delete_agent_ids: Optional[dict] = None
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
@@ -46,6 +47,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         project_ids = eliminate_prompt_payload.project_ids or get_all_project_ids()
         project_ids.sort()
+        new_agent_ids = defaultdict(list)
         errors = list()
 
         rpc = rpc_tools.RpcMixin().rpc.call
@@ -56,17 +58,12 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         for pid in project_ids:
             with db.get_session(pid) as session:
-                if eliminate_prompt_payload.flush:
-                    prompts = session.query(Prompt).all()
-                    for prompt in prompts:
-                        session.delete(prompt)
-
-                    collections = session.query(Collection).all()
-                    for collection in collections:
-                        collection.prompts = []
-                    session.commit()
-                    continue
+                if eliminate_prompt_payload.delete_agent_ids:
+                    for application_id in eliminate_prompt_payload.delete_agent_ids[str(pid)]:
+                        rpc.applications_delete_application(pid, application_id)
+                        continue
                 try:
+                    # TODO comment and run migration
                     session.execute(
                         text(f'ALTER TABLE p_{pid}.prompts ADD COLUMN IF NOT EXISTS new_agent_id INTEGER')
                     )
@@ -78,6 +75,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
                     collection_query = session.query(Collection)
                     application_tags = []
                     for prompt in prompt_query.yield_per(100):
+                        if prompt.new_agent_id:
+                            continue
                         application = application_model(
                             name=prompt.name,
                             description=prompt.description,
@@ -98,7 +97,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
                                 new_meta["icon_meta"]["url"] = new_meta["icon_meta"]["url"].replace(
                                     "prompt_lib/prompt_icon", "applications/application_icon"
                                 )
-                            # TODO migrate messages?
                             application_version = application_version_model(
                                 name=prompt_version.name,
                                 author_id=prompt_version.author_id,
@@ -143,12 +141,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
                             )
                             # First query: Update the `chat_participant_mapping` table
                             # DO NOT CHANGE ORDER OF QUERIES
-                            # TODO migrate chat icon meta
-                            # new_meta = prompt_version.meta or {}
-                            # if "icon_meta" in new_meta and new_meta["icon_meta"]:
-                            #     new_meta["icon_meta"]["url"] = new_meta["icon_meta"]["url"].replace(
-                            #         "prompt_lib/prompt_icon", "applications/application_icon"
-                            #     )
                             session.execute(
                                 text(f"""
                                     UPDATE p_{pid}.chat_participant_mapping
@@ -213,6 +205,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                                 'prompt_id': prompt.id
                             }
                         )
+                        new_agent_ids[pid].append(application.id)
 
                     # migrate collections
                     for collection in collection_query.yield_per(100):
@@ -231,6 +224,12 @@ class PromptLibAPI(api_tools.APIModeHandler):
                                         {'prompt_id': prompt_id}
                                     ).fetchone()
 
+                                    log.debug(f'{result.new_agent_id=}')
+                                    log.debug(f'{new_agent_ids=}')
+
+                                    if int(result.new_agent_id) not in new_agent_ids[pid]:
+                                        continue
+
                                     # Check if the result exists and contains a valid new_agent_id
                                     if result and result.new_agent_id:
                                         new_application_items.append({
@@ -238,10 +237,12 @@ class PromptLibAPI(api_tools.APIModeHandler):
                                             "owner_id": prompt_entry.get("owner_id")
                                         })
 
+                            new_application_items.extend(list(collection.applications))
                             collection.applications = new_application_items
                             session.add(collection)
 
-                    session.execute(application_tag_model.insert().values(application_tags))
+                    if application_tags:
+                        session.execute(application_tag_model.insert().values(application_tags))
                     session.commit()
                 except Exception as e:
                     session.rollback()
@@ -375,7 +376,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                 shutil.copy2(prompt_file_path, application_file_path)
                 log.debug(f"Copied {prompt_file_path} to {application_file_path}")
 
-        return {'errors': serialize(errors)}, 201
+        return serialize({'new_agent_ids': new_agent_ids, 'errors': errors}), 200
 
 
 class API(api_tools.APIBase):
