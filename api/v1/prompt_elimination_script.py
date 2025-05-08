@@ -59,9 +59,25 @@ class PromptLibAPI(api_tools.APIModeHandler):
         for pid in project_ids:
             with db.get_session(pid) as session:
                 if eliminate_prompt_payload.delete_agent_ids:
-                    for application_id in eliminate_prompt_payload.delete_agent_ids[str(pid)]:
-                        rpc.applications_delete_application(pid, application_id)
-                        continue
+                    delete_application_ids = eliminate_prompt_payload.delete_agent_ids.get(str(pid), [])
+                    if delete_application_ids:
+                        for application_id in delete_application_ids:
+                            rpc.applications_delete_application(pid, application_id)
+
+                        session.query(PromptVersion).filter(
+                            PromptVersion.prompt_id.in_(session.query(Prompt.id).filter(
+                                Prompt.new_agent_id.in_(delete_application_ids)
+                            ).subquery())
+                        ).update(
+                            {"new_agent_version_id": None},
+                        )
+                        session.query(Prompt).filter(
+                            Prompt.new_agent_id.in_(delete_application_ids)
+                        ).update(
+                            {"new_agent_id": None},
+                        )
+                        session.commit()
+                    continue
                 try:
                     # TODO comment and run migration
                     session.execute(
@@ -194,16 +210,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
                                 """)
                             )
 
-                        session.execute(
-                            text(f"""
-                                UPDATE p_{pid}.prompts
-                                SET new_agent_id = :new_agent_id
-                                WHERE id = :prompt_id
-                            """),
-                            {
-                                'new_agent_id': application.id,
-                                'prompt_id': prompt.id
-                            }
+                        session.query(Prompt).filter(Prompt.id == prompt.id).update(
+                            {"new_agent_id": application.id}
                         )
                         new_agent_ids[pid].append(application.id)
 
@@ -214,18 +222,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
                             for prompt_entry in collection.prompts:
                                 prompt_id = prompt_entry.get("id")
                                 if prompt_id:
-                                    # Use raw SQL to fetch the new_agent_id from the database
-                                    result = session.execute(
-                                        text(f"""
-                                            SELECT new_agent_id
-                                            FROM p_{pid}.prompts
-                                            WHERE id = :prompt_id
-                                        """),
-                                        {'prompt_id': prompt_id}
-                                    ).fetchone()
-
-                                    log.debug(f'{result.new_agent_id=}')
-                                    log.debug(f'{new_agent_ids=}')
+                                    result = session.query(Prompt.new_agent_id).filter(Prompt.id == prompt_id).first()
 
                                     if int(result.new_agent_id) not in new_agent_ids[pid]:
                                         continue
@@ -267,25 +264,15 @@ class PromptLibAPI(api_tools.APIModeHandler):
                             parent_new_agent_version_id = None
                             with db.get_session(parent_project_id) as parent_session:
                                 # Fetch the parent prompt's new_agent_id
-                                parent_result = parent_session.execute(
-                                    text(f"""
-                                                    SELECT new_agent_id
-                                                    FROM p_{parent_project_id}.prompts
-                                                    WHERE id = :parent_entity_id
-                                                """),
-                                    {'parent_entity_id': parent_entity_id}
-                                ).fetchone()
+                                parent_result = parent_session.query(Prompt.new_agent_id).filter(
+                                    Prompt.id == parent_entity_id
+                                ).first()
                                 log.debug(f'{parent_result=}')
 
                                 # Fetch the parent prompt version's new_agent_version_id
-                                parent_version_result = parent_session.execute(
-                                    text(f"""
-                                                    SELECT new_agent_version_id
-                                                    FROM p_{parent_project_id}.prompt_versions
-                                                    WHERE id = :parent_entity_version_id
-                                                """),
-                                    {'parent_entity_version_id': parent_entity_version_id}
-                                ).fetchone()
+                                parent_version_result = parent_session.query(PromptVersion.new_agent_version_id).filter(
+                                    PromptVersion.id == parent_entity_version_id
+                                ).first()
                                 log.debug(f'{parent_version_result=}')
 
                                 if parent_result and parent_result.new_agent_id:
