@@ -1,4 +1,5 @@
 import json
+from queue import Empty
 
 from pylon.core.tools import log, web
 from tools import VaultClient
@@ -217,7 +218,10 @@ class Event:
             if secrets_changed:
                 vault_client.set_secrets(secrets)
             # Activate personal project schedule
-            self.context.rpc_manager.call.scheduling_make_active(
-                "projects_create_personal_project",
-                True,
-            )
+            try:
+                self.context.rpc_manager.timeout(5).scheduling_make_active(
+                    "projects_create_personal_project",
+                    True,
+                )
+            except Empty:
+                log.warning('Scheduling module is not available')
