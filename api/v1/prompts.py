@@ -59,7 +59,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
             "permissions": ["models.prompt_lib.prompts.list"],
             "recommended_roles": {
                 c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-                c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+                c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": True},
             },
         }
     )

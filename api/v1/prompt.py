@@ -25,7 +25,7 @@ class ProjectAPI(api_tools.APIModeHandler):
         "permissions": ["models.prompts.prompt.details"],
         "recommended_roles": {
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": True},
         }})
     @api_tools.endpoint_metrics
     def get(self, project_id, prompt_id):
@@ -81,7 +81,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         "permissions": ["models.prompt_lib.prompt.details"],
         "recommended_roles": {
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": True},
         }})
     @api_tools.endpoint_metrics
     def get(self, project_id: int, prompt_id: int, version_name: str = 'latest', **kwargs):

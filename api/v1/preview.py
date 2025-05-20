@@ -7,7 +7,7 @@ class ProjectAPI(api_tools.APIModeHandler):
         "permissions": ["models.prompts.preview.get"],
         "recommended_roles": {
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": True},
         }})
     @api_tools.endpoint_metrics
     def get(self, project_id: int, prompt_id: int):

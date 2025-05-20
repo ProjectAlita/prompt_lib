@@ -11,7 +11,7 @@ class ProjectAPI(api_tools.APIModeHandler):
         "permissions": ["models.config"],
         "recommended_roles": {
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": True},
         }})
     def get(self, project_id: int, **kwargs):
         data: ModelsConfig = self.module.get_config(project_id=project_id, user_id=g.auth.id)

@@ -12,7 +12,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         "permissions": ["models.prompt_lib.search_requests.list"],
         "recommended_roles": {
             c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": True},
         }})
     def get(self, project_id: int):
         args = request.args
