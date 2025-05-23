@@ -298,7 +298,7 @@ class AllTagList(TagList):
 
 
 def list_tags(project_id, args):
-    entity_coverage = args.get("entity_coverage", default="all")
+    entity_coverage = args.get("entity_coverage", "all")
     tags = {
         'total': 0,
         'rows': list()
