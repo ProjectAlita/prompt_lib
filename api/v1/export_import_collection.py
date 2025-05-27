@@ -20,8 +20,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
     @auth.decorators.check_api({
         "permissions": ["models.prompt_lib.export_import.export"],
         "recommended_roles": {
-            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": False},
-            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": False},
+            c.ADMINISTRATION_MODE: {"admin": True, "editor": True, "viewer": True},
+            c.DEFAULT_MODE: {"admin": True, "editor": True, "viewer": True},
         }})
     @api_tools.endpoint_metrics
     def get(self, project_id: int, collection_id: int = None, **kwargs):
