@@ -292,10 +292,13 @@ def list_collections(
 
         query = session.query(Collection)
         extra_columns = []
+        sort_by_likes = sort_by == "likes"
         if with_likes:
             query, new_columns = add_likes(
                 original_query=query,
                 project_id=project_id,
+                sort_by_likes=sort_by_likes,
+                sort_order=sort_order,
                 entity=Collection,
             )
             extra_columns.extend(new_columns)
@@ -329,7 +332,7 @@ def list_collections(
             query = query.filter(*filters)
 
         # Apply sorting
-        if not trend_period:
+        if not trend_period and not sort_by_likes:
             if sort_order.lower() == "asc":
                 query = query.order_by(getattr(Collection, sort_by, sort_by))
             else:
