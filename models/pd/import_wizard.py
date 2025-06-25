@@ -1,4 +1,7 @@
+from copy import deepcopy
+from datetime import datetime
 from typing import List, Literal, Optional, Union
+import uuid
 
 from pydantic import BaseModel, model_validator, Extra, Field, ConfigDict
 
@@ -203,6 +206,25 @@ class AgentsImport(ImportData):
                     break
 
         return postponed_id_mapper
+
+    @model_validator(mode='before')
+    def ensure_latest_version(cls, values):
+        versions = values.get('versions', [])
+        if not versions:
+            return values
+        if not any(v['name'] == 'latest' for v in versions):
+            latest_version = deepcopy(
+                sorted(
+                    versions,
+                    key=lambda x: datetime.fromisoformat(x['created_at']),
+                    reverse=False
+                )[-1])
+            latest_version['name'] = 'latest'
+            latest_version.pop('id', None)
+            latest_version['import_version_uuid'] = str(uuid.uuid4())
+            latest_version['created_at'] = datetime.now().isoformat()
+            versions.insert(0, latest_version)
+        return values
 
 
 IMPORT_MODEL_ENTITY_MAPPER = {
