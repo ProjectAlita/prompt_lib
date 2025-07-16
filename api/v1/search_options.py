@@ -53,7 +53,7 @@ class PromptLibAPI(api_tools.APIModeHandler):
         results = {}
         entities = set(request.args.getlist('entities[]'))
 
-        for entity in ('prompt', 'application', 'datasource', 'pipeline'):
+        for entity in ('prompt', 'application', 'datasource', 'pipeline', 'toolkit'):
             results[entity] = {"total": 0, "rows": []}
 
         try:
@@ -67,6 +67,17 @@ class PromptLibAPI(api_tools.APIModeHandler):
                     PromptVersionTagAssociation
                 )
                 results.update(res)
+
+            if 'toolkit' in entities:
+                try:
+                    res = self.module.context.rpc_manager.timeout(2).applications_get_toolkit_search_options(
+                        project_id,
+                        **request.args.to_dict()
+                    )
+                except Empty:
+                    log.warning("Application plugin is not available, skipping toolkits for search_options")
+                else:
+                    results['toolkit'] = res
 
             if "datasource" in entities:
                 try:
