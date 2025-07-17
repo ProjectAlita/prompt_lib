@@ -46,12 +46,12 @@ class PromptVersion(db_tools.AbstractBaseMixin, db.Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    prompt_id: Mapped[int] = mapped_column(ForeignKey(f'{c.POSTGRES_TENANT_SCHEMA}.prompts.id'))
+    prompt_id: Mapped[int] = mapped_column(ForeignKey(f'{c.POSTGRES_TENANT_SCHEMA}.prompts.id'), index=True)
     prompt: Mapped['Prompt'] = relationship(back_populates='versions', lazy=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     commit_message: Mapped[str] = mapped_column(String, nullable=True)
     type: Mapped[PromptVersionType] = mapped_column(String(64), nullable=False, default=PromptVersionType.chat)
-    status: Mapped[PublishStatus] = mapped_column(String, nullable=False, default=PublishStatus.draft)
+    status: Mapped[PublishStatus] = mapped_column(String, nullable=False, default=PublishStatus.draft, index=True)
     context: Mapped[str] = mapped_column(String, nullable=True)
     author_id: Mapped[int] = mapped_column(Integer, nullable=False)
     variables: Mapped[List['PromptVariable']] = relationship(back_populates='prompt_version', lazy=True,
@@ -107,8 +107,8 @@ class PromptMessage(db_tools.AbstractBaseMixin, db.Base):
 PromptVersionTagAssociation = Table(
     'prompt_version_tag_association',
     db.Base.metadata,
-    Column('version_id', ForeignKey(f'{c.POSTGRES_TENANT_SCHEMA}.prompt_versions.id')),
-    Column('tag_id', ForeignKey(f'{c.POSTGRES_TENANT_SCHEMA}.{Tag.__tablename__}.id')),
+    Column('version_id', ForeignKey(f'{c.POSTGRES_TENANT_SCHEMA}.prompt_versions.id'), index=True),
+    Column('tag_id', ForeignKey(f'{c.POSTGRES_TENANT_SCHEMA}.{Tag.__tablename__}.id'), index=True),
     schema=c.POSTGRES_TENANT_SCHEMA
 )
 
