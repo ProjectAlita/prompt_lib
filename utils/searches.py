@@ -128,6 +128,8 @@ def get_search_options_one_entity(
         meta_data[entity_name]['filters'].append(
             Model.versions.any(ModelVersion.agent_type == args_prefix)
         )
+        entities.add('application')
+
     if args_prefix == "application":
         meta_data[entity_name]['filters'].append(
             not_(Model.versions.any(ModelVersion.agent_type == 'pipeline'))
