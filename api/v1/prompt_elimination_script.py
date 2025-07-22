@@ -16,7 +16,7 @@ from pylon.core.tools import log
 
 class EliminatePromptPayload(BaseModel):
     project_ids: Optional[List[int]] = None
-    delete_agent_ids: Optional[dict] = None
+    rollback: bool = False
 
 
 class PromptLibAPI(api_tools.APIModeHandler):
@@ -58,8 +58,9 @@ class PromptLibAPI(api_tools.APIModeHandler):
 
         for pid in project_ids:
             with db.get_session(pid) as session:
-                if eliminate_prompt_payload.delete_agent_ids:
-                    delete_application_ids = eliminate_prompt_payload.delete_agent_ids.get(str(pid), [])
+                if eliminate_prompt_payload.rollback:
+                    delete_application_query = session.query(Prompt.new_agent_id)
+                    delete_application_ids = session.scalars(delete_application_query).all()
                     if delete_application_ids:
                         for application_id in delete_application_ids:
                             rpc.applications_delete_application(pid, application_id)
