@@ -1,18 +1,15 @@
 import json
-from flask import request
 from typing import List
 from tools import db
 from pylon.core.tools import log
 from ..models.all import (
     SearchRequest,
-    Prompt,
-    PromptVersion,
-    PromptVersionTagAssociation,
     Collection,
 )
 from ..models.pd.collections import MultipleCollectionSearchModel
 from ..models.pd.misc import MultiplePromptTagListModel
-from sqlalchemy import desc, asc, or_, and_, func, distinct, not_
+
+from sqlalchemy import desc, asc, or_, and_, not_
 from tools import api_tools
 from flask import request
 from sqlalchemy.orm import joinedload
@@ -219,16 +216,6 @@ def get_tag_filter(
         .group_by(Tag.id)
     ).subquery()
     return Tag.id.in_(query)
-
-
-def get_filter_collection_by_prompt_tags_condition(project_id: int, tags: List[int], session=None):
-    filters = get_filter_collection_by_entity_tags_condition(
-        project_id,
-        tags,
-        'prompt',
-        session
-    )
-    return or_(*filters)
 
 
 def get_args(prefix):

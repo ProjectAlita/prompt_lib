@@ -234,6 +234,8 @@ def list_collections(
     if args is None:
         args = dict()
 
+    log.debug(f'HERE IN COLLECTIONS 1')
+
     if type(args) == dict:
         # Pagination parameters
         limit = args.get("limit", 10)
@@ -283,6 +285,7 @@ def list_collections(
         filters.append(Collection.status.in_(statuses))
 
     with db.with_project_schema_session(project_id) as session:
+        log.debug(f'HERE IN COLLECTIONS 2')
         if tags := args.get('tags'):
             # tag filtering
             if isinstance(tags, str):

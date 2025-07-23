@@ -5,10 +5,7 @@ from queue import Empty
 from tools import api_tools, auth, config as c
 from pylon.core.tools import log
 
-from ...models.pd.misc import MultiplePromptSearchModel
-from ...models.all import Prompt, PromptVersion, PromptVersionTagAssociation
 from ...utils.constants import PROMPT_LIB_MODE
-from ...utils.searches import get_search_options_one_entity
 
 
 def _merge_search_options_results(search_results):
@@ -53,21 +50,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
         results = {}
         entities = set(request.args.getlist('entities[]'))
 
-        for entity in ('prompt', 'application', 'datasource', 'pipeline', 'toolkit'):
+        for entity in ('application', 'datasource', 'pipeline', 'toolkit'):
             results[entity] = {"total": 0, "rows": []}
 
         try:
-            if "prompt" in entities:
-                res = get_search_options_one_entity(
-                    project_id,
-                    'prompt',
-                    Prompt,
-                    PromptVersion,
-                    MultiplePromptSearchModel,
-                    PromptVersionTagAssociation
-                )
-                results.update(res)
-
             if 'toolkit' in entities:
                 try:
                     res = self.module.context.rpc_manager.timeout(2).applications_get_toolkit_search_options(

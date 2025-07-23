@@ -2,8 +2,6 @@ from typing import List
 
 from jinja2 import TemplateSyntaxError, Environment, DebugUndefined
 
-from sqlalchemy.orm import joinedload
-from ..models.all import PromptVersion
 from ..models.enums.all import MessageRoles
 from ..models.pd.predict import PromptVersionPredictModel, PromptMessagePredictModel
 from tools import db
@@ -20,23 +18,6 @@ def _resolve_variables(text, vars) -> str:
 def prepare_payload(data: dict) -> PromptVersionPredictModel:
     data['integration'] = {}
     payload = PromptVersionPredictModel.parse_obj(data)
-    #
-    if payload.prompt_version_id:
-        with db.get_session(payload.project_id) as session:
-            query_options = []
-            if not payload.variables:
-                query_options.append(joinedload(PromptVersion.variables))
-            if not payload.messages:
-                query_options.append(joinedload(PromptVersion.messages))
-            #
-            prompt_version: PromptVersion = session.query(PromptVersion).options(*query_options).get(payload.prompt_version_id)
-            prompt_version.project_id = payload.project_id
-            prompt_version.prompt_version_id = prompt_version.id
-            prompt_version_pd = PromptVersionPredictModel.from_orm(prompt_version)
-            payload = prompt_version_pd.merge_update(payload)
-            #
-            payload.prompt_id = prompt_version.prompt_id
-    #
     log.debug(f'{payload=}')
     return payload
 

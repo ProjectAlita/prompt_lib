@@ -13,13 +13,3 @@ class PromptMessageBaseModel(BaseModel):
 
     class Config:
         orm_mode = True
-
-
-class PromptMessageDetailModel(PromptMessageBaseModel):
-    id: int
-    created_at: datetime
-    updated_at: Optional[datetime]
-
-
-class PromptMessageUpdateModel(PromptMessageBaseModel):
-    id: Optional[int]

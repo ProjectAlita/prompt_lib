@@ -1,30 +1,12 @@
-from pylon.core.tools import log
 from queue import Empty
-from functools import wraps
-from typing import List, Set, Callable
+from typing import List
 
 from sqlalchemy import func
-
+from pylon.core.tools import log
 from tools import db, VaultClient, auth, rpc_tools
-from ..models.all import Prompt, PromptVersion
-from ..models.pd.authors import AuthorDetailModel, TrendingAuthorModel
-from ...promptlib_shared.models.enums.all import PublishStatus
 
-
-def determine_prompt_status(version_statuses: Set[PublishStatus]) -> PublishStatus:
-    status_priority = (
-        PublishStatus.rejected,
-        PublishStatus.on_moderation,
-        PublishStatus.published,
-        PublishStatus.draft,
-        # PublishStatus.user_approval,
-    )
-
-    for status in status_priority:
-        if status in version_statuses:
-            return status
-
-
+from ..models.pd.authors import AuthorDetailModel
+from ...promptlib_shared.models.pd.authors import TrendingAuthorModel
 
 
 def get_authors_data(author_ids: List[int]) -> List[dict]:
@@ -61,7 +43,9 @@ def get_author_data(author_id: int) -> dict:
 
 def get_trending_authors(project_id: int, limit: int = 5, entity_name: str = 'prompt') -> List[dict]:
     try:
-        Like = rpc_tools.RpcMixin().rpc.timeout(2).social_get_like_model()
+        Like = rpc_tools.RpcMixin().rpc.call.social_get_like_model()
+        Application = rpc_tools.RpcMixin().rpc.call.applications_get_application_model()
+        ApplicationVersion = rpc_tools.RpcMixin().rpc.call.applications_get_version_model()
     except Empty:
         return []
 
@@ -74,27 +58,27 @@ def get_trending_authors(project_id: int, limit: int = 5, entity_name: str = 'pr
         ).subquery()
 
         # Subquery
-        prompt_likes_subq = (
-            session.query(Prompt.id, func.count(likes_subquery.c.user_id).label('likes'))
-            .outerjoin(likes_subquery, likes_subquery.c.entity_id == Prompt.id)
-            .group_by(Prompt.id)
+        application_likes_subq = (
+            session.query(Application.id, func.count(likes_subquery.c.user_id).label('likes'))
+            .outerjoin(likes_subquery, likes_subquery.c.entity_id == Application.id)
+            .group_by(Application.id)
             .subquery()
         )
 
         # Main query
         sq_result = (
             session.query(
-                PromptVersion.prompt_id,
-                PromptVersion.author_id,
-                prompt_likes_subq.c.likes
+                ApplicationVersion.application_id,
+                ApplicationVersion.author_id,
+                application_likes_subq.c.likes
             )
             .outerjoin(
-                prompt_likes_subq, prompt_likes_subq.c.id == PromptVersion.prompt_id
+                application_likes_subq, application_likes_subq.c.id == ApplicationVersion.application_id
             )
             .group_by(
-                PromptVersion.prompt_id,
-                PromptVersion.author_id,
-                prompt_likes_subq.c.likes
+                ApplicationVersion.application_id,
+                ApplicationVersion.author_id,
+                application_likes_subq.c.likes
             )
             .subquery()
         )

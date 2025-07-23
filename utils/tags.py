@@ -1,7 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from json import loads
 from datetime import datetime
-from typing import List, Dict
 from sqlalchemy import func, cast, String, or_, not_
 from sqlalchemy.orm import joinedload
 
@@ -9,7 +8,7 @@ from tools import db, rpc_tools
 from pylon.core.tools import log
 
 from .like_utils import add_likes, add_trending_likes, add_my_liked
-from ..models.all import Collection, Prompt, PromptVersion, PromptVersionTagAssociation
+from ..models.all import Collection
 from ...promptlib_shared.models.all import Tag
 
 
@@ -177,58 +176,6 @@ class TagList(metaclass=TagListABC):
         return result
 
 
-class PromptTagList(TagList):
-    def _flatten_prompt_ids(self, project_id: int, collection_prompts: List[Dict[str, int]]):
-        prompt_ids = []
-        for collection_prompt in collection_prompts:
-            prompts = collection_prompt[0]
-            for prompt in prompts:
-                if prompt['owner_id'] == project_id:
-                    prompt_ids.append(prompt['id'])
-        return prompt_ids
-    
-    def add_related_entity_extra_filters(self, filters):
-        if collection_phrase := self.args.get('collection_phrase'):
-            collection_prompts = self.session.query(Collection.prompts).filter(
-                or_(
-                    Collection.name.ilike(f"%{collection_phrase}%"),
-                    Collection.description.ilike(f"%{collection_phrase}%")
-                )
-            ).all()
-            prompt_ids = prompt_ids = self._flatten_prompt_ids(self.project_id, collection_prompts)
-            filters.append(Prompt.id.in_(prompt_ids))
-
-        if self.args.get("my_liked_collections", False):
-            query = self.session.query(Collection.prompts)
-            extra_columns = []
-
-            query, new_columns = add_likes(
-                original_query=query,
-                project_id=self.project_id,
-                entity=Collection,
-            )
-            extra_columns.extend(new_columns)
-            query, new_columns = add_my_liked(
-                original_query=query,
-                project_id=self.project_id,
-                entity=Collection,
-                filter_results=True
-            )
-            extra_columns.extend(new_columns)
-            q_result = query.all()
-            prompt_ids = self._flatten_prompt_ids(self.project_id, q_result)
-            filters.append(Prompt.id.in_(prompt_ids))
-        
-        return filters
-
-    def set_related_entity_info(self):
-        self.Entity = Prompt
-        self.Version = PromptVersion
-        self.VersionTagAssociation = PromptVersionTagAssociation
-        self.foriegn_key = "prompt_id"
-        self.count_name = "prompt_count"
-
-
 class DatasourceTagList(TagList):
     def __init__(self, project_id, args):
         super().__init__(project_id, args)
@@ -280,16 +227,6 @@ class PipelineTagList(TagList):
             self.Entity.versions.any(self.Version.agent_type == "pipeline")
         )
         return filters
-
-
-class CollectionTagList(TagList):
-    def set_related_entity_info(self):
-        self._is_collection = True
-        self.Entity = Prompt
-        self.Version = PromptVersion
-        self.VersionTagAssociation = PromptVersionTagAssociation
-        self.foriegn_key = 'prompt_id'
-        self.count_name = "prompt_count"
 
 
 class AllTagList(TagList):

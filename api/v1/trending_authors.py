@@ -4,8 +4,9 @@ from pylon.core.tools import log
 
 from tools import api_tools, auth, config as c
 
+from ....promptlib_shared.models.pd.authors import TrendingAuthorModel
 from ...utils.utils import get_trending_authors
-from ...models.pd.authors import TrendingAuthorModel
+
 from ...utils.constants import PROMPT_LIB_MODE
 
 

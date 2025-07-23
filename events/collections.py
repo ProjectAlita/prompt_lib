@@ -16,11 +16,8 @@ from ..utils.collection_registry import (
 )
 from ..utils.collections import (
     CollectionPublishing,
-    add_entity_to_collection,
-    fire_patch_collection_event,
     group_by_project_id,
     patch_collection_with_entities,
-    remove_entity_from_collection,
 )
 from ..utils.publish_utils import get_public_project_id
 from ...promptlib_shared.models.enums.all import PublishStatus

@@ -5,7 +5,6 @@ from pydantic.v1 import BaseModel, validator, Field
 from ....promptlib_shared.models.pd.utils import deep_merge
 from .model_settings import ModelSettingsBaseModel
 from .prompt_message import PromptMessageBaseModel
-from .prompt_variable import PromptVariableBaseModel
 from ..enums.all import PromptVersionType
 from pylon.core.tools import log
 import re
@@ -31,7 +30,7 @@ class PromptVersionPredictModel(BaseModel):
     user_name: Optional[str] = None
 
     context: Optional[str] = ''
-    variables: Optional[List[PromptVariableBaseModel]] = []
+    variables: Optional[List] = []
     messages: Optional[List[PromptMessagePredictModel]] = []
     model_settings: Optional[ModelSettingsBaseModel] = Field(default_factory=ModelSettingsBaseModel)
     embedding_settings: Optional[dict] = {}  # todo: create model for this field

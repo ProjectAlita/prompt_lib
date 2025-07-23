@@ -1,13 +1,5 @@
-from typing import List, Optional
+from typing import List
 from pydantic.v1 import BaseModel
-
-
-class PromptSearchModel(BaseModel):
-    id: int
-    name: str
-
-    class Config:
-        orm_mode = True
 
 
 class SearchRequestModel(BaseModel):
@@ -20,8 +12,3 @@ class SearchRequestModel(BaseModel):
 
 class SearchRequestsListModel(BaseModel):
     searches: List[SearchRequestModel]
-
-
-class SearchDataModel(BaseModel):
-    keywords: Optional[List[str]]
-    tag_ids: Optional[List[int]]

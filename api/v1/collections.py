@@ -39,8 +39,8 @@ class PromptLibAPI(api_tools.APIModeHandler):
     def get(self, project_id: int | None = None, **kwargs):
         # project_id = self._get_project_id(project_id)
         # list prompts
-        prompt_id = request.args.get('prompt_id')
-        prompt_owner_id = request.args.get('prompt_owner_id')
+        # prompt_id = request.args.get('prompt_id')
+        # prompt_owner_id = request.args.get('prompt_owner_id')
         datasource_id = request.args.get('datasource_id')
         datasource_owner_id = request.args.get('datasource_owner_id')
         application_id = request.args.get('application_id')
@@ -57,18 +57,6 @@ class PromptLibAPI(api_tools.APIModeHandler):
             col_model.author = user_map.get(col_model.author_id)
             if need_tags:
                 col_model.tags = get_collection_tags(col)
-
-            if prompt_id and prompt_owner_id:
-                col_model.includes_prompt = get_include_entity_flag(
-                    'prompt', col_model, int(prompt_id), int(prompt_owner_id)
-                )
-                col_model.prompt_addability = check_addability_for_entity(
-                    project_id=project_id,
-                    collection_id=col_model.id,
-                    entity_name='prompt',
-                    entity_id=int(prompt_id),
-                    entity_owner_id=int(prompt_owner_id)
-                )
 
             if datasource_id and datasource_owner_id:
                 col_model.includes_datasource = get_include_entity_flag(
@@ -132,12 +120,10 @@ class PromptLibAPI(api_tools.APIModeHandler):
 class API(api_tools.APIBase):
     url_params = api_tools.with_modes(
         [
-            # "",
             "<int:project_id>",
         ]
     )
 
     mode_handlers = {
-        # c.DEFAULT_MODE: ProjectAPI,
         PROMPT_LIB_MODE: PromptLibAPI,
     }
