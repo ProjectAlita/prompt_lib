@@ -82,7 +82,6 @@ class Event:
                     #
                     "models.applications.public_applications.list",
                     "models.applications.public_application.details",
-                    "configuration.integrations.integrations.view",
                     "models.applications.task.delete",
                     #
                     "models.applications.toolkits.details",
